@@ -1,0 +1,15 @@
+pkgbase = secretpiece-bin
+	pkgdesc = Portable, deniable encrypted vault for USB drives, HDD/SSD and network folders
+	pkgver = 1.1
+	pkgrel = 1
+	url = https://github.com/AmazingCoderA/secretpiece
+	arch = x86_64
+	arch = aarch64
+	license = GPL-3.0-only
+	provides = secretpiece
+	conflicts = secretpiece
+	options = !strip
+	source = secretpiece-1.1-linux-x64.tar.gz::https://github.com/AmazingCoderA/secretpiece/releases/download/v1.1/secretpiece-1.1-linux-x64.tar.gz
+	sha256sums = SKIP
+
+pkgname = secretpiece-bin

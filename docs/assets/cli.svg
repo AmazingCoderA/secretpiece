@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="600" viewBox="0 0 1400 600" role="img" aria-label="SecretPiece CLI in Russian and English">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#070b14"/>
+      <stop offset="1" stop-color="#101a30"/>
+    </linearGradient>
+    <linearGradient id="t1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1424"/>
+      <stop offset="1" stop-color="#080d18"/>
+    </linearGradient>
+    <linearGradient id="edge1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4de8ff" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#4de8ff" stop-opacity="0.12"/>
+    </linearGradient>
+    <linearGradient id="edge2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9b6bff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#9b6bff" stop-opacity="0.12"/>
+    </linearGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" fill="none" stroke="#9dbcff" stroke-opacity="0.05" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1400" height="600" rx="26" fill="url(#bg)"/>
+  <rect width="1400" height="600" rx="26" fill="url(#grid)"/>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif">
+    <text x="56" y="58" font-size="13" font-weight="700" letter-spacing="3.4" fill="#6f84a8">CLI · RU / EN</text>
+    <text x="56" y="90" font-size="24" font-weight="700" fill="#e8f0ff">Один бинарник, два языка, автодетект локали</text>
+  </g>
+
+  <!-- Russian terminal -->
+  <g transform="translate(56 122)">
+    <rect x="0" y="0" width="630" height="424" rx="18" fill="url(#t1)" stroke="#26395c"/>
+    <rect x="0" y="0" width="630" height="44" rx="18" fill="#0e1728"/>
+    <rect x="0" y="24" width="630" height="20" fill="#0e1728"/>
+    <circle cx="24" cy="22" r="5.6" fill="#ff5f57"/>
+    <circle cx="45" cy="22" r="5.6" fill="#febc2e"/>
+    <circle cx="66" cy="22" r="5.6" fill="#28c840"/>
+    <text x="315" y="27" font-size="12.5" fill="#6f84a8" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">sp --lang ru</text>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
+      <text x="26" y="78" fill="#5be37f">$</text>
+      <text x="46" y="78" fill="#dbe6ff">sp --lang ru init E:\vaults\personal.spv \</text>
+      <text x="46" y="100" fill="#dbe6ff">   --size 8G --hidden 2G</text>
+
+      <text x="26" y="136" fill="#9feaff">Проверка носителя…</text>
+      <text x="46" y="158" fill="#8ea3c8">свободно 29.4 ГиБ · нужно 8 ГиБ</text>
+
+      <text x="26" y="194" fill="#9feaff">Создание контейнера…</text>
+      <text x="46" y="216" fill="#8ea3c8">Argon2id (512 МиБ) · XChaCha20-Poly1305</text>
+
+      <text x="26" y="252" fill="#5be37f">✔ Готово: E:\vaults\personal.spv</text>
+      <text x="46" y="274" fill="#8ea3c8">внешний том 5.9 ГиБ · скрытый том 1.9 ГиБ</text>
+
+      <text x="26" y="310" fill="#5be37f">$</text>
+      <text x="46" y="310" fill="#dbe6ff">sp --lang ru df E:\vaults\personal.spv</text>
+      <text x="46" y="332" fill="#8ea3c8">занято 0 Б · свободно 5.9 ГиБ · резерв 64 МиБ</text>
+
+      <text x="26" y="368" fill="#febc2e">!</text>
+      <text x="46" y="368" fill="#f0d38a">Мало места? `sp trash empty`, `sp snapshot prune`</text>
+      <text x="46" y="390" fill="#f0d38a">или `sp resize --grow 4G`.</text>
+    </g>
+    <rect x="0" y="0" width="630" height="424" rx="18" fill="none" stroke="url(#edge1)" stroke-width="1.2"/>
+  </g>
+
+  <!-- English terminal -->
+  <g transform="translate(714 122)">
+    <rect x="0" y="0" width="630" height="424" rx="18" fill="url(#t1)" stroke="#2b3a62"/>
+    <rect x="0" y="0" width="630" height="44" rx="18" fill="#0e1728"/>
+    <rect x="0" y="24" width="630" height="20" fill="#0e1728"/>
+    <circle cx="24" cy="22" r="5.6" fill="#ff5f57"/>
+    <circle cx="45" cy="22" r="5.6" fill="#febc2e"/>
+    <circle cx="66" cy="22" r="5.6" fill="#28c840"/>
+    <text x="315" y="27" font-size="12.5" fill="#6f84a8" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">sp --lang en</text>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
+      <text x="26" y="78" fill="#5be37f">$</text>
+      <text x="46" y="78" fill="#dbe6ff">sp --lang en init /media/usb/personal.spv \</text>
+      <text x="46" y="100" fill="#dbe6ff">   --size 8G --hidden 2G</text>
+
+      <text x="26" y="136" fill="#9feaff">Checking the drive…</text>
+      <text x="46" y="158" fill="#8ea3c8">29.4 GiB free · 8 GiB required</text>
+
+      <text x="26" y="194" fill="#9feaff">Creating the container…</text>
+      <text x="46" y="216" fill="#8ea3c8">Argon2id (512 MiB) · XChaCha20-Poly1305</text>
+
+      <text x="26" y="252" fill="#5be37f">✔ Done: /media/usb/personal.spv</text>
+      <text x="46" y="274" fill="#8ea3c8">outer volume 5.9 GiB · hidden volume 1.9 GiB</text>
+
+      <text x="26" y="310" fill="#5be37f">$</text>
+      <text x="46" y="310" fill="#dbe6ff">sp --lang en df /media/usb/personal.spv</text>
+      <text x="46" y="332" fill="#8ea3c8">used 0 B · free 5.9 GiB · reserve 64 MiB</text>
+
+      <text x="26" y="368" fill="#febc2e">!</text>
+      <text x="46" y="368" fill="#f0d38a">Low on space? `sp trash empty`, `sp snapshot prune`</text>
+      <text x="46" y="390" fill="#f0d38a">or `sp resize --grow 4G`.</text>
+    </g>
+    <rect x="0" y="0" width="630" height="424" rx="18" fill="none" stroke="url(#edge2)" stroke-width="1.2"/>
+  </g>
+</svg>

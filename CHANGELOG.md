@@ -20,8 +20,10 @@ are **not** implemented yet — do not use for real data.
 - Release matrix: Windows x64, Windows ARM64 (experimental), Linux x64 and
   ARM64 static musl, macOS universal, Arch Linux package build, and experimental
   FreeBSD/OpenBSD/NetBSD VM builds.
-- `packaging/arch/PKGBUILD` for Arch Linux.
-- Architecture diagram (`docs/assets/architecture.svg`).
+- `packaging/arch/PKGBUILD` for Arch Linux, AUR recipes (`secretpiece`,
+  `secretpiece-bin`), and a real `.pkg.tar.zst` built in CI.
+- Architecture diagram (`docs/assets/architecture.svg`), a new hero banner
+  (`docs/assets/hero.svg`), and a bilingual CLI preview (`docs/assets/cli.svg`).
 - Bilingual README with install anchors, download buttons, encryption and format
   tables, platform matrix, out-of-space guidance, and a repeated language switch
   at the bottom.

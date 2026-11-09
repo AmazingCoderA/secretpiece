@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="SecretPiece — portable deniable encrypted vault" width="100%">
+  <img src="docs/assets/hero.svg" alt="SecretPiece — encrypted vault in a single file" width="100%">
 </p>
 
 <p align="center">
@@ -92,12 +92,24 @@ ARM64 — `linux-arm64`. Works on Ubuntu 22.04+, Fedora, Debian, Arch, Alpine.
 ### Arch Linux
 
 ```bash
+# ready-made pacman package from Releases (x86_64)
+sudo pacman -U secretpiece-1.1-1-x86_64.pkg.tar.zst
+
+# AUR (once the recipe is published)
+yay -S secretpiece-bin    # prebuilt binary
+yay -S secretpiece        # build from source
+# or: paru -S secretpiece-bin
+
+# manually from source
 git clone https://github.com/AmazingCoderA/secretpiece.git
 cd secretpiece/packaging/arch
 makepkg -si
 ```
 
-The recipe lives in [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD). Releases also ship an `arch-x64` archive.
+Recipes: [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD),
+[`packaging/aur/secretpiece-bin`](packaging/aur/secretpiece-bin/PKGBUILD) and
+[`packaging/aur/secretpiece`](packaging/aur/secretpiece/PKGBUILD). Releases ship
+both an `arch-x64` archive and a real `.pkg.tar.zst`.
 
 ### BSD
 
@@ -201,6 +213,10 @@ GUI comes after the format stabilizes (Tauri 2 + Svelte).
 - In the GUI — a switcher in settings and on the unlock screen.
 - New languages — through resource files, without touching the core.
 
+<p align="center">
+  <img src="docs/assets/cli.svg" alt="SecretPiece CLI in Russian and English" width="100%">
+</p>
+
 ## 🧯 When you run out of space
 
 SecretPiece checks free space **before** writing and never leaves partial commits. If space runs out:
@@ -231,7 +247,7 @@ Hints are everywhere: in CLI errors, in `sp df`, in the GUI banner, and in `sp d
 | Windows 10/11 | x64, ARM64 | v1.1 |
 | macOS 13+ | universal (Intel + Apple Silicon) | v1.1 |
 | Linux | x64, ARM64 (static musl) | v1.1 |
-| Arch Linux | x64, PKGBUILD | v1.1 |
+| Arch Linux | x64, pacman package, PKGBUILD, AUR (yay/paru) | v1.1 |
 | FreeBSD | x64 (VM build) | experimental |
 | OpenBSD | x64 (VM build) | experimental |
 | NetBSD | x64 (VM build) | experimental |
@@ -251,6 +267,7 @@ Requires Rust stable (MSRV **1.85**, edition 2024).
 
 - **Auto-build** — on every push to `main` and every PR: artifacts on the workflow run page.
 - **Release** — on a `v*` tag: archives + `SHA256SUMS.txt` in GitHub Releases.
+- **Release assets:** `windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`, `macos-universal`, `arch-x64`, `secretpiece-<ver>-1-x86_64.pkg.tar.zst` + `SHA256SUMS.txt`.
 - Versions — `1.1`, `1.2`, `1.3`, `2.0` (no micro-patch tags).
 
 ## 📚 Documentation

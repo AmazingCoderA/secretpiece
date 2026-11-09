@@ -191,10 +191,44 @@ jobs:
           cp target/release/sp target/release/secretpiece "package/${name}/"
           cp README.md README.en.md LICENSE CHANGELOG.md packaging/arch/PKGBUILD "package/${name}/"
           tar -czf "package/${name}.tar.gz" -C package "${name}"
+
+      - name: Build pacman package
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="dev-${GITHUB_SHA::7}"
+          fi
+          pkgver="${version//[^a-zA-Z0-9._]/}"
+          useradd -m builder
+          mkdir -p /tmp/ci-pkg
+          cat > /tmp/ci-pkg/PKGBUILD <<EOF
+          pkgname=secretpiece
+          pkgver=${pkgver}
+          pkgrel=1
+          pkgdesc="Portable, deniable encrypted vault for USB drives, HDD/SSD and network folders"
+          arch=('x86_64')
+          url="https://github.com/AmazingCoderA/secretpiece"
+          license=('GPL-3.0-only')
+          options=('!strip')
+          package() {
+            install -Dm755 "${GITHUB_WORKSPACE}/target/release/sp" "\${pkgdir}/usr/bin/sp"
+            install -Dm755 "${GITHUB_WORKSPACE}/target/release/secretpiece" "\${pkgdir}/usr/bin/secretpiece"
+            install -Dm644 "${GITHUB_WORKSPACE}/LICENSE" "\${pkgdir}/usr/share/licenses/secretpiece/LICENSE"
+            install -Dm644 "${GITHUB_WORKSPACE}/README.md" "\${pkgdir}/usr/share/doc/secretpiece/README.md"
+          }
+          EOF
+          chown -R builder:builder /tmp/ci-pkg
+          su builder -c "cd /tmp/ci-pkg && makepkg -f --nodeps"
+          cp /tmp/ci-pkg/*.pkg.tar.zst package/
+
       - uses: actions/upload-artifact@v4
         with:
           name: secretpiece-arch-x64
-          path: package/*.tar.gz
+          path: |
+            package/*.tar.gz
+            package/*.pkg.tar.zst
           if-no-files-found: error
 
   # BSD builds run inside real VMs. Experimental: a failure never blocks the release.

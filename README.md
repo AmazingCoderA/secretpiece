@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="SecretPiece — portable deniable encrypted vault" width="100%">
+  <img src="docs/assets/hero.svg" alt="SecretPiece — encrypted vault in a single file" width="100%">
 </p>
 
 <p align="center">
@@ -92,12 +92,24 @@ tar -xzf secretpiece-<version>-linux-x64.tar.gz
 ### Arch Linux
 
 ```bash
+# готовый pacman-пакет из Releases (x86_64)
+sudo pacman -U secretpiece-1.1-1-x86_64.pkg.tar.zst
+
+# AUR (после публикации рецепта)
+yay -S secretpiece-bin    # готовый бинарник
+yay -S secretpiece        # сборка из исходников
+# или: paru -S secretpiece-bin
+
+# вручную из исходников
 git clone https://github.com/AmazingCoderA/secretpiece.git
 cd secretpiece/packaging/arch
 makepkg -si
 ```
 
-PKGBUILD лежит в [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD). В релизах также есть готовый `arch-x64` архив.
+Рецепты: [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD),
+[`packaging/aur/secretpiece-bin`](packaging/aur/secretpiece-bin/PKGBUILD) и
+[`packaging/aur/secretpiece`](packaging/aur/secretpiece/PKGBUILD). В релизах есть
+`arch-x64` архив и настоящий `.pkg.tar.zst`.
 
 ### BSD
 
@@ -201,6 +213,10 @@ GUI — после стабилизации формата (Tauri 2 + Svelte).
 - В GUI — переключатель в настройках и на экране входа.
 - Новые языки — через файлы ресурсов, без правки ядра.
 
+<p align="center">
+  <img src="docs/assets/cli.svg" alt="SecretPiece CLI: русский и английский интерфейс" width="100%">
+</p>
+
 ## 🧯 Если закончилось место
 
 SecretPiece проверяет свободное место **до** записи и не оставляет частичных коммитов. Если место закончилось:
@@ -231,7 +247,7 @@ SecretPiece проверяет свободное место **до** запис
 | Windows 10/11 | x64, ARM64 | v1.1 |
 | macOS 13+ | universal (Intel + Apple Silicon) | v1.1 |
 | Linux | x64, ARM64 (static musl) | v1.1 |
-| Arch Linux | x64, PKGBUILD | v1.1 |
+| Arch Linux | x64, pacman-пакет, PKGBUILD, AUR (yay/paru) | v1.1 |
 | FreeBSD | x64 (VM build) | экспериментально |
 | OpenBSD | x64 (VM build) | экспериментально |
 | NetBSD | x64 (VM build) | экспериментально |
@@ -251,6 +267,7 @@ cargo run -p sp-cli --bin sp -- --version
 
 - **Auto-build** — на каждый push в `main` и на каждый PR: артефакты на странице запуска workflow.
 - **Release** — на тег `v*`: архивы + `SHA256SUMS.txt` в GitHub Releases.
+- **Ассеты релиза:** `windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`, `macos-universal`, `arch-x64`, `secretpiece-<ver>-1-x86_64.pkg.tar.zst` + `SHA256SUMS.txt`.
 - Версии — `1.1`, `1.2`, `1.3`, `2.0` (без микро-патчей в тегах).
 
 ## 📚 Документация

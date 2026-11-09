@@ -1,0 +1,29 @@
+# Maintainer: SecretPiece contributors <https://github.com/AmazingCoderA/secretpiece>
+pkgname=secretpiece
+pkgver=1.1
+pkgrel=1
+pkgdesc="Portable, deniable encrypted vault for USB drives, HDD/SSD and network folders"
+arch=('x86_64' 'aarch64')
+url="https://github.com/AmazingCoderA/secretpiece"
+license=('GPL-3.0-only')
+depends=('gcc-libs')
+makedepends=('cargo' 'rust')
+source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('7c09c0cd76d411729ceddd8fb1a9f20656913d803db2d83572c745b6eb02fbd8')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  cargo build --release --locked -p sp-cli
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  install -Dm755 target/release/sp "${pkgdir}/usr/bin/sp"
+  install -Dm755 target/release/secretpiece "${pkgdir}/usr/bin/secretpiece"
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+  install -Dm644 README.en.md "${pkgdir}/usr/share/doc/${pkgname}/README.en.md"
+  install -Dm644 CHANGELOG.md "${pkgdir}/usr/share/doc/${pkgname}/CHANGELOG.md"
+}
+
+# vim: set ts=2 sw=2 et:

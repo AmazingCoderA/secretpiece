@@ -233,6 +233,9 @@ jobs:
   netbsd:
     name: netbsd-x64
     runs-on: ubuntu-latest
+    # NetBSD base images ship without pkgin/pkg_add; run manually from the
+    # Actions tab (workflow_dispatch) until a reliable Rust bootstrap lands.
+    if: github.event_name == 'workflow_dispatch'
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7

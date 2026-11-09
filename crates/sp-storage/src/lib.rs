@@ -2,7 +2,7 @@
 //!
 //! Planned contents (see `docs/TZ.ru.md`, sections 9.5, 9.9, 12):
 //!
-//! - a [`ChunkStore`]-style abstraction with positional reads and writes;
+//! - a `ChunkStore`-style abstraction with positional reads and writes;
 //! - one-file and multi-part backends (`.spv.000`, `.spv.001`, ...);
 //! - platform-correct durability (`FlushFileBuffers`, `F_FULLFSYNC`, `fsync`);
 //! - exclusive/shared locks and read-only fallback.

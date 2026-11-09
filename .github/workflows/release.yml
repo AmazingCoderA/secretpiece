@@ -198,30 +198,48 @@ jobs:
           if-no-files-found: error
 
   # BSD builds run inside real VMs. Experimental: a failure never blocks the release.
-  bsd:
-    name: ${{ matrix.platform }}
+  freebsd:
+    name: freebsd-x64
     runs-on: ubuntu-latest
     continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: freebsd-x64
-            vm: vmactions/freebsd-vm@v1
-            install: pkg install -y rust
-          - platform: openbsd-x64
-            vm: vmactions/openbsd-vm@v1
-            install: pkg_add rust
-          - platform: netbsd-x64
-            vm: vmactions/netbsd-vm@v1
-            install: pkgin -y install rust
     steps:
       - uses: actions/checkout@v7
-      - uses: ${{ matrix.vm }}
+      - uses: vmactions/freebsd-vm@v1
         with:
           usesh: true
-          prepare: |
-            ${{ matrix.install }}
+          prepare: pkg install -y rust
+          run: |
+            set -eu
+            cargo build --release --locked -p sp-cli
+            ./target/release/sp --version
+            ./target/release/sp --help | head -n 5
+
+  openbsd:
+    name: openbsd-x64
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: vmactions/openbsd-vm@v1
+        with:
+          usesh: true
+          prepare: pkg_add -I rust
+          run: |
+            set -eu
+            cargo build --release --locked -p sp-cli
+            ./target/release/sp --version
+            ./target/release/sp --help | head -n 5
+
+  netbsd:
+    name: netbsd-x64
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: vmactions/netbsd-vm@v1
+        with:
+          usesh: true
+          prepare: pkgin -y install rust
           run: |
             set -eu
             cargo build --release --locked -p sp-cli

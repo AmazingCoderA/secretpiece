@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-09
+
+### Added
+
+- Download buttons and a repeated language switch at the bottom of the README.
+- Auto-build artifacts on every push to `main` and on pull requests.
+
 ### Changed
 
 - License changed to **GPL-3.0-only**.
 - README redesigned: bilingual language switch, encryption overview, any-drive support.
-- Auto-build now runs on every push to `main`, on pull requests, and on tags.
 
 ### Removed
 
@@ -37,5 +43,6 @@ format are **not** implemented yet — do not use for real data.
   macOS universal, archives with `SHA256SUMS.txt`, automatic GitHub Release.
 - Dependabot and issue templates.
 
-[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v0.1.1
 [0.1.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v0.1.0

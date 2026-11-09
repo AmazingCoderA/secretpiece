@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-label="SecretPiece — your secret, in pieces">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#070b14"/>
+      <stop offset="0.55" stop-color="#0d1424"/>
+      <stop offset="1" stop-color="#131b31"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4de8ff"/>
+      <stop offset="0.5" stop-color="#6ea8ff"/>
+      <stop offset="1" stop-color="#9b6bff"/>
+    </linearGradient>
+    <linearGradient id="shard" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4de8ff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#9b6bff" stop-opacity="0.08"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="0.18" cy="0.45" r="0.42">
+      <stop offset="0" stop-color="#4de8ff" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#4de8ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.86" cy="0.2" r="0.5">
+      <stop offset="0" stop-color="#9b6bff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#9b6bff" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#8fb4ff" stroke-opacity="0.06" stroke-width="1"/>
+    </pattern>
+    <filter id="blur"><feGaussianBlur stdDeviation="10"/></filter>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#c9d6f5"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="300" rx="22" fill="url(#bg)"/>
+  <rect width="1200" height="300" rx="22" fill="url(#grid)"/>
+  <rect width="1200" height="300" rx="22" fill="url(#glow1)"/>
+  <rect width="1200" height="300" rx="22" fill="url(#glow2)"/>
+
+  <!-- vault emblem -->
+  <g transform="translate(120 40)">
+    <circle cx="90" cy="110" r="86" fill="url(#accent)" opacity="0.14" filter="url(#blur)"/>
+    <!-- top shard -->
+    <path d="M90 18 L160 58 L138 72 L90 46 L42 72 L20 58 Z" fill="url(#shard)" stroke="url(#accent)" stroke-width="2.2" stroke-linejoin="round"/>
+    <!-- left shard -->
+    <path d="M16 76 L38 90 L38 140 L16 128 Z" fill="url(#shard)" stroke="url(#accent)" stroke-width="2.2" stroke-linejoin="round"/>
+    <!-- right shard -->
+    <path d="M164 76 L164 128 L142 140 L142 90 Z" fill="url(#shard)" stroke="url(#accent)" stroke-width="2.2" stroke-linejoin="round"/>
+    <!-- bottom shard -->
+    <path d="M90 150 L140 122 L140 158 L90 190 L40 158 L40 122 Z" fill="url(#shard)" stroke="url(#accent)" stroke-width="2.2" stroke-linejoin="round"/>
+    <!-- keyhole -->
+    <circle cx="90" cy="96" r="15" fill="none" stroke="url(#accent)" stroke-width="3"/>
+    <path d="M84 106 L96 106 L100 126 L80 126 Z" fill="url(#accent)" opacity="0.85"/>
+    <!-- floating pieces -->
+    <path d="M176 34 L188 41 L176 48 L164 41 Z" fill="url(#accent)" opacity="0.55"/>
+    <path d="M8 172 L18 178 L8 184 L-2 178 Z" fill="url(#accent)" opacity="0.35"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="390" y="146" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif"
+        font-size="78" font-weight="800" letter-spacing="-2" fill="url(#fade)">SecretPiece</text>
+  <text x="393" y="188" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif"
+        font-size="25" font-weight="500" fill="#93a4c8">Your secret, in pieces.</text>
+
+  <!-- chips -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif" font-size="16" font-weight="600">
+    <rect x="393" y="214" width="112" height="34" rx="17" fill="#4de8ff" fill-opacity="0.10" stroke="#4de8ff" stroke-opacity="0.35"/>
+    <text x="449" y="236" fill="#8fe9ff" text-anchor="middle">XChaCha20</text>
+    <rect x="517" y="214" width="104" height="34" rx="17" fill="#6ea8ff" fill-opacity="0.10" stroke="#6ea8ff" stroke-opacity="0.35"/>
+    <text x="569" y="236" fill="#a8c8ff" text-anchor="middle">Argon2id</text>
+    <rect x="633" y="214" width="98" height="34" rx="17" fill="#9b6bff" fill-opacity="0.12" stroke="#9b6bff" stroke-opacity="0.38"/>
+    <text x="682" y="236" fill="#c6b0ff" text-anchor="middle">BLAKE3</text>
+    <rect x="743" y="214" width="126" height="34" rx="17" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.14"/>
+    <text x="806" y="236" fill="#c7d3ee" text-anchor="middle">Rust · USB</text>
+  </g>
+
+  <!-- corner mark -->
+  <g opacity="0.6">
+    <circle cx="1120" cy="252" r="3" fill="#4de8ff"/>
+    <circle cx="1132" cy="252" r="3" fill="#6ea8ff"/>
+    <circle cx="1144" cy="252" r="3" fill="#9b6bff"/>
+  </g>
+</svg>

@@ -1,4 +1,4 @@
-//! C ABI for the SecretPiece core, used by the Tauri backend and other clients.
+//! C ABI for the `SecretPiece` core, used by the Tauri backend and other clients.
 //!
 //! Planned surface (see `docs/TZ.ru.md`, section 15.2):
 //!

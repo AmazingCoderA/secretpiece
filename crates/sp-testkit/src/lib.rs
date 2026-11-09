@@ -1,4 +1,4 @@
-//! Test fixtures, generators, and fault injection for SecretPiece.
+//! Test fixtures, generators, and fault injection for `SecretPiece`.
 //!
 //! Planned contents (see `docs/TZ.ru.md`, section 19):
 //!

@@ -1,4 +1,4 @@
-//! Domain types, error codes, and policies for SecretPiece.
+//! Domain types, error codes, and policies for `SecretPiece`.
 //!
 //! This crate is deliberately free of I/O and cryptography. It defines the
 //! vocabulary shared by every other crate: error codes, storage profiles, and
@@ -172,9 +172,8 @@ impl Profile {
     pub const fn auto_lock_seconds(self) -> u32 {
         match self {
             Self::Fast => 300,
-            Self::Balanced => 180,
+            Self::Balanced | Self::Custom => 180,
             Self::Paranoid => 60,
-            Self::Custom => 180,
         }
     }
 }

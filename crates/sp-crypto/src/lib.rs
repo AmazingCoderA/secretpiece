@@ -1,4 +1,4 @@
-//! Cryptographic primitives and key hierarchy for SecretPiece.
+//! Cryptographic primitives and key hierarchy for `SecretPiece`.
 //!
 //! Planned contents (see `docs/TZ.ru.md`, section 8):
 //!

@@ -1,4 +1,4 @@
-//! `sp` — short alias for the SecretPiece CLI.
+//! `sp` — short alias for the `SecretPiece` CLI.
 
 #![forbid(unsafe_code)]
 

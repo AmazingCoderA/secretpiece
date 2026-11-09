@@ -1,4 +1,4 @@
-//! `secretpiece` — full name of the SecretPiece CLI.
+//! ``SecretPiece`` — full name of the `SecretPiece` CLI.
 
 #![forbid(unsafe_code)]
 

@@ -1,0 +1,51 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/sp-core",
+    "crates/sp-crypto",
+    "crates/sp-format",
+    "crates/sp-storage",
+    "crates/sp-fs",
+    "crates/sp-vault",
+    "crates/sp-wipe",
+    "crates/sp-platform",
+    "crates/sp-cli",
+    "crates/sp-ffi",
+    "crates/sp-testkit",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/AmazingCoderA/secretpiece"
+authors = ["SecretPiece contributors"]
+description = "Portable, deniable encrypted vault for USB drives."
+keywords = ["encryption", "vault", "security", "usb"]
+categories = ["cryptography", "filesystem"]
+
+[workspace.dependencies]
+sp-core = { path = "crates/sp-core" }
+sp-crypto = { path = "crates/sp-crypto" }
+sp-format = { path = "crates/sp-format" }
+sp-storage = { path = "crates/sp-storage" }
+sp-fs = { path = "crates/sp-fs" }
+sp-vault = { path = "crates/sp-vault" }
+sp-wipe = { path = "crates/sp-wipe" }
+sp-platform = { path = "crates/sp-platform" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

@@ -1,0 +1,35 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# Local env and secrets
+.env
+.env.*
+*.token
+*.key
+
+# Test vaults and artifacts
+*.spv
+*.spv.[0-9][0-9][0-9]
+*.spv.shard*
+/test-vaults/
+/tmp/
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node / Tauri (apps)
+node_modules/
+dist/
+src-tauri/target/
+
+# Coverage / fuzzing
+*.profraw
+fuzz/artifacts/
+fuzz/corpus/

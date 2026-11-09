@@ -1,0 +1,22 @@
+[package]
+name = "sp-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "SecretPiece command-line interface."
+
+[[bin]]
+name = "sp"
+path = "src/bin/sp.rs"
+
+[[bin]]
+name = "secretpiece"
+path = "src/bin/secretpiece.rs"
+
+[dependencies]
+sp-core.workspace = true
+
+[lints]
+workspace = true

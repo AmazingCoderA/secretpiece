@@ -239,9 +239,13 @@ jobs:
       - uses: vmactions/netbsd-vm@v1
         with:
           usesh: true
-          prepare: pkgin -y install rust
+          prepare: |
+            export PATH=/usr/pkg/bin:/usr/pkg/sbin:$PATH
+            pkgin -y update || true
+            pkgin -y install rust
           run: |
             set -eu
+            export PATH=/usr/pkg/bin:/usr/pkg/sbin:$PATH
             cargo build --release --locked -p sp-cli
             ./target/release/sp --version
             ./target/release/sp --help | head -n 5

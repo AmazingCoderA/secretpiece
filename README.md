@@ -3,52 +3,71 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/AmazingCoderA/secretpiece/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AmazingCoderA/secretpiece/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/AmazingCoderA/secretpiece/releases"><img alt="Release" src="https://img.shields.io/github/v/release/AmazingCoderA/secretpiece?include_prereleases&label=release&color=6ea8ff"></a>
-  <img alt="Rust" src="https://img.shields.io/badge/rust-1.85%2B-orange">
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-4de8ff">
-  <a href="#лицензия"><img alt="License" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue"></a>
+  <a href="README.md"><img alt="Русский" src="https://img.shields.io/badge/RU-Русский-9b6bff?style=for-the-badge"></a>
+  <a href="README.en.md"><img alt="English" src="https://img.shields.io/badge/EN-English-1f2937?style=for-the-badge"></a>
 </p>
 
 <p align="center">
-  <b>🇷🇺 Русский</b> &nbsp;·&nbsp; <a href="README.en.md">🇬🇧 English</a>
+  <a href="https://github.com/AmazingCoderA/secretpiece/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AmazingCoderA/secretpiece/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/AmazingCoderA/secretpiece/actions/workflows/release.yml"><img alt="Build" src="https://github.com/AmazingCoderA/secretpiece/actions/workflows/release.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/AmazingCoderA/secretpiece/releases"><img alt="Release" src="https://img.shields.io/github/v/release/AmazingCoderA/secretpiece?include_prereleases&label=release&color=6ea8ff"></a>
+  <img alt="Rust" src="https://img.shields.io/badge/rust-1.85%2B-orange">
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-4de8ff">
+  <a href="#лицензия"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue"></a>
 </p>
 
 ---
 
-**SecretPiece** — кроссплатформенный инструмент на Rust для создания зашифрованного хранилища внутри обычного файла на флешке. Без разметки диска, без форматирования, без драйверов и без прав администратора.
+**SecretPiece** — кроссплатформенный инструмент на Rust для создания зашифрованного хранилища внутри обычного файла. Без разметки диска, без форматирования, без драйверов и без прав администратора.
 
-> 🔐 **Your secret, in pieces.** Один файл на флешке. Внутри — зашифрованный виртуальный том, скрытый том с отдельным паролем и всё, что нужно, чтобы данные пережили потерю носителя.
+> 🔐 **Your secret, in pieces.** Один файл. Внутри — зашифрованный виртуальный том, скрытый том с отдельным паролем и всё, что нужно, чтобы данные пережили потерю носителя.
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-M0%20·%20spec%20%2B%20skeleton-9b6bff" alt="status">
   <img src="https://img.shields.io/badge/crypto-not%20implemented%20yet-critical" alt="crypto not implemented">
 </p>
 
-> ⚠️ **Ранняя стадия.** Криптография и формат ещё не реализованы. Не храните в текущих сборках ничего важного. Спецификация — [`docs/TZ.ru.md`](docs/TZ.ru.md).
+> ⚠️ **Ранняя стадия.** Криптография и формат ещё не реализованы. Не храните в текущих сборках ничего важного.
 
 ## ✨ Почему SecretPiece
 
 | | |
 |---|---|
-| 🧩 **Не ломает флешку** | Работает только с обычными файлами. MBR/GPT, boot sector и файловая система не изменяются. |
+| 🧩 **Не ломает носитель** | Работает только с обычными файлами. MBR/GPT, boot sector и файловая система не изменяются. |
+| 💾 **Любой носитель** | Флешка, внешний HDD/SSD, внутренний диск, сетевая папка. Основной сценарий — съёмные USB-носители. |
 | 🕵️ **Скрытый том, а не раздел** | Область внутри контейнера выглядит как свободное место. Открывается отдельным паролем. |
 | 💻 **Один код — три ОС** | Windows 10/11, macOS 13+, Linux. Общее Rust-ядро, CLI и GUI без драйверов. |
-| 🔒 **Честная безопасность** | Открытый код, стандартные примитивы: Argon2id, XChaCha20-Poly1305, X25519, BLAKE3. Никакой телеметрии и сетевых вызовов. |
+| 🔒 **Честная безопасность** | Открытый код, стандартные примитивы, никакой телеметрии и сетевых вызовов. |
 | 🛟 **Восстанавливаемость** | Два заголовка, два суперблока, `doctor`, recovery-код BIP39, схема Шамира. |
-| 🧹 **Безопасное удаление** | Shred файлов и свободного места, crypto-erase контейнера — с честным отчётом об ограничениях flash/SSD. |
+| 🧹 **Безопасное удаление** | Shred файлов и свободного места, crypto-erase контейнера — с честным отчётом. |
+
+## 🔐 Шифрование
+
+| Слой | Алгоритм | Статус |
+|---|---|---|
+| Данные и метаданные | **XChaCha20-Poly1305** (256-bit key, 192-bit nonce) | по умолчанию |
+| Альтернативный AEAD | **AES-256-GCM** (через `algorithm_id`) | опционально, позже |
+| Парольный KDF | **Argon2id**: light 256 МиБ · default 512 МиБ · paranoid 1 ГиБ | v1 |
+| Хеши и MAC | **BLAKE3** (keyed mode) | v1 |
+| Обмен ключами | **X25519** для слотов получателей | v1.1 |
+| Recovery | **BIP39** (24 слова) + **Shamir** K из N | v1 |
+| Слоты разблокировки | пароль · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1 / v1.1 |
+
+- Алгоритм и его параметры фиксируются в заголовке контейнера; менять их молча запрещено.
+- `compact`-профиль допускает сжатие и переменные чанки; `balanced`/`paranoid` — фиксированные 64 КиБ.
+- Свои шифры, ECB, CBC без MAC, SHA-1/MD5 и «обфускация вместо шифрования» не используются.
 
 ## 🗺️ Как это работает
 
 ```mermaid
 flowchart LR
-    subgraph USB["Флешка (FAT32 / exFAT / NTFS / APFS / ext4)"]
-        A["ordinary files<br/>фото, документы"] 
+    subgraph DISK["Носитель: USB · HDD · SSD · сеть"]
+        A["обычные файлы<br/>фото, документы"]
         B["personal.spv<br/>обычный файл"]
     end
     B --> C["SPV1 container"]
-    C --> D["Outer volume<br/>пароль 1"]
-    C --> E["Hidden volume<br/>пароль 2"]
+    C --> D["Внешний том<br/>пароль 1"]
+    C --> E["Скрытый том<br/>пароль 2"]
     D --> F["read-only<br/>в deniable-режиме"]
     E --> G["настоящие данные"]
     style B fill:#1b2540,stroke:#6ea8ff,color:#dbe6ff
@@ -100,7 +119,7 @@ sp> lock
 
 GUI — после стабилизации формата (Tauri 2 + Svelte).
 
-## 🛠️ Сборка из исходников
+## 🛠️ Сборка и релизы
 
 ```bash
 git clone https://github.com/AmazingCoderA/secretpiece.git
@@ -112,7 +131,13 @@ cargo run -p sp-cli --bin sp -- --version
 
 Нужен Rust stable (MSRV **1.85**, edition 2024).
 
-Готовые сборки появляются в [Releases](https://github.com/AmazingCoderA/secretpiece/releases) при пуше тега `v*`. Артефакты: Windows x64 `.zip`, Linux x64 `.tar.gz` (static musl), macOS universal `.tar.gz` + `SHA256SUMS.txt`.
+**Автосборка** запускается на каждый push в `main` и на каждый PR. Артефакты лежат на странице запуска workflow:
+
+- `windows-x64` — `.zip`;
+- `linux-x64` — `.tar.gz`, статический musl;
+- `macos-universal` — `.tar.gz` для Intel и Apple Silicon.
+
+Пуш тега `v*` дополнительно создаёт [GitHub Release](https://github.com/AmazingCoderA/secretpiece/releases) с архивами и `SHA256SUMS.txt`.
 
 ## 🛡️ Безопасность
 
@@ -126,18 +151,20 @@ cargo run -p sp-cli --bin sp -- --version
 
 | Документ | О чём |
 |---|---|
-| [Техническое задание](docs/TZ.ru.md) | модель угроз, архитектура, криптография, формат SPV1, UX, тесты, дорожная карта, критерии приёмки |
 | [SECURITY.md](SECURITY.md) | раскрытие уязвимостей, scope, гарантии |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | правила разработки и ревью |
 | [ADR](docs/ADR/README.md) | архитектурные решения |
 | [CHANGELOG.md](CHANGELOG.md) | история изменений |
 
+Байтовая спецификация (`docs/FORMAT.md`) и крипто-дизайн (`docs/CRYPTO.md`) появятся вместе с M1.
+
 ## 🧭 Дорожная карта
 
 | Этап | Статус | Результат |
 |---|---|---|
-| **M0** — ТЗ и каркас | ✅ готово | спецификация, workspace, CI, лицензии, релизная сборка |
+| **M0** — каркас | ✅ готово | workspace, CI, лицензия GPL-3.0, автосборка релизов |
 | **M1** — крипто-ядро и формат | ⏳ | `sp-crypto`, `sp-format`, заголовки, слоты, чанки, тест-векторы |
+| **M1.1** — выбор шифрования | ⏳ | AES-256-GCM backend, `sp migrate` |
 | **M2** — CLI и ФС | ⏳ | `init/open/ls/put/get/rm`, extents, индекс, FAT32 split |
 | **M3** — надёжность | ⏳ | COW-метаданные, снапшоты, корзина, `doctor`, crash-тесты |
 | **M4** — скрытый том и recovery | ⏳ | L3/L4, recovery, Shamir, слоты получателей |
@@ -148,11 +175,11 @@ cargo run -p sp-cli --bin sp -- --version
 
 ## 🤝 Участие
 
-Проект открыт для ревью, фаззинга и аудита. Перед PR прочитайте [`CONTRIBUTING.md`](CONTRIBUTING.md) и ТЗ. Криптографические и форматные изменения — только через ADR.
+Проект открыт для ревью, фаззинга и аудита. Перед PR прочитайте [`CONTRIBUTING.md`](CONTRIBUTING.md). Криптографические и форматные изменения — только через ADR.
 
-## 📄 Лицензия
+## Лицензия
 
-Код — **MIT OR Apache-2.0**. Документация — CC-BY-4.0.
+**GNU General Public License v3.0 only** (GPL-3.0-only). Полный текст — [`LICENSE`](LICENSE).
 
 Инструмент двойного назначения. Используйте только для защиты собственных данных и в рамках закона. Авторы не несут ответственности за потерю данных, неправомерное использование или ограничения криптоэкспорта в вашей юрисдикции.
 

@@ -1,6 +1,6 @@
 //! Test fixtures, generators, and fault injection for `SecretPiece`.
 //!
-//! Planned contents (see `docs/TZ.ru.md`, section 19):
+//! Planned contents:
 //!
 //! - deterministic vault builders for integration tests;
 //! - a fault-injecting storage backend (fail/short-write on the N-th call);

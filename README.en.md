@@ -3,46 +3,65 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/AmazingCoderA/secretpiece/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AmazingCoderA/secretpiece/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/AmazingCoderA/secretpiece/releases"><img alt="Release" src="https://img.shields.io/github/v/release/AmazingCoderA/secretpiece?include_prereleases&label=release&color=6ea8ff"></a>
-  <img alt="Rust" src="https://img.shields.io/badge/rust-1.85%2B-orange">
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-4de8ff">
-  <a href="#license"><img alt="License" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue"></a>
+  <a href="README.md"><img alt="Русский" src="https://img.shields.io/badge/RU-Русский-1f2937?style=for-the-badge"></a>
+  <a href="README.en.md"><img alt="English" src="https://img.shields.io/badge/EN-English-6ea8ff?style=for-the-badge"></a>
 </p>
 
 <p align="center">
-  <a href="README.md">🇷🇺 Русский</a> &nbsp;·&nbsp; <b>🇬🇧 English</b>
+  <a href="https://github.com/AmazingCoderA/secretpiece/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AmazingCoderA/secretpiece/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/AmazingCoderA/secretpiece/actions/workflows/release.yml"><img alt="Build" src="https://github.com/AmazingCoderA/secretpiece/actions/workflows/release.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/AmazingCoderA/secretpiece/releases"><img alt="Release" src="https://img.shields.io/github/v/release/AmazingCoderA/secretpiece?include_prereleases&label=release&color=6ea8ff"></a>
+  <img alt="Rust" src="https://img.shields.io/badge/rust-1.85%2B-orange">
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-4de8ff">
+  <a href="#-license"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue"></a>
 </p>
 
 ---
 
-**SecretPiece** is a cross-platform Rust tool that creates an encrypted vault inside an ordinary file on a USB drive. No disk partitioning, no formatting, no drivers, no administrator rights.
+**SecretPiece** is a cross-platform Rust tool that creates an encrypted vault inside an ordinary file. No disk partitioning, no formatting, no drivers, no administrator rights.
 
-> 🔐 **Your secret, in pieces.** One file on a USB stick. Inside — an encrypted virtual volume, a hidden volume with its own password, and everything needed to survive the loss of the drive.
+> 🔐 **Your secret, in pieces.** One file. Inside — an encrypted virtual volume, a hidden volume with its own password, and everything needed to survive the loss of the drive.
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-M0%20·%20spec%20%2B%20skeleton-9b6bff" alt="status">
   <img src="https://img.shields.io/badge/crypto-not%20implemented%20yet-critical" alt="crypto not implemented">
 </p>
 
-> ⚠️ **Early stage.** Cryptography and the container format are not implemented yet. Do not store anything important in current builds. Specification: [`docs/TZ.ru.md`](docs/TZ.ru.md) (Russian).
+> ⚠️ **Early stage.** Cryptography and the container format are not implemented yet. Do not store anything important in current builds.
 
 ## ✨ Why SecretPiece
 
 | | |
 |---|---|
 | 🧩 **Does not break the drive** | Works only with regular files. MBR/GPT, boot sector and the filesystem stay untouched. |
+| 💾 **Any drive** | USB stick, external HDD/SSD, internal disk, network folder. Removable USB media is the primary scenario. |
 | 🕵️ **A hidden volume, not a partition** | The area inside the container looks like free space. It opens with a separate password. |
 | 💻 **One codebase — three OSes** | Windows 10/11, macOS 13+, Linux. Shared Rust core, CLI and GUI without drivers. |
-| 🔒 **Honest security** | Open source, standard primitives: Argon2id, XChaCha20-Poly1305, X25519, BLAKE3. No telemetry, no network calls. |
+| 🔒 **Honest security** | Open source, standard primitives, no telemetry, no network calls. |
 | 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, BIP39 recovery code, Shamir secret sharing. |
-| 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report on flash/SSD limits. |
+| 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
+
+## 🔐 Encryption
+
+| Layer | Algorithm | Status |
+|---|---|---|
+| Data and metadata | **XChaCha20-Poly1305** (256-bit key, 192-bit nonce) | default |
+| Alternative AEAD | **AES-256-GCM** (via `algorithm_id`) | optional, later |
+| Password KDF | **Argon2id**: light 256 MiB · default 512 MiB · paranoid 1 GiB | v1 |
+| Hashing and MAC | **BLAKE3** (keyed mode) | v1 |
+| Key exchange | **X25519** for recipient slots | v1.1 |
+| Recovery | **BIP39** (24 words) + **Shamir** k-of-n | v1 |
+| Unlock slots | password · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1 / v1.1 |
+
+- The algorithm and its parameters are recorded in the container header; silent changes are forbidden.
+- The `compact` profile allows compression and variable chunks; `balanced`/`paranoid` use fixed 64 KiB chunks.
+- No custom ciphers, ECB, CBC without MAC, SHA-1/MD5, or "obfuscation instead of encryption".
 
 ## 🗺️ How it works
 
 ```mermaid
 flowchart LR
-    subgraph USB["USB drive (FAT32 / exFAT / NTFS / APFS / ext4)"]
+    subgraph DISK["Drive: USB · HDD · SSD · network"]
         A["ordinary files<br/>photos, documents"]
         B["personal.spv<br/>a regular file"]
     end
@@ -100,7 +119,7 @@ sp> lock
 
 GUI comes after the format stabilizes (Tauri 2 + Svelte).
 
-## 🛠️ Build from source
+## 🛠️ Build and releases
 
 ```bash
 git clone https://github.com/AmazingCoderA/secretpiece.git
@@ -112,7 +131,13 @@ cargo run -p sp-cli --bin sp -- --version
 
 Requires Rust stable (MSRV **1.85**, edition 2024).
 
-Prebuilt binaries are published to [Releases](https://github.com/AmazingCoderA/secretpiece/releases) on every `v*` tag: Windows x64 `.zip`, Linux x64 `.tar.gz` (static musl), macOS universal `.tar.gz`, plus `SHA256SUMS.txt`.
+**Auto-build** runs on every push to `main` and on every PR. Artifacts are available on the workflow run page:
+
+- `windows-x64` — `.zip`;
+- `linux-x64` — `.tar.gz`, static musl;
+- `macos-universal` — `.tar.gz` for Intel and Apple Silicon.
+
+Pushing a `v*` tag additionally creates a [GitHub Release](https://github.com/AmazingCoderA/secretpiece/releases) with archives and `SHA256SUMS.txt`.
 
 ## 🛡️ Security
 
@@ -126,18 +151,20 @@ Prebuilt binaries are published to [Releases](https://github.com/AmazingCoderA/s
 
 | Document | Contents |
 |---|---|
-| [Technical specification](docs/TZ.ru.md) (RU) | threat model, architecture, cryptography, SPV1 format, UX, tests, roadmap, acceptance criteria |
 | [SECURITY.md](SECURITY.md) | vulnerability disclosure, scope, guarantees |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | development and review rules |
 | [ADR](docs/ADR/README.md) | architecture decision records |
 | [CHANGELOG.md](CHANGELOG.md) | change history |
 
+The byte-level format spec (`docs/FORMAT.md`) and crypto design (`docs/CRYPTO.md`) will land together with M1.
+
 ## 🧭 Roadmap
 
 | Milestone | Status | Outcome |
 |---|---|---|
-| **M0** — spec and skeleton | ✅ done | specification, workspace, CI, licenses, release pipeline |
+| **M0** — skeleton | ✅ done | workspace, CI, GPL-3.0 license, release automation |
 | **M1** — crypto core and format | ⏳ | `sp-crypto`, `sp-format`, headers, slots, chunks, test vectors |
+| **M1.1** — encryption choice | ⏳ | AES-256-GCM backend, `sp migrate` |
 | **M2** — CLI and filesystem | ⏳ | `init/open/ls/put/get/rm`, extents, index, FAT32 split |
 | **M3** — reliability | ⏳ | COW metadata, snapshots, trash, `doctor`, crash tests |
 | **M4** — hidden volume and recovery | ⏳ | L3/L4, recovery, Shamir, recipient slots |
@@ -148,11 +175,11 @@ Prebuilt binaries are published to [Releases](https://github.com/AmazingCoderA/s
 
 ## 🤝 Contributing
 
-The project is open to review, fuzzing and audit. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the spec before opening a PR. Cryptographic and format changes require an ADR first.
+The project is open to review, fuzzing and audit. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a PR. Cryptographic and format changes require an ADR first.
 
-## 📄 License
+## License
 
-Code — **MIT OR Apache-2.0**. Documentation — CC-BY-4.0.
+**GNU General Public License v3.0 only** (GPL-3.0-only). Full text: [`LICENSE`](LICENSE).
 
 Dual-use tool. Use it only to protect your own data and within the law. The authors are not liable for data loss, misuse, or crypto-export restrictions in your jurisdiction.
 

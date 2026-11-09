@@ -1,6 +1,6 @@
 //! Thin OS integration layer.
 //!
-//! Planned contents (see `docs/TZ.ru.md`, section 7.5):
+//! Planned contents:
 //!
 //! - removable media detection, filesystem type, free space;
 //! - secure memory (`VirtualLock`/`mlock`), core-dump suppression;

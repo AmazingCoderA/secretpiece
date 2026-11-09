@@ -45,7 +45,7 @@ fn print_help() {
          wipe-free free-space wipe\n  \
          destroy   crypto-erase the container\n  \
          version   print version\n\n\
-         Full specification: docs/TZ.ru.md",
+         Documentation: https://github.com/AmazingCoderA/secretpiece#readme",
         name = sp_core::PRODUCT_NAME
     );
 }

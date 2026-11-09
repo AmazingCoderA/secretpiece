@@ -3,6 +3,6 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/AmazingCoderA/secretpiece/security/advisories/new
     about: Report security issues privately, never in a public issue.
-  - name: Technical specification
-    url: https://github.com/AmazingCoderA/secretpiece/blob/main/docs/TZ.ru.md
-    about: Read the specification before proposing architectural changes.
+  - name: Project documentation
+    url: https://github.com/AmazingCoderA/secretpiece#readme
+    about: Read the README and ADRs before proposing architectural changes.

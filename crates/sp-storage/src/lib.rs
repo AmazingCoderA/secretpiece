@@ -1,6 +1,6 @@
 //! Chunk I/O, random access, file locking, fsync, and FAT32 splitting.
 //!
-//! Planned contents (see `docs/TZ.ru.md`, sections 9.5, 9.9, 12):
+//! Planned contents:
 //!
 //! - a `ChunkStore`-style abstraction with positional reads and writes;
 //! - one-file and multi-part backends (`.spv.000`, `.spv.001`, ...);

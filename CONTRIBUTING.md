@@ -5,10 +5,10 @@ stricter than usual.
 
 ## Before you start
 
-- Read the technical specification: [`docs/TZ.ru.md`](docs/TZ.ru.md).
+- Read the [README](README.md) and the [ADR index](docs/ADR/README.md).
 - For anything touching cryptography, the container format, or the threat model,
   open an issue/ADR **before** writing code.
-- By contributing you agree to license your work under **MIT OR Apache-2.0**.
+- By contributing you agree to license your work under **GPL-3.0-only**.
 
 ## Development setup
 

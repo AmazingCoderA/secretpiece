@@ -31,7 +31,7 @@ In scope:
 - wipe/destroy logic (`sp-wipe`);
 - CLI and GUI handling of secrets.
 
-Out of scope (see the threat model in [`docs/TZ.ru.md`](docs/TZ.ru.md#5-модель-угроз)):
+Out of scope (see the README security section):
 
 - compromised OS, keyloggers, memory dumps, cold boot;
 - malicious USB controllers or firmware;

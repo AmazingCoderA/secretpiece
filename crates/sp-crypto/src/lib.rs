@@ -1,6 +1,6 @@
 //! Cryptographic primitives and key hierarchy for `SecretPiece`.
 //!
-//! Planned contents (see `docs/TZ.ru.md`, section 8):
+//! Planned contents:
 //!
 //! - Argon2id password KDF and HKDF-SHA256 domain separation;
 //! - XChaCha20-Poly1305 AEAD for headers, slots, metadata, and chunks;

@@ -1,6 +1,6 @@
 //! The SPV1 container format: headers, key slots, superblocks, metadata.
 //!
-//! Planned contents (see `docs/TZ.ru.md`, section 9 and `docs/FORMAT.md`):
+//! Planned contents (see `docs/FORMAT.md` when it lands):
 //!
 //! - fixed layout: outer header A/A', hidden header B/B', superblocks;
 //! - 512-byte key slots with wrapped master keys;

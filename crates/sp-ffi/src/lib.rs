@@ -1,6 +1,6 @@
 //! C ABI for the `SecretPiece` core, used by the Tauri backend and other clients.
 //!
-//! Planned surface (see `docs/TZ.ru.md`, section 15.2):
+//! Planned surface:
 //!
 //! `sp_vault_open`, `sp_vault_close`, `sp_vault_put`, `sp_vault_get`,
 //! `sp_vault_list`, `sp_vault_delete`, `sp_vault_lock`.

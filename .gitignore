@@ -33,3 +33,6 @@ src-tauri/target/
 *.profraw
 fuzz/artifacts/
 fuzz/corpus/
+
+# Local-only design document (kept out of the public repo)
+docs/TZ.ru.md

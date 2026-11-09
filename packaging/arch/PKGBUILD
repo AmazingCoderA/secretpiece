@@ -1,0 +1,26 @@
+pkgname=secretpiece
+pkgver=1.1
+pkgrel=1
+pkgdesc="Portable, deniable encrypted vault for USB drives (skeleton release)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/AmazingCoderA/secretpiece"
+license=('GPL-3.0-only')
+depends=()
+makedepends=('cargo' 'rust')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  cargo build --release --locked -p sp-cli
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 target/release/sp "$pkgdir/usr/bin/sp"
+  install -Dm755 target/release/secretpiece "$pkgdir/usr/bin/secretpiece"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
+
+# vim: set ts=2 sw=2 et:

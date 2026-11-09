@@ -10,20 +10,25 @@
 <p align="center">
   <a href="https://github.com/AmazingCoderA/secretpiece/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AmazingCoderA/secretpiece/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/AmazingCoderA/secretpiece/actions/workflows/release.yml"><img alt="Build" src="https://github.com/AmazingCoderA/secretpiece/actions/workflows/release.yml/badge.svg?branch=main"></a>
-  <a href="https://github.com/AmazingCoderA/secretpiece/releases"><img alt="Release" src="https://img.shields.io/github/v/release/AmazingCoderA/secretpiece?include_prereleases&label=release&color=6ea8ff"></a>
+  <a href="https://github.com/AmazingCoderA/secretpiece/releases"><img alt="Release" src="https://img.shields.io/github/v/release/AmazingCoderA/secretpiece?label=latest&color=6ea8ff"></a>
   <img alt="Rust" src="https://img.shields.io/badge/rust-1.85%2B-orange">
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-4de8ff">
-  <a href="#-license"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20BSD-4de8ff">
+  <a href="#license"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/AmazingCoderA/secretpiece/releases/latest"><img alt="Download latest release" src="https://img.shields.io/badge/⬇_Download_latest-2ea043?style=for-the-badge&logo=github&logoColor=white"></a>
+  <a href="#installation"><img alt="Install" src="https://img.shields.io/badge/Install-by_platform-9b6bff?style=for-the-badge"></a>
 </p>
 
 ---
 
-**SecretPiece** is a cross-platform Rust tool that creates an encrypted vault inside an ordinary file. No disk partitioning, no formatting, no drivers, no administrator rights.
+**SecretPiece** is a cross-platform Rust tool that creates an encrypted vault inside an ordinary file. It works on a USB stick, an external HDD/SSD, an internal disk, or a network folder. No disk partitioning, no formatting, no drivers, no administrator rights. Open source, GPL-3.0.
 
 > 🔐 **Your secret, in pieces.** One file. Inside — an encrypted virtual volume, a hidden volume with its own password, and everything needed to survive the loss of the drive.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-M0%20·%20spec%20%2B%20skeleton-9b6bff" alt="status">
+  <img src="https://img.shields.io/badge/status-v1.1%20·%20skeleton-9b6bff" alt="status">
   <img src="https://img.shields.io/badge/crypto-not%20implemented%20yet-critical" alt="crypto not implemented">
 </p>
 
@@ -33,49 +38,120 @@
 
 | | |
 |---|---|
-| 🧩 **Does not break the drive** | Works only with regular files. MBR/GPT, boot sector and the filesystem stay untouched. |
-| 💾 **Any drive** | USB stick, external HDD/SSD, internal disk, network folder. Removable USB media is the primary scenario. |
-| 🕵️ **A hidden volume, not a partition** | The area inside the container looks like free space. It opens with a separate password. |
-| 💻 **One codebase — three OSes** | Windows 10/11, macOS 13+, Linux. Shared Rust core, CLI and GUI without drivers. |
-| 🔒 **Honest security** | Open source, standard primitives, no telemetry, no network calls. |
-| 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, BIP39 recovery code, Shamir secret sharing. |
+| 🧩 **Does not break the drive** | Only regular files. MBR/GPT, boot sector and the filesystem stay untouched. |
+| 💾 **Any drive** | USB stick, external HDD/SSD, internal disk, SMB/NFS. Removable media is the primary scenario. |
+| 🕵️ **Hidden volume** | The area inside the container looks like free space. It opens with a separate password. |
+| 🔐 **Choice of ciphers** | XChaCha20-Poly1305 by default, ChaCha20-Poly1305 and AES-256-GCM optional, parameters recorded in the header. |
+| 🗂️ **Multiple formats** | Single file, split parts for FAT32, vault folder, nested container, k-of-n shards. |
+| 🚀 **Every platform** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux. |
+| 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, BIP39 recovery, Shamir secret sharing, snapshots. |
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
+| 🌍 **RU / EN** | Interface and hints in Russian and English, auto-detection, `--lang`. |
+
+## 📦 Installation
+
+<p align="center">
+  <a href="#windows"><img alt="Windows" src="https://img.shields.io/badge/Windows-x64_/_ARM64-0078D4?style=for-the-badge&logo=windows11&logoColor=white"></a>
+  <a href="#macos"><img alt="macOS" src="https://img.shields.io/badge/macOS-universal-000000?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="#linux"><img alt="Linux" src="https://img.shields.io/badge/Linux-x64_/_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black"></a>
+  <a href="#arch-linux"><img alt="Arch Linux" src="https://img.shields.io/badge/Arch_Linux-pkg-1793D1?style=for-the-badge&logo=archlinux&logoColor=white"></a>
+  <a href="#bsd"><img alt="BSD" src="https://img.shields.io/badge/BSD-FreeBSD_/_OpenBSD_/_NetBSD-AB2B28?style=for-the-badge&logo=freebsd&logoColor=white"></a>
+</p>
+
+All builds live in [Releases](https://github.com/AmazingCoderA/secretpiece/releases/latest) together with `SHA256SUMS.txt`. Every push to `main` builds fresh artifacts automatically.
+
+### Windows
+
+```powershell
+# download secretpiece-<version>-windows-x64.zip and unpack it
+.\sp.exe --version
+.\sp.exe --help
+```
+
+Windows ARM64 — the `windows-arm64` archive. Portable build: nothing is written to the registry, the config stays next to the binary.
+
+### macOS
+
+```bash
+# universal: Intel + Apple Silicon
+tar -xzf secretpiece-<version>-macos-universal.tar.gz
+xattr -dr com.apple.quarantine ./sp
+./sp --version
+```
+
+### Linux
+
+```bash
+# static musl, no dependencies
+tar -xzf secretpiece-<version>-linux-x64.tar.gz
+./sp --version
+```
+
+ARM64 — `linux-arm64`. Works on Ubuntu 22.04+, Fedora, Debian, Arch, Alpine.
+
+### Arch Linux
+
+```bash
+git clone https://github.com/AmazingCoderA/secretpiece.git
+cd secretpiece/packaging/arch
+makepkg -si
+```
+
+The recipe lives in [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD). Releases also ship an `arch-x64` archive.
+
+### BSD
+
+```sh
+# FreeBSD
+pkg install rust
+git clone https://github.com/AmazingCoderA/secretpiece.git
+cd secretpiece && cargo build --release --locked -p sp-cli
+
+# OpenBSD
+pkg_add rust
+
+# NetBSD
+pkgin install rust
+```
+
+BSD builds in CI are marked experimental: a release still ships even if a BSD VM runner is unavailable.
 
 ## 🔐 Encryption
 
 | Layer | Algorithm | Status |
 |---|---|---|
 | Data and metadata | **XChaCha20-Poly1305** (256-bit key, 192-bit nonce) | default |
-| Alternative AEAD | **AES-256-GCM** (via `algorithm_id`) | optional, later |
-| Password KDF | **Argon2id**: light 256 MiB · default 512 MiB · paranoid 1 GiB | v1 |
-| Hashing and MAC | **BLAKE3** (keyed mode) | v1 |
-| Key exchange | **X25519** for recipient slots | v1.1 |
-| Recovery | **BIP39** (24 words) + **Shamir** k-of-n | v1 |
-| Unlock slots | password · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1 / v1.1 |
+| Alternative | **ChaCha20-Poly1305** (RFC 8439, 96-bit nonce) | optional |
+| Alternative | **AES-256-GCM** (AES-NI / ARMv8 Crypto) | optional |
+| Alternative | **AES-256-GCM-SIV** (nonce-misuse resistant) | optional, later |
+| Password KDF | **Argon2id**: light 256 MiB · default 512 MiB · paranoid 1 GiB | v1.2 |
+| Hashing and MAC | **BLAKE3** (keyed mode) | v1.2 |
+| Key exchange | **X25519** for recipient slots | v1.5 |
+| Recovery | **BIP39** (24 words) + **Shamir** k-of-n | v1.5 |
+| Unlock slots | password · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1.2–v1.5 |
+| Manifest signatures | **Ed25519** (releases only, not volumes) | v2.0 |
 
-- The algorithm and its parameters are recorded in the container header; silent changes are forbidden.
-- The `compact` profile allows compression and variable chunks; `balanced`/`paranoid` use fixed 64 KiB chunks.
+- `algorithm_id` and all KDF parameters are written into the header; silent changes are forbidden.
+- Changing the algorithm is only possible through `sp migrate`, which creates a new container.
 - No custom ciphers, ECB, CBC without MAC, SHA-1/MD5, or "obfuscation instead of encryption".
+- Slots and header payload are indistinguishable from random data without the key.
 
-## 🗺️ How it works
+## 🗂️ Container formats
 
-```mermaid
-flowchart LR
-    subgraph DISK["Drive: USB · HDD · SSD · network"]
-        A["ordinary files<br/>photos, documents"]
-        B["personal.spv<br/>a regular file"]
-    end
-    B --> C["SPV1 container"]
-    C --> D["Outer volume<br/>password 1"]
-    C --> E["Hidden volume<br/>password 2"]
-    D --> F["read-only<br/>in deniable mode"]
-    E --> G["the real data"]
-    style B fill:#1b2540,stroke:#6ea8ff,color:#dbe6ff
-    style C fill:#101a30,stroke:#4de8ff,color:#dbe6ff
-    style D fill:#17213a,stroke:#6ea8ff,color:#dbe6ff
-    style E fill:#1d1838,stroke:#9b6bff,color:#e6dcff
-    style G fill:#231a3f,stroke:#9b6bff,color:#e6dcff
-```
+| Format | What is created | Constraints |
+|---|---|---|
+| **SPV1 · single file** | one `*.spv` | up to 4 TiB, best for exFAT/NTFS/APFS/ext4 |
+| **SPV1 · split** | `*.spv.000`, `.001`, … | FAT32, 3.5 GiB parts |
+| **Vault folder (L2)** | folder of blocks + index | convenient for cloud and large volumes |
+| **Nested (L4)** | container inside the outer volume | no free-space overlap |
+| **Sharded (L5)** | k-of-n Reed-Solomon shards | each part < 4 GiB, no FAT32 split |
+| **Archive export** | encrypted copy for backup | requires password/recovery |
+
+## 🗺️ Architecture
+
+<p align="center">
+  <img src="docs/assets/architecture.svg" alt="SecretPiece architecture: interfaces, vault, format, crypto, SPV1 layout" width="100%">
+</p>
 
 ```
 0x00000  header A       ← outer volume
@@ -101,13 +177,11 @@ N−hidden hidden area    ← overlaps free space (deniable)
 
 Durability profiles: **Fast** · **Balanced** (default) · **Paranoid** · **Custom**. A profile changes versioning, trash and verification policy — never cryptography or the format.
 
-## 🚀 Quick start (planned CLI)
+## 🚀 Quick start
 
 ```bash
-# create an 8 GiB container with a 2 GiB hidden volume
-sp init E:\vaults\personal.spv --size 8G --hidden 2G --profile balanced
-
-# open an interactive shell
+# interface language: ru or en (auto-detected from the system locale)
+sp --lang en init E:\vaults\personal.spv --size 8G --hidden 2G --profile balanced
 sp shell E:\vaults\personal.spv
 
 sp> put .\Documents docs/
@@ -118,6 +192,50 @@ sp> lock
 ```
 
 GUI comes after the format stabilizes (Tauri 2 + Svelte).
+
+## 🌍 Languages
+
+- Russian and English — complete, including hints and error messages.
+- Auto-detection: `LC_ALL`, `LC_MESSAGES`, `LANG`, `SP_LANG`.
+- Explicit: `sp --lang ru …` or `sp --lang en …`.
+- In the GUI — a switcher in settings and on the unlock screen.
+- New languages — through resource files, without touching the core.
+
+## 🧯 When you run out of space
+
+SecretPiece checks free space **before** writing and never leaves partial commits. If space runs out:
+
+| Situation | What the app does | What the user should do |
+|---|---|---|
+| Less than 10% free | warning + progress | empty the trash, delete old versions |
+| 0 bytes free | refuses **before** writing, code `E_NOSPC` (9), volume → read-only | free space or grow the container |
+| Import larger than free space | preflight refusal, no garbage | import in parts or into the outer volume |
+| Media actually full | `E_NOSPC`, read-only, index stays intact | empty trash/snapshots, export data |
+| FAT32 and a file > 4 GiB | automatic split into 3.5 GiB parts | use exFAT/NTFS |
+| Need more capacity | `sp resize` (planned v1.4) | create a new container and move data |
+
+Hints are everywhere: in CLI errors, in `sp df`, in the GUI banner, and in `sp doctor --explain`. A 64 MiB reserve is always kept for metadata and superblocks.
+
+## 🛡️ Security
+
+- The app makes **no network calls** and collects no telemetry.
+- Passwords and keys never appear in argv, logs, or temporary files.
+- The hidden volume is indistinguishable from random data without the password, **but the presence of a container file cannot be hidden**.
+- Overwriting on flash/SSD does not guarantee physical destruction because of wear leveling. The reliable option is **crypto-erase**.
+- Vulnerabilities: privately via [GitHub Security Advisories](https://github.com/AmazingCoderA/secretpiece/security/advisories/new), see [`SECURITY.md`](SECURITY.md).
+
+## 🖥️ Platforms and architectures
+
+| OS | Ready builds | Status |
+|---|---|---|
+| Windows 10/11 | x64, ARM64 | v1.1 |
+| macOS 13+ | universal (Intel + Apple Silicon) | v1.1 |
+| Linux | x64, ARM64 (static musl) | v1.1 |
+| Arch Linux | x64, PKGBUILD | v1.1 |
+| FreeBSD | x64 (VM build) | experimental |
+| OpenBSD | x64 (VM build) | experimental |
+| NetBSD | x64 (VM build) | experimental |
+| Linux ARMv7 / RISC-V | build from source | planned v1.3 |
 
 ## 🛠️ Build and releases
 
@@ -131,21 +249,9 @@ cargo run -p sp-cli --bin sp -- --version
 
 Requires Rust stable (MSRV **1.85**, edition 2024).
 
-**Auto-build** runs on every push to `main` and on every PR. Artifacts are available on the workflow run page:
-
-- `windows-x64` — `.zip`;
-- `linux-x64` — `.tar.gz`, static musl;
-- `macos-universal` — `.tar.gz` for Intel and Apple Silicon.
-
-Pushing a `v*` tag additionally creates a [GitHub Release](https://github.com/AmazingCoderA/secretpiece/releases) with archives and `SHA256SUMS.txt`.
-
-## 🛡️ Security
-
-- The app makes **no network calls** and collects no telemetry.
-- Passwords and keys never appear in argv, logs, or temporary files.
-- The hidden volume is indistinguishable from random data without the password, **but the presence of a container file cannot be hidden**.
-- Overwriting on flash/SSD does not guarantee physical destruction because of wear leveling. The reliable option is **crypto-erase**.
-- Vulnerabilities: privately via [GitHub Security Advisories](https://github.com/AmazingCoderA/secretpiece/security/advisories/new), see [`SECURITY.md`](SECURITY.md).
+- **Auto-build** — on every push to `main` and every PR: artifacts on the workflow run page.
+- **Release** — on a `v*` tag: archives + `SHA256SUMS.txt` in GitHub Releases.
+- Versions — `1.1`, `1.2`, `1.3`, `2.0` (no micro-patch tags).
 
 ## 📚 Documentation
 
@@ -156,22 +262,20 @@ Pushing a `v*` tag additionally creates a [GitHub Release](https://github.com/Am
 | [ADR](docs/ADR/README.md) | architecture decision records |
 | [CHANGELOG.md](CHANGELOG.md) | change history |
 
-The byte-level format spec (`docs/FORMAT.md`) and crypto design (`docs/CRYPTO.md`) will land together with M1.
+The byte-level format spec (`docs/FORMAT.md`) and crypto design (`docs/CRYPTO.md`) will land together with v1.2.
 
 ## 🧭 Roadmap
 
-| Milestone | Status | Outcome |
+| Version | Status | Outcome |
 |---|---|---|
-| **M0** — skeleton | ✅ done | workspace, CI, GPL-3.0 license, release automation |
-| **M1** — crypto core and format | ⏳ | `sp-crypto`, `sp-format`, headers, slots, chunks, test vectors |
-| **M1.1** — encryption choice | ⏳ | AES-256-GCM backend, `sp migrate` |
-| **M2** — CLI and filesystem | ⏳ | `init/open/ls/put/get/rm`, extents, index, FAT32 split |
-| **M3** — reliability | ⏳ | COW metadata, snapshots, trash, `doctor`, crash tests |
-| **M4** — hidden volume and recovery | ⏳ | L3/L4, recovery, Shamir, recipient slots |
-| **M5** — wipe and sharding | ⏳ | shred, wipe-free, destroy, Reed-Solomon |
-| **M6** — GUI | ⏳ | Tauri 2 + Svelte |
-| **M7** — hardening and audit | ⏳ | fuzzing, Miri, external audit, signatures |
-| **M8** — v1.0 | ⏳ | releases, website, documentation |
+| **v1.1** | ✅ | skeleton, CI, auto-build, GPL-3.0, RU/EN, any drive |
+| **v1.2** | ⏳ | crypto core and SPV1 format: Argon2id, XChaCha20-Poly1305, slots, chunks |
+| **v1.3** | ⏳ | CLI and filesystem: `init/open/ls/put/get/rm`, extents, index, FAT32 split, ARMv7/RISC-V |
+| **v1.4** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
+| **v1.5** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |
+| **v1.6** | ⏳ | shred, free-space wipe, destroy, Reed-Solomon sharding |
+| **v1.7** | ⏳ | GUI: Tauri 2 + Svelte, creation wizard, file manager |
+| **v2.0** | ⏳ | hardening, fuzzing, Miri, external audit, signatures, SBOM |
 
 ## 🤝 Contributing
 
@@ -186,18 +290,19 @@ Dual-use tool. Use it only to protect your own data and within the law. The auth
 ## Download
 
 <p align="center">
-  <a href="https://github.com/AmazingCoderA/secretpiece/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-x64-0078D4?style=for-the-badge&logo=windows11&logoColor=white"></a>
-  <a href="https://github.com/AmazingCoderA/secretpiece/releases/latest"><img alt="Linux" src="https://img.shields.io/badge/Linux-x64-FCC624?style=for-the-badge&logo=linux&logoColor=black"></a>
+  <a href="https://github.com/AmazingCoderA/secretpiece/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-x64_/_ARM64-0078D4?style=for-the-badge&logo=windows11&logoColor=white"></a>
+  <a href="https://github.com/AmazingCoderA/secretpiece/releases/latest"><img alt="Linux" src="https://img.shields.io/badge/Linux-x64_/_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black"></a>
   <a href="https://github.com/AmazingCoderA/secretpiece/releases/latest"><img alt="macOS" src="https://img.shields.io/badge/macOS-universal-000000?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/AmazingCoderA/secretpiece/releases/latest"><img alt="BSD" src="https://img.shields.io/badge/BSD-FreeBSD_/_OpenBSD_/_NetBSD-AB2B28?style=for-the-badge&logo=freebsd&logoColor=white"></a>
 </p>
 
-All builds live in [Releases](https://github.com/AmazingCoderA/secretpiece/releases) together with `SHA256SUMS.txt`. Every push to `main` builds fresh artifacts automatically.
+<p align="center"><sub>encrypted USB vault · hidden volume · VeraCrypt alternative · Rust · GPL-3.0 · open source</sub></p>
 
 ---
 
 <p align="center">
-  <a href="README.md"><img alt="Русский" src="https://img.shields.io/badge/RU-Русский-1f2937?style=for-the-badge"></a>
-  <a href="README.en.md"><img alt="English" src="https://img.shields.io/badge/EN-English-6ea8ff?style=for-the-badge"></a>
+  <a href="README.md"><img alt="Русский" src="https://img.shields.io/badge/RU-Русский-9b6bff?style=for-the-badge"></a>
+  <a href="README.en.md"><img alt="English" src="https://img.shields.io/badge/EN-English-1f2937?style=for-the-badge"></a>
 </p>
 
 <p align="center">

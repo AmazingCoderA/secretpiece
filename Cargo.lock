@@ -4,47 +4,47 @@ version = 4
 
 [[package]]
 name = "sp-cli"
-version = "0.1.1"
+version = "1.1.0"
 dependencies = [
  "sp-core",
 ]
 
 [[package]]
 name = "sp-core"
-version = "0.1.1"
+version = "1.1.0"
 
 [[package]]
 name = "sp-crypto"
-version = "0.1.1"
+version = "1.1.0"
 
 [[package]]
 name = "sp-ffi"
-version = "0.1.1"
+version = "1.1.0"
 
 [[package]]
 name = "sp-format"
-version = "0.1.1"
+version = "1.1.0"
 
 [[package]]
 name = "sp-fs"
-version = "0.1.1"
+version = "1.1.0"
 
 [[package]]
 name = "sp-platform"
-version = "0.1.1"
+version = "1.1.0"
 
 [[package]]
 name = "sp-storage"
-version = "0.1.1"
+version = "1.1.0"
 
 [[package]]
 name = "sp-testkit"
-version = "0.1.1"
+version = "1.1.0"
 
 [[package]]
 name = "sp-vault"
-version = "0.1.1"
+version = "1.1.0"
 
 [[package]]
 name = "sp-wipe"
-version = "0.1.1"
+version = "1.1.0"

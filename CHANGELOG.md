@@ -7,22 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1] - 2026-11-09
+## [1.1.0] - 2026-11-09
+
+Second public milestone. Still a skeleton: cryptography and the container format
+are **not** implemented yet — do not use for real data.
 
 ### Added
 
-- Download buttons and a repeated language switch at the bottom of the README.
-- Auto-build artifacts on every push to `main` and on pull requests.
+- Russian/English CLI localization: `--lang ru|en`, `SP_LANG`, and locale
+  auto-detection (`LC_ALL`, `LC_MESSAGES`, `LANG`). Localized help, version line
+  and errors, including free-space hints.
+- Release matrix: Windows x64, Windows ARM64 (experimental), Linux x64 and
+  ARM64 static musl, macOS universal, Arch Linux package build, and experimental
+  FreeBSD/OpenBSD/NetBSD VM builds.
+- `packaging/arch/PKGBUILD` for Arch Linux.
+- Architecture diagram (`docs/assets/architecture.svg`).
+- Bilingual README with install anchors, download buttons, encryption and format
+  tables, platform matrix, out-of-space guidance, and a repeated language switch
+  at the bottom.
+- Download section with per-platform buttons and checksums.
 
 ### Changed
 
+- Version scheme moved to `1.x` tags (`v1.1`, `v1.2`, `v2.0`), without
+  micro-patch releases.
 - License changed to **GPL-3.0-only**.
-- README redesigned: bilingual language switch, encryption overview, any-drive support.
+- Release workflow now runs on every push to `main`, on pull requests, and on
+  `v*` tags; tag pushes publish a GitHub Release with `SHA256SUMS.txt`.
 
 ### Removed
 
 - The draft technical specification was removed from the repository (kept in git
-  history). Design docs (`FORMAT.md`, `CRYPTO.md`) will be published with M1.
+  history and locally). Design docs (`FORMAT.md`, `CRYPTO.md`) will be published
+  with v1.2.
 
 ## [0.1.0] - 2026-11-09
 
@@ -43,6 +60,6 @@ format are **not** implemented yet — do not use for real data.
   macOS universal, archives with `SHA256SUMS.txt`, automatic GitHub Release.
 - Dependabot and issue templates.
 
-[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v0.1.1
+[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v1.1...HEAD
+[1.1.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.1
 [0.1.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v0.1.0

@@ -18,6 +18,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Stable, release-blocking builds.
   build:
     name: ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
@@ -37,6 +38,12 @@ jobs:
             targets: x86_64-unknown-linux-musl
             ext: ""
             archive: tar.gz
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+            target: aarch64-unknown-linux-musl
+            targets: aarch64-unknown-linux-musl
+            ext: ""
+            archive: tar.gz
           - os: macos-latest
             platform: macos-universal
             target: universal
@@ -47,7 +54,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install musl toolchain
-        if: matrix.target == 'x86_64-unknown-linux-musl'
+        if: endsWith(matrix.target, '-musl')
         run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - uses: dtolnay/rust-toolchain@stable
@@ -62,6 +69,7 @@ jobs:
         shell: bash
         env:
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -113,9 +121,116 @@ jobs:
             package/*.tar.gz
           if-no-files-found: error
 
+  # Windows on ARM is still a preview runner: never block a release on it.
+  windows-arm64:
+    name: windows-arm64
+    runs-on: windows-11-arm
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-arm64
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --locked -p sp-cli --target aarch64-pc-windows-msvc
+          mkdir -p dist
+          cp target/aarch64-pc-windows-msvc/release/sp.exe dist/
+          cp target/aarch64-pc-windows-msvc/release/secretpiece.exe dist/
+      - name: Stage package
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="dev-${GITHUB_SHA::7}"
+          fi
+          name="secretpiece-${version}-windows-arm64"
+          mkdir -p "package/${name}"
+          cp dist/* "package/${name}/"
+          cp README.md README.en.md LICENSE CHANGELOG.md "package/${name}/"
+          echo "PACKAGE_NAME=${name}" >> "$GITHUB_ENV"
+      - name: Archive
+        shell: pwsh
+        run: Compress-Archive -Path "package/$env:PACKAGE_NAME/*" -DestinationPath "package/$env:PACKAGE_NAME.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secretpiece-windows-arm64
+          path: package/*.zip
+          if-no-files-found: error
+
+  # Arch Linux: real build inside a clean Arch container.
+  arch:
+    name: arch-x64
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    continue-on-error: true
+    steps:
+      - name: Bootstrap
+        run: pacman -Sy --noconfirm --needed git
+      - uses: actions/checkout@v7
+      - name: Install toolchain
+        run: pacman -S --noconfirm --needed base-devel rust
+      - name: Build
+        run: |
+          set -euo pipefail
+          cargo build --release --locked -p sp-cli
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="dev-${GITHUB_SHA::7}"
+          fi
+          name="secretpiece-${version}-arch-x64"
+          mkdir -p "package/${name}"
+          cp target/release/sp target/release/secretpiece "package/${name}/"
+          cp README.md README.en.md LICENSE CHANGELOG.md packaging/arch/PKGBUILD "package/${name}/"
+          tar -czf "package/${name}.tar.gz" -C package "${name}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secretpiece-arch-x64
+          path: package/*.tar.gz
+          if-no-files-found: error
+
+  # BSD builds run inside real VMs. Experimental: a failure never blocks the release.
+  bsd:
+    name: ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: freebsd-x64
+            vm: vmactions/freebsd-vm@v1
+            install: pkg install -y rust
+          - platform: openbsd-x64
+            vm: vmactions/openbsd-vm@v1
+            install: pkg_add rust
+          - platform: netbsd-x64
+            vm: vmactions/netbsd-vm@v1
+            install: pkgin -y install rust
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ${{ matrix.vm }}
+        with:
+          usesh: true
+          prepare: |
+            ${{ matrix.install }}
+          run: |
+            set -eu
+            cargo build --release --locked -p sp-cli
+            ./target/release/sp --version
+            ./target/release/sp --help | head -n 5
+
   release:
     name: publish release
-    needs: build
+    needs: [build, windows-arm64, arch]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
@@ -129,7 +244,14 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-          sha256sum *.zip *.tar.gz > SHA256SUMS.txt
+          mapfile -t files < <(find . -maxdepth 1 -type f \
+            \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.pkg.tar.zst' \) \
+            -printf '%f\n' | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no release archives were produced" >&2
+            exit 1
+          fi
+          sha256sum "${files[@]}" > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Publish GitHub Release

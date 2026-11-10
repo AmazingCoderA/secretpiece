@@ -1,5 +1,7 @@
 # SecretPiece for Android
 
+![SecretPiece for Android](../docs/assets/android.svg)
+
 Compose app that opens a `.spv` container directly from a USB drive connected
 over OTG/USB-C. No root, no drivers, no `MANAGE_EXTERNAL_STORAGE`.
 

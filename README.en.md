@@ -273,6 +273,7 @@ Hints are everywhere: in CLI errors, in `sp df`, in the GUI banner, and in `sp d
 | OpenBSD | x64 (VM build) | experimental |
 | NetBSD | x64 (VM build) | experimental |
 | Linux ARMv7 / RISC-V | build from source | planned v1.3 |
+| Flatpak / AppImage | sandbox and portable image | planned v1.4 |
 
 ## 🛠️ Build and releases
 

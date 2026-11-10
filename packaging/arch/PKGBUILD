@@ -1,5 +1,5 @@
 pkgname=secretpiece
-pkgver=1.1
+pkgver=1.2
 pkgrel=1
 pkgdesc="Portable, deniable encrypted vault for USB drives (skeleton release)"
 arch=('x86_64' 'aarch64')

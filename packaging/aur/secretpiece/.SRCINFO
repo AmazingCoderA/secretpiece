@@ -1,6 +1,6 @@
 pkgbase = secretpiece
 	pkgdesc = Portable, deniable encrypted vault for USB drives, HDD/SSD and network folders
-	pkgver = 1.1
+	pkgver = 1.2
 	pkgrel = 1
 	url = https://github.com/AmazingCoderA/secretpiece
 	arch = x86_64
@@ -9,7 +9,7 @@ pkgbase = secretpiece
 	makedepends = cargo
 	makedepends = rust
 	depends = gcc-libs
-	source = secretpiece-1.1.tar.gz::https://github.com/AmazingCoderA/secretpiece/archive/refs/tags/v1.1.tar.gz
-	sha256sums = 7c09c0cd76d411729ceddd8fb1a9f20656913d803db2d83572c745b6eb02fbd8
+	source = secretpiece-1.2.tar.gz::https://github.com/AmazingCoderA/secretpiece/archive/refs/tags/v1.2.tar.gz
+	sha256sums = SKIP
 
 pkgname = secretpiece

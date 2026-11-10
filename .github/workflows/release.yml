@@ -287,9 +287,43 @@ jobs:
             ./target/release/sp --version
             ./target/release/sp --help | head -n 5
 
+  # Android APK: Compose UI + SAF access to a .spv file on a USB drive via OTG.
+  android:
+    name: android-apk
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+      - name: Build debug APK
+        run: gradle -p android assembleDebug --no-daemon
+      - name: Stage package
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="dev-${GITHUB_SHA::7}"
+          fi
+          mkdir -p package
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+            "package/secretpiece-${version}-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secretpiece-android
+          path: package/*.apk
+          if-no-files-found: error
+
   release:
     name: publish release
-    needs: [build, windows-arm64, arch]
+    needs: [build, windows-arm64, arch, android]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
@@ -304,7 +338,7 @@ jobs:
           set -euo pipefail
           cd dist
           mapfile -t files < <(find . -maxdepth 1 -type f \
-            \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.pkg.tar.zst' \) \
+            \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.pkg.tar.zst' -o -name '*.apk' \) \
             -printf '%f\n' | sort)
           if [ "${#files[@]}" -eq 0 ]; then
             echo "no release archives were produced" >&2

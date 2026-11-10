@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-09
+
+Packaging and visuals release. Still a skeleton: cryptography and the container
+format are **not** implemented yet — do not use for real data.
+
+### Added
+
+- New hero banner (`docs/assets/hero.svg`) and a bilingual CLI preview
+  (`docs/assets/cli.svg`) in Russian and English.
+- Arch Linux `pacman` package built in CI and attached to releases
+  (`secretpiece-1.2-1-x86_64.pkg.tar.zst`).
+- AUR recipes for `secretpiece` (source build) and `secretpiece-bin`
+  (prebuilt binary), with `yay`/`paru` instructions.
+- Windows ARM64, Linux ARM64, FreeBSD and OpenBSD builds in the release matrix.
+- Download buttons for Windows, Linux, macOS, BSD and Arch Linux.
+- Android app skeleton (`android/`): Compose UI in RU/EN, SAF file picker for a
+  `.spv` on a USB drive over OTG, `VIEW` intent, no `INTERNET` permission.
+  Crypto wiring via `sp-ffi` is planned for v1.3 (`docs/ANDROID.md`).
+
+### Changed
+
+- Version scheme moved to `1.x` tags (`v1.1`, `v1.2`, `v2.0`), without
+  micro-patch releases.
+- License changed to **GPL-3.0-only**.
+- Release workflow now runs on every push to `main`, on pull requests, and on
+  `v*` tags; tag pushes publish a GitHub Release with `SHA256SUMS.txt`.
+
 ## [1.1.0] - 2026-11-09
 
 Second public milestone. Still a skeleton: cryptography and the container format
@@ -62,6 +89,7 @@ format are **not** implemented yet — do not use for real data.
   macOS universal, archives with `SHA256SUMS.txt`, automatic GitHub Release.
 - Dependabot and issue templates.
 
-[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v1.1...HEAD
+[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v1.2...HEAD
+[1.2.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.2
 [1.1.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.1
 [0.1.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v0.1.0

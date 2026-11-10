@@ -28,7 +28,7 @@
 > 🔐 **Your secret, in pieces.** Один файл. Внутри — зашифрованный виртуальный том, скрытый том с отдельным паролем и всё, что нужно, чтобы данные пережили потерю носителя.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-v1.1%20·%20skeleton-9b6bff" alt="status">
+  <img src="https://img.shields.io/badge/status-v1.2%20·%20skeleton-9b6bff" alt="status">
   <img src="https://img.shields.io/badge/crypto-not%20implemented%20yet-critical" alt="crypto not implemented">
 </p>
 
@@ -53,6 +53,7 @@
 <p align="center">
   <a href="#windows"><img alt="Windows" src="https://img.shields.io/badge/Windows-x64_/_ARM64-0078D4?style=for-the-badge&logo=windows11&logoColor=white"></a>
   <a href="#macos"><img alt="macOS" src="https://img.shields.io/badge/macOS-universal-000000?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="#android"><img alt="Android" src="https://img.shields.io/badge/Android-APK-3DDC84?style=for-the-badge&logo=android&logoColor=white"></a>
   <a href="#linux"><img alt="Linux" src="https://img.shields.io/badge/Linux-x64_/_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black"></a>
   <a href="#arch-linux"><img alt="Arch Linux" src="https://img.shields.io/badge/Arch_Linux-pkg-1793D1?style=for-the-badge&logo=archlinux&logoColor=white"></a>
   <a href="#bsd"><img alt="BSD" src="https://img.shields.io/badge/BSD-FreeBSD_/_OpenBSD_/_NetBSD-AB2B28?style=for-the-badge&logo=freebsd&logoColor=white"></a>
@@ -79,6 +80,21 @@ xattr -dr com.apple.quarantine ./sp
 ./sp --version
 ```
 
+### Android
+
+```bash
+# APK из Releases
+adb install -r secretpiece-<version>-android.apk
+```
+
+Или включите «Установка из неизвестных источников» и откройте APK на телефоне
+(Android 8+, ARM64). Сценарий: флешка через OTG/USB-C → «Выбрать файл .spv» →
+пароль → работа с файлами. Без root и без разрешения `INTERNET`.
+Подробнее — [`docs/ANDROID.md`](docs/ANDROID.md).
+
+> Сейчас в APK готовы UI и доступ к носителю через SAF; криптоядро подключается
+> в v1.3 через `sp-ffi`.
+
 ### Linux
 
 ```bash
@@ -93,7 +109,7 @@ tar -xzf secretpiece-<version>-linux-x64.tar.gz
 
 ```bash
 # готовый pacman-пакет из Releases (x86_64)
-sudo pacman -U secretpiece-1.1-1-x86_64.pkg.tar.zst
+sudo pacman -U secretpiece-1.2-1-x86_64.pkg.tar.zst
 
 # AUR (после публикации рецепта)
 yay -S secretpiece-bin    # готовый бинарник
@@ -244,10 +260,11 @@ SecretPiece проверяет свободное место **до** запис
 
 | ОС | Готовые сборки | Статус |
 |---|---|---|
-| Windows 10/11 | x64, ARM64 | v1.1 |
-| macOS 13+ | universal (Intel + Apple Silicon) | v1.1 |
-| Linux | x64, ARM64 (static musl) | v1.1 |
-| Arch Linux | x64, pacman-пакет, PKGBUILD, AUR (yay/paru) | v1.1 |
+| Windows 10/11 | x64, ARM64 | v1.2 |
+| macOS 13+ | universal (Intel + Apple Silicon) | v1.2 |
+| Android 8+ | APK (UI + SAF), ARM64 | v1.2 (каркас) |
+| Linux | x64, ARM64 (static musl) | v1.2 |
+| Arch Linux | x64, pacman-пакет, PKGBUILD, AUR (yay/paru) | v1.2 |
 | FreeBSD | x64 (VM build) | экспериментально |
 | OpenBSD | x64 (VM build) | экспериментально |
 | NetBSD | x64 (VM build) | экспериментально |
@@ -267,7 +284,7 @@ cargo run -p sp-cli --bin sp -- --version
 
 - **Auto-build** — на каждый push в `main` и на каждый PR: артефакты на странице запуска workflow.
 - **Release** — на тег `v*`: архивы + `SHA256SUMS.txt` в GitHub Releases.
-- **Ассеты релиза:** `windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`, `macos-universal`, `arch-x64`, `secretpiece-<ver>-1-x86_64.pkg.tar.zst` + `SHA256SUMS.txt`.
+- **Ассеты релиза:** `windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`, `macos-universal`, `arch-x64`, `*.pkg.tar.zst`, `android.apk` + `SHA256SUMS.txt`.
 - Версии — `1.1`, `1.2`, `1.3`, `2.0` (без микро-патчей в тегах).
 
 ## 📚 Документация
@@ -279,19 +296,20 @@ cargo run -p sp-cli --bin sp -- --version
 | [ADR](docs/ADR/README.md) | архитектурные решения |
 | [CHANGELOG.md](CHANGELOG.md) | история изменений |
 
-Байтовая спецификация (`docs/FORMAT.md`) и крипто-дизайн (`docs/CRYPTO.md`) появятся вместе с v1.2.
+Байтовая спецификация (`docs/FORMAT.md`) и крипто-дизайн (`docs/CRYPTO.md`) появятся вместе с v1.3.
 
 ## 🧭 Дорожная карта
 
 | Версия | Статус | Результат |
 |---|---|---|
-| **v1.1** | ✅ | каркас, CI, автосборка, GPL-3.0, RU/EN, любые носители |
-| **v1.2** | ⏳ | крипто-ядро и формат SPV1: Argon2id, XChaCha20-Poly1305, слоты, чанки |
-| **v1.3** | ⏳ | CLI и ФС: `init/open/ls/put/get/rm`, extents, индекс, FAT32 split, ARMv7/RISC-V |
-| **v1.4** | ⏳ | надёжность: COW, снапшоты, корзина, `doctor`, resize, crash-тесты |
-| **v1.5** | ⏳ | скрытый том, recovery, Shamir, слоты получателей X25519 |
-| **v1.6** | ⏳ | затирание, free-space wipe, destroy, Reed-Solomon sharding |
-| **v1.7** | ⏳ | GUI: Tauri 2 + Svelte, мастер создания, менеджер файлов |
+| **v1.1** | ✅ | каркас, CI, автосборка, GPL-3.0, любые носители |
+| **v1.2** | ✅ | визуал, RU/EN CLI, pacman/AUR, Android-каркас, Windows ARM64, Linux ARM64, BSD |
+| **v1.3** | ⏳ | крипто-ядро и формат SPV1: Argon2id, XChaCha20-Poly1305, слоты, чанки |
+| **v1.4** | ⏳ | CLI и ФС: `init/open/ls/put/get/rm`, extents, индекс, FAT32 split, ARMv7/RISC-V |
+| **v1.5** | ⏳ | надёжность: COW, снапшоты, корзина, `doctor`, resize, crash-тесты |
+| **v1.6** | ⏳ | скрытый том, recovery, Shamir, слоты получателей X25519 |
+| **v1.7** | ⏳ | затирание, free-space wipe, destroy, Reed-Solomon sharding |
+| **v1.8** | ⏳ | GUI: Tauri 2 + Svelte, мастер создания, менеджер файлов |
 | **v2.0** | ⏳ | hardening, фаззинг, Miri, внешний аудит, подписи, SBOM |
 
 ## 🤝 Участие

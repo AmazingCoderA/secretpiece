@@ -34,5 +34,15 @@ src-tauri/target/
 fuzz/artifacts/
 fuzz/corpus/
 
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.cxx/
+*.apk
+*.aab
+!docs/assets/*.apk
+
 # Local-only design document (kept out of the public repo)
 docs/TZ.ru.md

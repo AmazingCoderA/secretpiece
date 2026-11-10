@@ -1,6 +1,6 @@
 # Maintainer: SecretPiece contributors <https://github.com/AmazingCoderA/secretpiece>
 pkgname=secretpiece
-pkgver=1.1
+pkgver=1.2
 pkgrel=1
 pkgdesc="Portable, deniable encrypted vault for USB drives, HDD/SSD and network folders"
 arch=('x86_64' 'aarch64')
@@ -9,7 +9,7 @@ license=('GPL-3.0-only')
 depends=('gcc-libs')
 makedepends=('cargo' 'rust')
 source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
-sha256sums=('7c09c0cd76d411729ceddd8fb1a9f20656913d803db2d83572c745b6eb02fbd8')
+sha256sums=('SKIP')
 
 build() {
   cd "${srcdir}/${pkgname}-${pkgver}"

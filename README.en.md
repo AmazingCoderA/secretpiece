@@ -28,7 +28,7 @@
 > 🔐 **Your secret, in pieces.** One file. Inside — an encrypted virtual volume, a hidden volume with its own password, and everything needed to survive the loss of the drive.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-v1.1%20·%20skeleton-9b6bff" alt="status">
+  <img src="https://img.shields.io/badge/status-v1.2%20·%20skeleton-9b6bff" alt="status">
   <img src="https://img.shields.io/badge/crypto-not%20implemented%20yet-critical" alt="crypto not implemented">
 </p>
 
@@ -53,6 +53,7 @@
 <p align="center">
   <a href="#windows"><img alt="Windows" src="https://img.shields.io/badge/Windows-x64_/_ARM64-0078D4?style=for-the-badge&logo=windows11&logoColor=white"></a>
   <a href="#macos"><img alt="macOS" src="https://img.shields.io/badge/macOS-universal-000000?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="#android"><img alt="Android" src="https://img.shields.io/badge/Android-APK-3DDC84?style=for-the-badge&logo=android&logoColor=white"></a>
   <a href="#linux"><img alt="Linux" src="https://img.shields.io/badge/Linux-x64_/_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black"></a>
   <a href="#arch-linux"><img alt="Arch Linux" src="https://img.shields.io/badge/Arch_Linux-pkg-1793D1?style=for-the-badge&logo=archlinux&logoColor=white"></a>
   <a href="#bsd"><img alt="BSD" src="https://img.shields.io/badge/BSD-FreeBSD_/_OpenBSD_/_NetBSD-AB2B28?style=for-the-badge&logo=freebsd&logoColor=white"></a>
@@ -79,6 +80,21 @@ xattr -dr com.apple.quarantine ./sp
 ./sp --version
 ```
 
+### Android
+
+```bash
+# APK from Releases
+adb install -r secretpiece-<version>-android.apk
+```
+
+Or enable "Install unknown apps" and open the APK on the phone (Android 8+,
+ARM64). Scenario: USB drive over OTG/USB-C → "Choose .spv file" → password →
+work with files. No root, no `INTERNET` permission.
+Details: [`docs/ANDROID.md`](docs/ANDROID.md).
+
+> The APK currently ships the UI and SAF access to the drive; the crypto core is
+> wired in v1.3 through `sp-ffi`.
+
 ### Linux
 
 ```bash
@@ -93,7 +109,7 @@ ARM64 — `linux-arm64`. Works on Ubuntu 22.04+, Fedora, Debian, Arch, Alpine.
 
 ```bash
 # ready-made pacman package from Releases (x86_64)
-sudo pacman -U secretpiece-1.1-1-x86_64.pkg.tar.zst
+sudo pacman -U secretpiece-1.2-1-x86_64.pkg.tar.zst
 
 # AUR (once the recipe is published)
 yay -S secretpiece-bin    # prebuilt binary
@@ -244,10 +260,11 @@ Hints are everywhere: in CLI errors, in `sp df`, in the GUI banner, and in `sp d
 
 | OS | Ready builds | Status |
 |---|---|---|
-| Windows 10/11 | x64, ARM64 | v1.1 |
-| macOS 13+ | universal (Intel + Apple Silicon) | v1.1 |
-| Linux | x64, ARM64 (static musl) | v1.1 |
-| Arch Linux | x64, pacman package, PKGBUILD, AUR (yay/paru) | v1.1 |
+| Windows 10/11 | x64, ARM64 | v1.2 |
+| macOS 13+ | universal (Intel + Apple Silicon) | v1.2 |
+| Android 8+ | APK (UI + SAF), ARM64 | v1.2 (skeleton) |
+| Linux | x64, ARM64 (static musl) | v1.2 |
+| Arch Linux | x64, pacman package, PKGBUILD, AUR (yay/paru) | v1.2 |
 | FreeBSD | x64 (VM build) | experimental |
 | OpenBSD | x64 (VM build) | experimental |
 | NetBSD | x64 (VM build) | experimental |
@@ -267,7 +284,7 @@ Requires Rust stable (MSRV **1.85**, edition 2024).
 
 - **Auto-build** — on every push to `main` and every PR: artifacts on the workflow run page.
 - **Release** — on a `v*` tag: archives + `SHA256SUMS.txt` in GitHub Releases.
-- **Release assets:** `windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`, `macos-universal`, `arch-x64`, `secretpiece-<ver>-1-x86_64.pkg.tar.zst` + `SHA256SUMS.txt`.
+- **Release assets:** `windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`, `macos-universal`, `arch-x64`, `*.pkg.tar.zst`, `android.apk` + `SHA256SUMS.txt`.
 - Versions — `1.1`, `1.2`, `1.3`, `2.0` (no micro-patch tags).
 
 ## 📚 Documentation
@@ -279,19 +296,20 @@ Requires Rust stable (MSRV **1.85**, edition 2024).
 | [ADR](docs/ADR/README.md) | architecture decision records |
 | [CHANGELOG.md](CHANGELOG.md) | change history |
 
-The byte-level format spec (`docs/FORMAT.md`) and crypto design (`docs/CRYPTO.md`) will land together with v1.2.
+The byte-level format spec (`docs/FORMAT.md`) and crypto design (`docs/CRYPTO.md`) will land together with v1.3.
 
 ## 🧭 Roadmap
 
 | Version | Status | Outcome |
 |---|---|---|
-| **v1.1** | ✅ | skeleton, CI, auto-build, GPL-3.0, RU/EN, any drive |
-| **v1.2** | ⏳ | crypto core and SPV1 format: Argon2id, XChaCha20-Poly1305, slots, chunks |
-| **v1.3** | ⏳ | CLI and filesystem: `init/open/ls/put/get/rm`, extents, index, FAT32 split, ARMv7/RISC-V |
-| **v1.4** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
-| **v1.5** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |
-| **v1.6** | ⏳ | shred, free-space wipe, destroy, Reed-Solomon sharding |
-| **v1.7** | ⏳ | GUI: Tauri 2 + Svelte, creation wizard, file manager |
+| **v1.1** | ✅ | skeleton, CI, auto-build, GPL-3.0, any drive |
+| **v1.2** | ✅ | visuals, RU/EN CLI, pacman/AUR, Android skeleton, Windows ARM64, Linux ARM64, BSD |
+| **v1.3** | ⏳ | crypto core and SPV1 format: Argon2id, XChaCha20-Poly1305, slots, chunks |
+| **v1.4** | ⏳ | CLI and filesystem: `init/open/ls/put/get/rm`, extents, index, FAT32 split, ARMv7/RISC-V |
+| **v1.5** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
+| **v1.6** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |
+| **v1.7** | ⏳ | shred, free-space wipe, destroy, Reed-Solomon sharding |
+| **v1.8** | ⏳ | GUI: Tauri 2 + Svelte, creation wizard, file manager |
 | **v2.0** | ⏳ | hardening, fuzzing, Miri, external audit, signatures, SBOM |
 
 ## 🤝 Contributing

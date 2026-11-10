@@ -95,6 +95,10 @@ Details: [`docs/ANDROID.md`](docs/ANDROID.md).
 > The APK currently ships the UI and SAF access to the drive; the crypto core is
 > wired in v1.3 through `sp-ffi`.
 
+<p align="center">
+  <img src="docs/assets/android.svg" alt="SecretPiece for Android: USB drive over OTG, .spv picker and password" width="100%">
+</p>
+
 ### Linux
 
 ```bash

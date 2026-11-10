@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-label="SecretPiece for Android — unlock a vault from a USB drive">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#05080f"/>
+      <stop offset="0.55" stop-color="#0a1120"/>
+      <stop offset="1" stop-color="#131a33"/>
+    </linearGradient>
+    <linearGradient id="phone" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1424"/>
+      <stop offset="1" stop-color="#070b14"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7fefff"/>
+      <stop offset="0.5" stop-color="#6ea8ff"/>
+      <stop offset="1" stop-color="#b28cff"/>
+    </linearGradient>
+    <linearGradient id="cta" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4de8ff"/>
+      <stop offset="1" stop-color="#6ea8ff"/>
+    </linearGradient>
+    <linearGradient id="cta2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9b6bff"/>
+      <stop offset="1" stop-color="#b28cff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.1" r="0.7">
+      <stop offset="0" stop-color="#9b6bff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#9b6bff" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" fill="none" stroke="#9dbcff" stroke-opacity="0.05" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="720" rx="28" fill="url(#bg)"/>
+  <rect width="1200" height="720" rx="28" fill="url(#grid)"/>
+  <rect width="1200" height="720" rx="28" fill="url(#glow)"/>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif">
+    <text x="60" y="58" font-size="13" font-weight="700" letter-spacing="3.4" fill="#6f84a8">ANDROID · OTG</text>
+    <text x="60" y="92" font-size="24" font-weight="700" fill="#e8f0ff">Флешка → телефон → пароль</text>
+    <text x="60" y="120" font-size="14" fill="#8ea3c8">Android 8+ · ARM64 · без root · без разрешения INTERNET · доступ через SAF</text>
+
+    <!-- phone 1: Russian -->
+    <g transform="translate(120 168)">
+      <rect x="0" y="0" width="380" height="500" rx="42" fill="#111827" stroke="#2b3f63" stroke-width="2"/>
+      <rect x="10" y="12" width="360" height="476" rx="34" fill="url(#phone)"/>
+      <rect x="150" y="22" width="80" height="10" rx="5" fill="#1b2740"/>
+
+      <g transform="translate(34 60)">
+        <rect x="0" y="0" width="42" height="42" rx="12" fill="url(#accent)" opacity="0.9"/>
+        <circle cx="21" cy="21" r="11" fill="none" stroke="#05080f" stroke-width="2"/>
+        <circle cx="21" cy="21" r="3" fill="#05080f"/>
+        <text x="54" y="20" font-size="22" font-weight="800" fill="url(#accent)">SecretPiece</text>
+        <text x="54" y="38" font-size="10.5" fill="#8ea3c8">Your secret, in pieces.</text>
+
+        <rect x="252" y="2" width="46" height="24" rx="12" fill="#4de8ff" fill-opacity="0.16" stroke="#4de8ff" stroke-opacity="0.4"/>
+        <text x="275" y="18" font-size="11" font-weight="700" fill="#9feaff" text-anchor="middle">RU</text>
+        <rect x="302" y="2" width="46" height="24" rx="12" fill="#101a2e" stroke="#2b3f63"/>
+        <text x="325" y="18" font-size="11" font-weight="700" fill="#6f84a8" text-anchor="middle">EN</text>
+      </g>
+
+      <text x="34" y="146" font-size="17" font-weight="700" fill="#e8f0ff">Зашифрованный сейф</text>
+      <text x="34" y="166" font-size="12" fill="#8ea3c8">в обычном файле .spv</text>
+
+      <rect x="34" y="188" width="312" height="104" rx="16" fill="#0c1424" stroke="#223354"/>
+      <text x="50" y="212" font-size="12" font-weight="700" fill="#cfe0ff">Сценарий: флешка + телефон</text>
+      <text x="50" y="234" font-size="10.5" fill="#8ea3c8">1. Подключите USB-флешку через OTG.</text>
+      <text x="50" y="252" font-size="10.5" fill="#8ea3c8">2. Выберите файл .spv на носителе.</text>
+      <text x="50" y="270" font-size="10.5" fill="#8ea3c8">3. Введите пароль и откройте том.</text>
+
+      <rect x="34" y="312" width="312" height="42" rx="14" fill="url(#cta)"/>
+      <text x="190" y="338" font-size="13" font-weight="700" fill="#031018" text-anchor="middle">Выбрать файл .spv</text>
+      <text x="34" y="374" font-size="10.5" fill="#4de8ff">Выбран: personal.spv · 8 ГиБ</text>
+
+      <rect x="34" y="390" width="312" height="44" rx="14" fill="#0b1220" stroke="#2b3f63"/>
+      <text x="50" y="417" font-size="11.5" fill="#6f84a8">Пароль</text>
+      <text x="318" y="417" font-size="12" fill="#8ea3c8" text-anchor="end">••••••••••</text>
+
+      <rect x="34" y="448" width="312" height="44" rx="14" fill="url(#cta2)"/>
+      <text x="190" y="475" font-size="13" font-weight="700" fill="#0b0618" text-anchor="middle">Открыть хранилище</text>
+    </g>
+
+    <!-- phone 2: English -->
+    <g transform="translate(700 168)">
+      <rect x="0" y="0" width="380" height="500" rx="42" fill="#111827" stroke="#2b3f63" stroke-width="2"/>
+      <rect x="10" y="12" width="360" height="476" rx="34" fill="url(#phone)"/>
+      <rect x="150" y="22" width="80" height="10" rx="5" fill="#1b2740"/>
+
+      <g transform="translate(34 60)">
+        <rect x="0" y="0" width="42" height="42" rx="12" fill="url(#accent)" opacity="0.9"/>
+        <circle cx="21" cy="21" r="11" fill="none" stroke="#05080f" stroke-width="2"/>
+        <circle cx="21" cy="21" r="3" fill="#05080f"/>
+        <text x="54" y="20" font-size="22" font-weight="800" fill="url(#accent)">SecretPiece</text>
+        <text x="54" y="38" font-size="10.5" fill="#8ea3c8">Your secret, in pieces.</text>
+
+        <rect x="252" y="2" width="46" height="24" rx="12" fill="#101a2e" stroke="#2b3f63"/>
+        <text x="275" y="18" font-size="11" font-weight="700" fill="#6f84a8" text-anchor="middle">RU</text>
+        <rect x="302" y="2" width="46" height="24" rx="12" fill="#9b6bff" fill-opacity="0.18" stroke="#9b6bff" stroke-opacity="0.45"/>
+        <text x="325" y="18" font-size="11" font-weight="700" fill="#c9b4ff" text-anchor="middle">EN</text>
+      </g>
+
+      <text x="34" y="146" font-size="17" font-weight="700" fill="#e8f0ff">Encrypted vault</text>
+      <text x="34" y="166" font-size="12" fill="#8ea3c8">inside a regular .spv file</text>
+
+      <rect x="34" y="188" width="312" height="104" rx="16" fill="#0c1424" stroke="#223354"/>
+      <text x="50" y="212" font-size="12" font-weight="700" fill="#cfe0ff">Scenario: USB drive + phone</text>
+      <text x="50" y="234" font-size="10.5" fill="#8ea3c8">1. Plug the USB drive in via OTG.</text>
+      <text x="50" y="252" font-size="10.5" fill="#8ea3c8">2. Pick the .spv file on the drive.</text>
+      <text x="50" y="270" font-size="10.5" fill="#8ea3c8">3. Enter the password and open it.</text>
+
+      <rect x="34" y="312" width="312" height="42" rx="14" fill="url(#cta)"/>
+      <text x="190" y="338" font-size="13" font-weight="700" fill="#031018" text-anchor="middle">Choose .spv file</text>
+      <text x="34" y="374" font-size="10.5" fill="#4de8ff">Selected: personal.spv · 8 GiB</text>
+
+      <rect x="34" y="390" width="312" height="44" rx="14" fill="#0b1220" stroke="#2b3f63"/>
+      <text x="50" y="417" font-size="11.5" fill="#6f84a8">Password</text>
+      <text x="318" y="417" font-size="12" fill="#8ea3c8" text-anchor="end">••••••••••</text>
+
+      <rect x="34" y="448" width="312" height="44" rx="14" fill="url(#cta2)"/>
+      <text x="190" y="475" font-size="13" font-weight="700" fill="#0b0618" text-anchor="middle">Open vault</text>
+    </g>
+
+    <!-- side notes -->
+    <g font-size="12" fill="#8ea3c8">
+      <rect x="548" y="260" width="104" height="1" fill="#2b3f63"/>
+      <text x="548" y="244" font-size="11" font-weight="700" fill="#6f84a8">SAF · CONTENT URI</text>
+      <text x="548" y="286" font-size="11" font-weight="700" fill="#6f84a8">NO INTERNET</text>
+      <text x="548" y="308" font-size="11" font-weight="700" fill="#6f84a8">NO ROOT</text>
+      <text x="548" y="330" font-size="11" font-weight="700" fill="#6f84a8">ARM64</text>
+    </g>
+
+    <text x="60" y="694" font-size="12" fill="#6f84a8">APK: secretpiece-1.2-android.apk · UI + SAF готовы · криптоядро через sp-ffi в v1.3</text>
+  </g>
+</svg>

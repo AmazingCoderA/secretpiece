@@ -89,9 +89,10 @@
     <!-- platform row -->
     <g font-size="13" font-weight="600" letter-spacing="0.3">
       <text x="80" y="452" fill="#6f84a8">WINDOWS x64 · ARM64</text>
-      <text x="264" y="452" fill="#6f84a8">macOS universal</text>
-      <text x="412" y="452" fill="#6f84a8">LINUX x64 · ARM64</text>
-      <text x="580" y="452" fill="#6f84a8">ARCH · FREEBSD · OPENBSD · NETBSD</text>
+      <text x="250" y="452" fill="#6f84a8">macOS universal</text>
+      <text x="390" y="452" fill="#6f84a8">LINUX x64 · ARM64</text>
+      <text x="540" y="452" fill="#6f84a8">ARCH · BSD</text>
+      <text x="650" y="452" fill="#6f84a8">ANDROID</text>
     </g>
     <rect x="80" y="472" width="760" height="1" fill="#243655"/>
 

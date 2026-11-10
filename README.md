@@ -95,6 +95,10 @@ adb install -r secretpiece-<version>-android.apk
 > Сейчас в APK готовы UI и доступ к носителю через SAF; криптоядро подключается
 > в v1.3 через `sp-ffi`.
 
+<p align="center">
+  <img src="docs/assets/android.svg" alt="SecretPiece для Android: флешка через OTG, выбор .spv и пароль" width="100%">
+</p>
+
 ### Linux
 
 ```bash

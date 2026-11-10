@@ -1,7 +1,9 @@
 package dev.secretpiece.app
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -34,6 +36,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -53,6 +56,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+private const val PREFS = "secretpiece"
+private const val PREF_DISGUISE = "disguise"
 
 private val Bg = Color(0xFF05080F)
 private val SurfaceDark = Color(0xFF0D1424)
@@ -74,6 +80,14 @@ private data class Copy(
     val scenarioTitle: String,
     val scenario: List<String>,
     val platforms: String,
+    val advancedTitle: String,
+    val maskTitle: String,
+    val maskSummary: String,
+    val maskNote: String,
+    val maskOnTitle: String,
+    val maskOnBody: String,
+    val maskOffTitle: String,
+    val maskOffBody: String,
 )
 
 private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
@@ -85,7 +99,7 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         open = "Открыть хранилище",
         pendingTitle = "Криптоядро ещё не подключено",
         pendingBody = "UI и доступ к флешке уже работают. Argon2id и XChaCha20-Poly1305 " +
-            "подключаются в v1.3 через общий Rust-крейт sp-ffi — без переписывания формата.",
+            "подключаются в v1.4 через общий Rust-крейт sp-ffi — без переписывания формата.",
         ok = "Понятно",
         scenarioTitle = "Сценарий: флешка + телефон",
         scenario = listOf(
@@ -95,6 +109,15 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
             "4. Читайте и копируйте файлы прямо с флешки.",
         ),
         platforms = "Android 8+ · ARM64 · без root · доступ через SAF",
+        advancedTitle = "Дополнительно",
+        maskTitle = "Маскировка приложения",
+        maskSummary = "Иконка и название «Калькулятор» в лаунчере.",
+        maskNote = "Опционально. Не меняет файл контейнера и его пароль.",
+        maskOnTitle = "Маскировка включена",
+        maskOnBody = "Приложение теперь называется «Калькулятор». Откройте его из лаунчера. " +
+            "Выключите переключатель, чтобы вернуть название SecretPiece.",
+        maskOffTitle = "Маскировка выключена",
+        maskOffBody = "Иконка и название SecretPiece снова видны в лаунчере.",
     )
 } else {
     Copy(
@@ -105,7 +128,7 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         open = "Open vault",
         pendingTitle = "Crypto core is not wired yet",
         pendingBody = "The UI and USB access already work. Argon2id and XChaCha20-Poly1305 " +
-            "land in v1.3 through the shared Rust crate sp-ffi — without changing the format.",
+            "land in v1.4 through the shared Rust crate sp-ffi — without changing the format.",
         ok = "Got it",
         scenarioTitle = "Scenario: USB drive + phone",
         scenario = listOf(
@@ -115,6 +138,15 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
             "4. Read and copy files directly from the drive.",
         ),
         platforms = "Android 8+ · ARM64 · no root · SAF access",
+        advancedTitle = "Advanced",
+        maskTitle = "Disguise app",
+        maskSummary = "Show «Calculator» as the launcher icon and name.",
+        maskNote = "Optional. Does not change the container file or its password.",
+        maskOnTitle = "Disguise enabled",
+        maskOnBody = "The app is now listed as Calculator. Open it from the launcher. " +
+            "Turn the switch off to restore the SecretPiece name.",
+        maskOffTitle = "Disguise disabled",
+        maskOffBody = "The SecretPiece icon and name are back on the launcher.",
     )
 }
 
@@ -123,6 +155,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        syncDisguise(this)
         incomingUri.value = intent?.data
         setContent { SecretPieceApp(incomingUri.value) }
     }
@@ -132,6 +165,48 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         incomingUri.value = intent.data
     }
+}
+
+private fun disguiseEnabled(context: Context): Boolean =
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getBoolean(PREF_DISGUISE, false)
+
+private fun launcherAlias(context: Context, suffix: String): ComponentName =
+    ComponentName(context, "${context.packageName}.$suffix")
+
+private fun applyDisguise(context: Context, enabled: Boolean) {
+    val pm = context.packageManager
+    val normal = launcherAlias(context, "LauncherSecretPiece")
+    val calculator = launcherAlias(context, "LauncherCalculator")
+    val enabledState = PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+    val disabledState = PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+    pm.setComponentEnabledSetting(
+        normal,
+        if (enabled) disabledState else enabledState,
+        PackageManager.DONT_KILL_APP,
+    )
+    pm.setComponentEnabledSetting(
+        calculator,
+        if (enabled) enabledState else disabledState,
+        PackageManager.DONT_KILL_APP,
+    )
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(PREF_DISGUISE, enabled)
+        .apply()
+}
+
+/** Re-apply the saved choice after a reinstall or a package manager reset. */
+private fun syncDisguise(context: Context) {
+    val wanted = disguiseEnabled(context)
+    val expected = if (wanted) {
+        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+    } else {
+        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+    }
+    val current = context.packageManager
+        .getComponentEnabledSetting(launcherAlias(context, "LauncherCalculator"))
+    if (current != expected) applyDisguise(context, wanted)
 }
 
 @Composable
@@ -170,6 +245,8 @@ private fun VaultScreen(
     }
     var password by remember { mutableStateOf("") }
     var showPending by remember { mutableStateOf(false) }
+    var masked by remember { mutableStateOf(disguiseEnabled(context)) }
+    var maskDialog by remember { mutableStateOf<String?>(null) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -295,6 +372,56 @@ private fun VaultScreen(
             fontSize = 11.sp,
             color = Muted,
             fontFamily = FontFamily.Monospace,
+        )
+
+        Text(
+            t.advancedTitle,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFE8F0FF),
+            modifier = Modifier.padding(top = 6.dp),
+        )
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        t.maskTitle,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE8F0FF),
+                    )
+                    Text(t.maskSummary, fontSize = 12.sp, color = Muted)
+                    Text(t.maskNote, fontSize = 11.sp, color = Color(0xFF6F84A8))
+                }
+                Switch(
+                    checked = masked,
+                    onCheckedChange = { checked ->
+                        applyDisguise(context, checked)
+                        masked = checked
+                        maskDialog = if (checked) "on" else "off"
+                    },
+                )
+            }
+        }
+    }
+
+    maskDialog?.let { which ->
+        AlertDialog(
+            onDismissRequest = { maskDialog = null },
+            confirmButton = {
+                TextButton(onClick = { maskDialog = null }) { Text(t.ok) }
+            },
+            title = { Text(if (which == "on") t.maskOnTitle else t.maskOffTitle) },
+            text = { Text(if (which == "on") t.maskOnBody else t.maskOffBody) },
         )
     }
 

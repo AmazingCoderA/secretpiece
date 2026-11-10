@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SecretPiece</string>
+    <string name="app_disguise_calculator">Calculator</string>
+    <string name="mask_title">Disguise app</string>
+    <string name="mask_summary">Replace the launcher icon and name with a calculator.</string>
+    <string name="mask_on_title">Disguise enabled</string>
+    <string name="mask_on_body">SecretPiece is now listed as Calculator. Open it from the launcher to return to the vault. Turn the switch off to restore the name.</string>
+    <string name="mask_off_title">Disguise disabled</string>
+    <string name="mask_off_body">The SecretPiece icon and name are back on the launcher.</string>
+    <string name="mask_note">Optional. Does not change the container file or its password.</string>
 </resources>

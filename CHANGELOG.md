@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.2.0] - 2026-11-09
+## [1.3.0] - 2026-11-11
+
+### Added
+
+- **Android app disguise** (optional, under "Advanced"): the launcher entry can
+  appear as **Calculator** with its own icon. Implemented with two
+  `activity-alias` entries toggled via `PackageManager.setComponentEnabledSetting`,
+  persisted in `SharedPreferences`, no extra permissions. The container file and
+  password are unchanged.
+- `docs/SPV.md` (RU/EN): what an `.spv` file is, the SPV1 layout (headers,
+  key slots, superblocks, chunks, hidden area), why the extension is cosmetic,
+  and how renaming masks the file.
+- `docs/ANDROID.md` and `android/README.md` now document the disguise and the
+  difference between app masking and file masking.
+
+## [1.2.0] - 2026-11-10
 
 Packaging and visuals release. Still a skeleton: cryptography and the container
 format are **not** implemented yet — do not use for real data.
@@ -24,7 +39,7 @@ format are **not** implemented yet — do not use for real data.
 - Download buttons for Windows, Linux, macOS, BSD and Arch Linux.
 - Android app skeleton (`android/`): Compose UI in RU/EN, SAF file picker for a
   `.spv` on a USB drive over OTG, `VIEW` intent, no `INTERNET` permission.
-  Crypto wiring via `sp-ffi` is planned for v1.3 (`docs/ANDROID.md`).
+  Crypto wiring via `sp-ffi` is planned for v1.4 (`docs/ANDROID.md`).
 
 ### Changed
 
@@ -89,7 +104,8 @@ format are **not** implemented yet — do not use for real data.
   macOS universal, archives with `SHA256SUMS.txt`, automatic GitHub Release.
 - Dependabot and issue templates.
 
-[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v1.2...HEAD
+[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v1.3...HEAD
+[1.3.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.3
 [1.2.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.2
 [1.1.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.1
 [0.1.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v0.1.0

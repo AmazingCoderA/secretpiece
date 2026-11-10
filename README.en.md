@@ -28,7 +28,7 @@
 > 🔐 **Your secret, in pieces.** One file. Inside — an encrypted virtual volume, a hidden volume with its own password, and everything needed to survive the loss of the drive.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-v1.2%20·%20skeleton-9b6bff" alt="status">
+  <img src="https://img.shields.io/badge/status-v1.3%20·%20skeleton-9b6bff" alt="status">
   <img src="https://img.shields.io/badge/crypto-not%20implemented%20yet-critical" alt="crypto not implemented">
 </p>
 
@@ -44,6 +44,7 @@
 | 🔐 **Choice of ciphers** | XChaCha20-Poly1305 by default, ChaCha20-Poly1305 and AES-256-GCM optional, parameters recorded in the header. |
 | 🗂️ **Multiple formats** | Single file, split parts for FAT32, vault folder, nested container, k-of-n shards. |
 | 🚀 **Every platform** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux. |
+| 🤖 **Android** | APK: USB drive over OTG, SAF, RU/EN, optional "Calculator" disguise. |
 | 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, BIP39 recovery, Shamir secret sharing, snapshots. |
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
 | 🌍 **RU / EN** | Interface and hints in Russian and English, auto-detection, `--lang`. |
@@ -89,11 +90,13 @@ adb install -r secretpiece-<version>-android.apk
 
 Or enable "Install unknown apps" and open the APK on the phone (Android 8+,
 ARM64). Scenario: USB drive over OTG/USB-C → "Choose .spv file" → password →
-work with files. No root, no `INTERNET` permission.
-Details: [`docs/ANDROID.md`](docs/ANDROID.md).
+work with files. No root, no `INTERNET` permission. **Advanced** holds an
+optional **app disguise** (calculator). Details:
+[`docs/ANDROID.md`](docs/ANDROID.md), and on the format itself:
+[`docs/SPV.md`](docs/SPV.md).
 
 > The APK currently ships the UI and SAF access to the drive; the crypto core is
-> wired in v1.3 through `sp-ffi`.
+> wired in v1.4 through `sp-ffi`.
 
 <p align="center">
   <img src="docs/assets/android.svg" alt="SecretPiece for Android: USB drive over OTG, .spv picker and password" width="100%">
@@ -113,7 +116,7 @@ ARM64 — `linux-arm64`. Works on Ubuntu 22.04+, Fedora, Debian, Arch, Alpine.
 
 ```bash
 # ready-made pacman package from Releases (x86_64)
-sudo pacman -U secretpiece-1.2-1-x86_64.pkg.tar.zst
+sudo pacman -U secretpiece-1.3-1-x86_64.pkg.tar.zst
 
 # AUR (once the recipe is published)
 yay -S secretpiece-bin    # prebuilt binary
@@ -156,11 +159,11 @@ BSD builds in CI are marked experimental: a release still ships even if a BSD VM
 | Alternative | **ChaCha20-Poly1305** (RFC 8439, 96-bit nonce) | optional |
 | Alternative | **AES-256-GCM** (AES-NI / ARMv8 Crypto) | optional |
 | Alternative | **AES-256-GCM-SIV** (nonce-misuse resistant) | optional, later |
-| Password KDF | **Argon2id**: light 256 MiB · default 512 MiB · paranoid 1 GiB | v1.2 |
-| Hashing and MAC | **BLAKE3** (keyed mode) | v1.2 |
-| Key exchange | **X25519** for recipient slots | v1.5 |
-| Recovery | **BIP39** (24 words) + **Shamir** k-of-n | v1.5 |
-| Unlock slots | password · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1.2–v1.5 |
+| Password KDF | **Argon2id**: light 256 MiB · default 512 MiB · paranoid 1 GiB | v1.4 |
+| Hashing and MAC | **BLAKE3** (keyed mode) | v1.4 |
+| Key exchange | **X25519** for recipient slots | v1.7 |
+| Recovery | **BIP39** (24 words) + **Shamir** k-of-n | v1.7 |
+| Unlock slots | password · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1.4–v1.7 |
 | Manifest signatures | **Ed25519** (releases only, not volumes) | v2.0 |
 
 - `algorithm_id` and all KDF parameters are written into the header; silent changes are forbidden.
@@ -266,14 +269,14 @@ Hints are everywhere: in CLI errors, in `sp df`, in the GUI banner, and in `sp d
 |---|---|---|
 | Windows 10/11 | x64, ARM64 | v1.2 |
 | macOS 13+ | universal (Intel + Apple Silicon) | v1.2 |
-| Android 8+ | APK (UI + SAF), ARM64 | v1.2 (skeleton) |
+| Android 8+ | APK (UI + SAF), ARM64 | v1.3 (skeleton + disguise) |
 | Linux | x64, ARM64 (static musl) | v1.2 |
 | Arch Linux | x64, pacman package, PKGBUILD, AUR (yay/paru) | v1.2 |
 | FreeBSD | x64 (VM build) | experimental |
 | OpenBSD | x64 (VM build) | experimental |
 | NetBSD | x64 (VM build) | experimental |
-| Linux ARMv7 / RISC-V | build from source | planned v1.3 |
-| Flatpak / AppImage | sandbox and portable image | planned v1.4 |
+| Linux ARMv7 / RISC-V | build from source | planned v1.5 |
+| Flatpak / AppImage | sandbox and portable image | planned v1.9 |
 
 ## 🛠️ Build and releases
 
@@ -296,12 +299,14 @@ Requires Rust stable (MSRV **1.85**, edition 2024).
 
 | Document | Contents |
 |---|---|
+| [docs/SPV.md](docs/SPV.md) | what an `.spv` file is, SPV1 layout, file masking |
+| [docs/ANDROID.md](docs/ANDROID.md) | Android app, OTG, app disguise |
 | [SECURITY.md](SECURITY.md) | vulnerability disclosure, scope, guarantees |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | development and review rules |
 | [ADR](docs/ADR/README.md) | architecture decision records |
 | [CHANGELOG.md](CHANGELOG.md) | change history |
 
-The byte-level format spec (`docs/FORMAT.md`) and crypto design (`docs/CRYPTO.md`) will land together with v1.3.
+The byte-level format spec (`docs/FORMAT.md`) and crypto design (`docs/CRYPTO.md`) will land together with v1.4.
 
 ## 🧭 Roadmap
 
@@ -309,12 +314,13 @@ The byte-level format spec (`docs/FORMAT.md`) and crypto design (`docs/CRYPTO.md
 |---|---|---|
 | **v1.1** | ✅ | skeleton, CI, auto-build, GPL-3.0, any drive |
 | **v1.2** | ✅ | visuals, RU/EN CLI, pacman/AUR, Android skeleton, Windows ARM64, Linux ARM64, BSD |
-| **v1.3** | ⏳ | crypto core and SPV1 format: Argon2id, XChaCha20-Poly1305, slots, chunks |
-| **v1.4** | ⏳ | CLI and filesystem: `init/open/ls/put/get/rm`, extents, index, FAT32 split, ARMv7/RISC-V |
-| **v1.5** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
-| **v1.6** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |
-| **v1.7** | ⏳ | shred, free-space wipe, destroy, Reed-Solomon sharding |
-| **v1.8** | ⏳ | GUI: Tauri 2 + Svelte, creation wizard, file manager |
+| **v1.3** | ✅ | Android: app disguise, `docs/SPV.md`, polish |
+| **v1.4** | ⏳ | crypto core and SPV1 format: Argon2id, XChaCha20-Poly1305, slots, chunks |
+| **v1.5** | ⏳ | CLI and filesystem: `init/open/ls/put/get/rm`, extents, index, FAT32 split, ARMv7/RISC-V |
+| **v1.6** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
+| **v1.7** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |
+| **v1.8** | ⏳ | shred, free-space wipe, destroy, Reed-Solomon sharding |
+| **v1.9** | ⏳ | GUI: Tauri 2 + Svelte, creation wizard, file manager |
 | **v2.0** | ⏳ | hardening, fuzzing, Miri, external audit, signatures, SBOM |
 
 ## 🤝 Contributing

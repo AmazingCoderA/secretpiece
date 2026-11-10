@@ -28,7 +28,7 @@
 > 🔐 **Your secret, in pieces.** Один файл. Внутри — зашифрованный виртуальный том, скрытый том с отдельным паролем и всё, что нужно, чтобы данные пережили потерю носителя.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-v1.2%20·%20skeleton-9b6bff" alt="status">
+  <img src="https://img.shields.io/badge/status-v1.3%20·%20skeleton-9b6bff" alt="status">
   <img src="https://img.shields.io/badge/crypto-not%20implemented%20yet-critical" alt="crypto not implemented">
 </p>
 
@@ -44,6 +44,7 @@
 | 🔐 **Выбор шифрования** | XChaCha20-Poly1305 по умолчанию, ChaCha20-Poly1305 и AES-256-GCM опционально, параметры в заголовке. |
 | 🗂️ **Разные форматы** | Один файл, набор частей для FAT32, папка-хранилище, nested-контейнер, k/n shards. |
 | 🚀 **Любые платформы** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux. |
+| 🤖 **Android** | APK: флешка через OTG, SAF, RU/EN, опциональная маскировка под «Калькулятор». |
 | 🛟 **Восстанавливаемость** | Два заголовка, два суперблока, `doctor`, recovery BIP39, схема Шамира, снапшоты. |
 | 🧹 **Безопасное удаление** | Shred файлов и свободного места, crypto-erase контейнера — с честным отчётом. |
 | 🌍 **RU / EN** | Интерфейс и подсказки на русском и английском, автодетект языка, `--lang`. |
@@ -89,11 +90,13 @@ adb install -r secretpiece-<version>-android.apk
 
 Или включите «Установка из неизвестных источников» и откройте APK на телефоне
 (Android 8+, ARM64). Сценарий: флешка через OTG/USB-C → «Выбрать файл .spv» →
-пароль → работа с файлами. Без root и без разрешения `INTERNET`.
-Подробнее — [`docs/ANDROID.md`](docs/ANDROID.md).
+пароль → работа с файлами. Без root и без разрешения `INTERNET`. В
+«Дополнительно» — опциональная **маскировка приложения** под калькулятор.
+Подробнее — [`docs/ANDROID.md`](docs/ANDROID.md), про сам формат —
+[`docs/SPV.md`](docs/SPV.md).
 
 > Сейчас в APK готовы UI и доступ к носителю через SAF; криптоядро подключается
-> в v1.3 через `sp-ffi`.
+> в v1.4 через `sp-ffi`.
 
 <p align="center">
   <img src="docs/assets/android.svg" alt="SecretPiece для Android: флешка через OTG, выбор .spv и пароль" width="100%">
@@ -113,7 +116,7 @@ tar -xzf secretpiece-<version>-linux-x64.tar.gz
 
 ```bash
 # готовый pacman-пакет из Releases (x86_64)
-sudo pacman -U secretpiece-1.2-1-x86_64.pkg.tar.zst
+sudo pacman -U secretpiece-1.3-1-x86_64.pkg.tar.zst
 
 # AUR (после публикации рецепта)
 yay -S secretpiece-bin    # готовый бинарник
@@ -156,11 +159,11 @@ BSD-сборки в CI помечены как экспериментальны�
 | Альтернатива | **ChaCha20-Poly1305** (RFC 8439, 96-bit nonce) | опционально |
 | Альтернатива | **AES-256-GCM** (AES-NI / ARMv8 Crypto) | опционально |
 | Альтернатива | **AES-256-GCM-SIV** (nonce-misuse resistant) | опционально, позже |
-| Парольный KDF | **Argon2id**: light 256 МиБ · default 512 МиБ · paranoid 1 ГиБ | v1.2 |
-| Хеши и MAC | **BLAKE3** (keyed mode) | v1.2 |
-| Обмен ключами | **X25519** для слотов получателей | v1.5 |
-| Recovery | **BIP39** (24 слова) + **Shamir** K из N | v1.5 |
-| Слоты разблокировки | пароль · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1.2–v1.5 |
+| Парольный KDF | **Argon2id**: light 256 МиБ · default 512 МиБ · paranoid 1 ГиБ | v1.4 |
+| Хеши и MAC | **BLAKE3** (keyed mode) | v1.4 |
+| Обмен ключами | **X25519** для слотов получателей | v1.7 |
+| Recovery | **BIP39** (24 слова) + **Shamir** K из N | v1.7 |
+| Слоты разблокировки | пароль · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1.4–v1.7 |
 | Подписи манифестов | **Ed25519** (только релизы, не тома) | v2.0 |
 
 - `algorithm_id` и все параметры KDF записываются в заголовок; молча менять их запрещено.
@@ -266,14 +269,14 @@ SecretPiece проверяет свободное место **до** запис
 |---|---|---|
 | Windows 10/11 | x64, ARM64 | v1.2 |
 | macOS 13+ | universal (Intel + Apple Silicon) | v1.2 |
-| Android 8+ | APK (UI + SAF), ARM64 | v1.2 (каркас) |
+| Android 8+ | APK (UI + SAF), ARM64 | v1.3 (каркас + маскировка) |
 | Linux | x64, ARM64 (static musl) | v1.2 |
 | Arch Linux | x64, pacman-пакет, PKGBUILD, AUR (yay/paru) | v1.2 |
 | FreeBSD | x64 (VM build) | экспериментально |
 | OpenBSD | x64 (VM build) | экспериментально |
 | NetBSD | x64 (VM build) | экспериментально |
-| Linux ARMv7 / RISC-V | сборка из исходников | план v1.3 |
-| Flatpak / AppImage | песочница и переносимый образ | план v1.4 |
+| Linux ARMv7 / RISC-V | сборка из исходников | план v1.5 |
+| Flatpak / AppImage | песочница и переносимый образ | план v1.9 |
 
 ## 🛠️ Сборка и релизы
 
@@ -296,12 +299,14 @@ cargo run -p sp-cli --bin sp -- --version
 
 | Документ | О чём |
 |---|---|
+| [docs/SPV.md](docs/SPV.md) | что такое файл `.spv`, layout SPV1, маскировка имени |
+| [docs/ANDROID.md](docs/ANDROID.md) | Android-приложение, OTG, маскировка приложения |
 | [SECURITY.md](SECURITY.md) | раскрытие уязвимостей, scope, гарантии |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | правила разработки и ревью |
 | [ADR](docs/ADR/README.md) | архитектурные решения |
 | [CHANGELOG.md](CHANGELOG.md) | история изменений |
 
-Байтовая спецификация (`docs/FORMAT.md`) и крипто-дизайн (`docs/CRYPTO.md`) появятся вместе с v1.3.
+Байтовая спецификация (`docs/FORMAT.md`) и крипто-дизайн (`docs/CRYPTO.md`) появятся вместе с v1.4.
 
 ## 🧭 Дорожная карта
 
@@ -309,12 +314,13 @@ cargo run -p sp-cli --bin sp -- --version
 |---|---|---|
 | **v1.1** | ✅ | каркас, CI, автосборка, GPL-3.0, любые носители |
 | **v1.2** | ✅ | визуал, RU/EN CLI, pacman/AUR, Android-каркас, Windows ARM64, Linux ARM64, BSD |
-| **v1.3** | ⏳ | крипто-ядро и формат SPV1: Argon2id, XChaCha20-Poly1305, слоты, чанки |
-| **v1.4** | ⏳ | CLI и ФС: `init/open/ls/put/get/rm`, extents, индекс, FAT32 split, ARMv7/RISC-V |
-| **v1.5** | ⏳ | надёжность: COW, снапшоты, корзина, `doctor`, resize, crash-тесты |
-| **v1.6** | ⏳ | скрытый том, recovery, Shamir, слоты получателей X25519 |
-| **v1.7** | ⏳ | затирание, free-space wipe, destroy, Reed-Solomon sharding |
-| **v1.8** | ⏳ | GUI: Tauri 2 + Svelte, мастер создания, менеджер файлов |
+| **v1.3** | ✅ | Android: маскировка приложения, `docs/SPV.md`, полировка |
+| **v1.4** | ⏳ | крипто-ядро и формат SPV1: Argon2id, XChaCha20-Poly1305, слоты, чанки |
+| **v1.5** | ⏳ | CLI и ФС: `init/open/ls/put/get/rm`, extents, индекс, FAT32 split, ARMv7/RISC-V |
+| **v1.6** | ⏳ | надёжность: COW, снапшоты, корзина, `doctor`, resize, crash-тесты |
+| **v1.7** | ⏳ | скрытый том, recovery, Shamir, слоты получателей X25519 |
+| **v1.8** | ⏳ | затирание, free-space wipe, destroy, Reed-Solomon sharding |
+| **v1.9** | ⏳ | GUI: Tauri 2 + Svelte, мастер создания, менеджер файлов |
 | **v2.0** | ⏳ | hardening, фаззинг, Miri, внешний аудит, подписи, SBOM |
 
 ## 🤝 Участие

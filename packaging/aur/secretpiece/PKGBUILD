@@ -1,6 +1,6 @@
 # Maintainer: SecretPiece contributors <https://github.com/AmazingCoderA/secretpiece>
 pkgname=secretpiece
-pkgver=1.2
+pkgver=1.3
 pkgrel=1
 pkgdesc="Portable, deniable encrypted vault for USB drives, HDD/SSD and network folders"
 arch=('x86_64' 'aarch64')

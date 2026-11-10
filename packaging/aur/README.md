@@ -12,7 +12,7 @@ key registered at <https://aur.archlinux.org> (only the package maintainer can
 push). Until then, install the pacman package attached to a GitHub release:
 
 ```bash
-sudo pacman -U secretpiece-1.2-1-x86_64.pkg.tar.zst
+sudo pacman -U secretpiece-1.3-1-x86_64.pkg.tar.zst
 ```
 
 ## Publish
@@ -26,7 +26,7 @@ git clone ssh://aur@aur.archlinux.org/secretpiece-bin.git
 cp packaging/aur/secretpiece-bin/PKGBUILD packaging/aur/secretpiece-bin/.SRCINFO secretpiece-bin/
 cd secretpiece-bin
 git add PKGBUILD .SRCINFO
-git commit -m "1.2"
+git commit -m "1.3"
 git push
 
 # same for secretpiece
@@ -34,7 +34,7 @@ git clone ssh://aur@aur.archlinux.org/secretpiece.git
 cp ../packaging/aur/secretpiece/PKGBUILD ../packaging/aur/secretpiece/.SRCINFO secretpiece/
 cd secretpiece
 git add PKGBUILD .SRCINFO
-git commit -m "1.2"
+git commit -m "1.3"
 git push
 ```
 

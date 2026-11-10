@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SecretPiece</string>
+    <string name="app_disguise_calculator">Калькулятор</string>
+    <string name="mask_title">Маскировка приложения</string>
+    <string name="mask_summary">Заменить иконку и название в лаунчере на калькулятор.</string>
+    <string name="mask_on_title">Маскировка включена</string>
+    <string name="mask_on_body">Приложение теперь называется «Калькулятор». Откройте его из лаунчера, чтобы вернуться к хранилищу. Выключите переключатель, чтобы вернуть название.</string>
+    <string name="mask_off_title">Маскировка выключена</string>
+    <string name="mask_off_body">Иконка и название SecretPiece снова видны в лаунчере.</string>
+    <string name="mask_note">Опционально. Не меняет файл контейнера и его пароль.</string>
 </resources>

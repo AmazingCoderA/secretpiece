@@ -37,29 +37,29 @@
     <circle cx="24" cy="22" r="5.6" fill="#ff5f57"/>
     <circle cx="45" cy="22" r="5.6" fill="#febc2e"/>
     <circle cx="66" cy="22" r="5.6" fill="#28c840"/>
-    <text x="315" y="27" font-size="12.5" fill="#6f84a8" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">sp --lang ru</text>
+    <text x="315" y="27" font-size="12.5" fill="#6f84a8" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">sp-cli --lang ru</text>
 
     <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
       <text x="26" y="78" fill="#5be37f">$</text>
-      <text x="46" y="78" fill="#dbe6ff">sp --lang ru init E:\vaults\personal.spv \</text>
-      <text x="46" y="100" fill="#dbe6ff">   --size 8G --hidden 2G</text>
+      <text x="46" y="78" fill="#dbe6ff">sp-cli --lang ru init E:\vaults\personal.spv \</text>
+      <text x="46" y="100" fill="#dbe6ff">   --profile default</text>
 
-      <text x="26" y="136" fill="#9feaff">Проверка носителя…</text>
-      <text x="46" y="158" fill="#8ea3c8">свободно 29.4 ГиБ · нужно 8 ГиБ</text>
+      <text x="26" y="136" fill="#9feaff">Пароль:</text>
+      <text x="46" y="158" fill="#8ea3c8">ключ выводится через Argon2id и живёт в памяти</text>
 
       <text x="26" y="194" fill="#9feaff">Создание контейнера…</text>
-      <text x="46" y="216" fill="#8ea3c8">Argon2id (512 МиБ) · XChaCha20-Poly1305</text>
+      <text x="46" y="216" fill="#8ea3c8">Argon2id (64 МиБ) · XChaCha20-Poly1305 · BLAKE3</text>
 
       <text x="26" y="252" fill="#5be37f">✔ Готово: E:\vaults\personal.spv</text>
-      <text x="46" y="274" fill="#8ea3c8">внешний том 5.9 ГиБ · скрытый том 1.9 ГиБ</text>
+      <text x="46" y="274" fill="#8ea3c8">формат SPV1 · два слота заголовка · чанки 64 КиБ</text>
 
       <text x="26" y="310" fill="#5be37f">$</text>
-      <text x="46" y="310" fill="#dbe6ff">sp --lang ru df E:\vaults\personal.spv</text>
-      <text x="46" y="332" fill="#8ea3c8">занято 0 Б · свободно 5.9 ГиБ · резерв 64 МиБ</text>
+      <text x="46" y="310" fill="#dbe6ff">sp-cli --lang ru df E:\vaults\personal.spv</text>
+      <text x="46" y="332" fill="#8ea3c8">поколение 1 · файлов 0 · заполнение 0.0%</text>
 
       <text x="26" y="368" fill="#febc2e">!</text>
-      <text x="46" y="368" fill="#f0d38a">Мало места? `sp trash empty`, `sp snapshot prune`</text>
-      <text x="46" y="390" fill="#f0d38a">или `sp resize --grow 4G`.</text>
+      <text x="46" y="368" fill="#f0d38a">Пароль: запрос, SP_PASSWORD или --password-stdin.</text>
+      <text x="46" y="390" fill="#f0d38a">Формат и команды: docs/SPV.md</text>
     </g>
     <rect x="0" y="0" width="630" height="424" rx="18" fill="none" stroke="url(#edge1)" stroke-width="1.2"/>
   </g>
@@ -72,29 +72,29 @@
     <circle cx="24" cy="22" r="5.6" fill="#ff5f57"/>
     <circle cx="45" cy="22" r="5.6" fill="#febc2e"/>
     <circle cx="66" cy="22" r="5.6" fill="#28c840"/>
-    <text x="315" y="27" font-size="12.5" fill="#6f84a8" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">sp --lang en</text>
+    <text x="315" y="27" font-size="12.5" fill="#6f84a8" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">sp-cli --lang en</text>
 
     <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
       <text x="26" y="78" fill="#5be37f">$</text>
-      <text x="46" y="78" fill="#dbe6ff">sp --lang en init /media/usb/personal.spv \</text>
-      <text x="46" y="100" fill="#dbe6ff">   --size 8G --hidden 2G</text>
+      <text x="46" y="78" fill="#dbe6ff">sp-cli --lang en init /media/usb/personal.spv \</text>
+      <text x="46" y="100" fill="#dbe6ff">   --profile default</text>
 
-      <text x="26" y="136" fill="#9feaff">Checking the drive…</text>
-      <text x="46" y="158" fill="#8ea3c8">29.4 GiB free · 8 GiB required</text>
+      <text x="26" y="136" fill="#9feaff">Password:</text>
+      <text x="46" y="158" fill="#8ea3c8">the key is derived with Argon2id and lives in memory</text>
 
       <text x="26" y="194" fill="#9feaff">Creating the container…</text>
-      <text x="46" y="216" fill="#8ea3c8">Argon2id (512 MiB) · XChaCha20-Poly1305</text>
+      <text x="46" y="216" fill="#8ea3c8">Argon2id (64 MiB) · XChaCha20-Poly1305 · BLAKE3</text>
 
       <text x="26" y="252" fill="#5be37f">✔ Done: /media/usb/personal.spv</text>
-      <text x="46" y="274" fill="#8ea3c8">outer volume 5.9 GiB · hidden volume 1.9 GiB</text>
+      <text x="46" y="274" fill="#8ea3c8">SPV1 · two header slots · 64 KiB chunks</text>
 
       <text x="26" y="310" fill="#5be37f">$</text>
-      <text x="46" y="310" fill="#dbe6ff">sp --lang en df /media/usb/personal.spv</text>
-      <text x="46" y="332" fill="#8ea3c8">used 0 B · free 5.9 GiB · reserve 64 MiB</text>
+      <text x="46" y="310" fill="#dbe6ff">sp-cli --lang en df /media/usb/personal.spv</text>
+      <text x="46" y="332" fill="#8ea3c8">generation 1 · 0 files · fill level 0.0%</text>
 
       <text x="26" y="368" fill="#febc2e">!</text>
-      <text x="46" y="368" fill="#f0d38a">Low on space? `sp trash empty`, `sp snapshot prune`</text>
-      <text x="46" y="390" fill="#f0d38a">or `sp resize --grow 4G`.</text>
+      <text x="46" y="368" fill="#f0d38a">Password: prompt, SP_PASSWORD, or --password-stdin.</text>
+      <text x="46" y="390" fill="#f0d38a">Format and commands: docs/SPV.md</text>
     </g>
     <rect x="0" y="0" width="630" height="424" rx="18" fill="none" stroke="url(#edge2)" stroke-width="1.2"/>
   </g>

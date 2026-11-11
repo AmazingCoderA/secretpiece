@@ -13,13 +13,22 @@ over OTG/USB-C. No root, no drivers, no `MANAGE_EXTERNAL_STORAGE`.
 | System file picker (SAF) | ✅ |
 | Open a `.spv` from a file manager (`VIEW` intent) | ✅ |
 | App disguise (calculator) | ✅ |
-| Password field, unlock flow | ✅ UI |
-| Argon2id / XChaCha20-Poly1305 | ⏳ wired through `sp-ffi` in v1.4 |
-| File browser inside the vault | ⏳ v1.4 |
+| Password field, unlock flow | ✅ |
+| Argon2id / XChaCha20-Poly1305 / BLAKE3 | ✅ v1.4 through `sp-ffi` |
+| Folder browsing and file reads | ✅ v1.4 (read-only) |
+| Writing/deleting files on the phone | ⏳ later |
+| Image preview | ⏳ later |
 
-Until the crypto core lands, the unlock button shows a dialog explaining that
-the UI and USB access are ready and the format work is in progress. **Do not use
-Android builds for real secrets yet.**
+## How the container is read
+
+The app never copies the `.spv` into internal storage. It takes the
+`ParcelFileDescriptor` from the Storage Access Framework, calls `detachFd()`, and
+passes the descriptor to the Rust core (`sp-ffi`). There it becomes a `File` and
+is opened with `Vault::open_file`, using the same `sp-vault` crate as the desktop
+GUI and CLI.
+
+The bridge is intentionally **read-only**: `list`, `read`, `info`, `verify`,
+`close`. Mutations stay in the desktop app and `sp-cli`.
 
 ## Scenario: USB drive + phone
 
@@ -27,7 +36,7 @@ Android builds for real secrets yet.**
 2. The system mounts it read/write (exFAT/NTFS/ext4/FAT32 — whatever the phone supports).
 3. Tap **Choose .spv file**, pick `personal.spv` from the drive.
 4. Enter the password.
-5. In v1.4: browse, preview, copy files to and from the drive.
+5. Browse folders and tap a file to preview its text.
 
 Alternatively, tap the `.spv` file in any file manager: SecretPiece registers a
 `VIEW` intent and receives the content URI.
@@ -59,24 +68,29 @@ No extra permissions are required.
 
 ## Build
 
-Requires JDK 17 and the Android SDK (compileSdk 34). With Gradle 8.7+:
+Requires JDK 17, the Android SDK (compileSdk 34), the NDK, and Rust Android
+targets:
 
 ```bash
+rustup target add aarch64-linux-android armv7-linux-androideabi
+cargo install cargo-ndk
+cargo ndk -t arm64-v8a -t armeabi-v7a \
+  -o android/app/src/main/jniLibs build --release -p sp-ffi
 cd android
 gradle assembleDebug
 # apk: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Or open the `android/` folder in Android Studio.
+Or open the `android/` folder in Android Studio; the `.so` files in `jniLibs`
+are picked up automatically.
 
 ## Security notes
 
 - The app has **no `INTERNET` permission** — nothing leaves the device.
 - Storage is accessed through the Storage Access Framework; the app receives a
   content URI, not a raw block device.
-- Do not copy the container to shared storage or cloud sync folders while it is
-  unlocked.
-- Android may cache thumbnails or previews of exported files; prefer the in-app
-  viewer in v1.4.
-- USB drives can disappear mid-write (unplug, power loss). The Rust core will
-  keep the same crash-safe commit model as on desktop.
+- The key lives in the Rust core's memory and is zeroized on `close`/exit.
+- Android may cache thumbnails or previews of exported files; the in-app viewer
+  only shows text and writes nothing to disk.
+- USB drives can disappear mid-read (unplug, power loss). Reads never modify the
+  container.

@@ -6,5 +6,13 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[dependencies]
+sp-core = { workspace = true }
+argon2 = { workspace = true }
+blake3 = { workspace = true }
+chacha20poly1305 = { workspace = true }
+getrandom = { workspace = true }
+zeroize = { workspace = true }
+
 [lints]
 workspace = true

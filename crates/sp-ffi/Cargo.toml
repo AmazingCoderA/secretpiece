@@ -5,10 +5,17 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "C ABI bindings for SecretPiece (GUI and third-party clients)."
+description = "C ABI and JNI bindings for SecretPiece (GUI, Android, third-party clients)."
 
 [lib]
 crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+sp-core.workspace = true
+sp-format.workspace = true
+sp-vault.workspace = true
+jni = "0.21"
+serde_json.workspace = true
 
 [lints.rust]
 unsafe_code = "allow"

@@ -28,11 +28,12 @@
 > 🔐 **Your secret, in pieces.** One file. Inside — an encrypted virtual volume, a hidden volume with its own password, and everything needed to survive the loss of the drive.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-v1.3%20·%20skeleton-9b6bff" alt="status">
-  <img src="https://img.shields.io/badge/crypto-not%20implemented%20yet-critical" alt="crypto not implemented">
+  <img src="https://img.shields.io/badge/status-v1.4%20·%20crypto%20core-9b6bff" alt="status">
+  <img src="https://img.shields.io/badge/Argon2id%20%2B%20XChaCha20%20%2B%20BLAKE3-implemented-2ea043" alt="crypto implemented">
 </p>
 
-> ⚠️ **Early stage.** Cryptography and the container format are not implemented yet. Do not store anything important in current builds.
+> ⚠️ **Beta.** The SPV1 format and the crypto core are implemented and covered by
+> tests, but no external audit has been performed yet. Keep a backup of the container.
 
 ## ✨ Why SecretPiece
 
@@ -40,11 +41,11 @@
 |---|---|
 | 🧩 **Does not break the drive** | Only regular files. MBR/GPT, boot sector and the filesystem stay untouched. |
 | 💾 **Any drive** | USB stick, external HDD/SSD, internal disk, SMB/NFS. Removable media is the primary scenario. |
-| 🕵️ **Hidden volume** | The area inside the container looks like free space. It opens with a separate password. |
-| 🔐 **Choice of ciphers** | XChaCha20-Poly1305 by default, ChaCha20-Poly1305 and AES-256-GCM optional, parameters recorded in the header. |
+| 🕵️ **Hidden volume** | The area inside the container looks like free space. It opens with a separate password (planned for v1.7). |
+| 🔐 **Ciphers** | XChaCha20-Poly1305 ships in v1.4; ChaCha20-Poly1305 and AES-256-GCM come later, parameters recorded in the header. |
 | 🗂️ **Multiple formats** | Single file, split parts for FAT32, vault folder, nested container, k-of-n shards. |
 | 🚀 **Every platform** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux. |
-| 🤖 **Android** | APK: USB drive over OTG, SAF, RU/EN, optional "Calculator" disguise. |
+| 🤖 **Android** | APK: USB drive over OTG, SAF + JNI reads, RU/EN, optional "Calculator" disguise. |
 | 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, BIP39 recovery, Shamir secret sharing, snapshots. |
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
 | 🌍 **RU / EN** | Interface and hints in Russian and English, auto-detection, `--lang`. |
@@ -65,20 +66,22 @@ All builds live in [Releases](https://github.com/AmazingCoderA/secretpiece/relea
 ### Windows
 
 ```powershell
-# download secretpiece-<version>-windows-x64.zip and unpack it
-.\sp.exe --version
-.\sp.exe --help
+# GUI: secretpiece-<version>-windows-x64-gui.zip → sp.exe / secretpiece.exe
+# CLI: secretpiece-<version>-windows-x64-cli.zip → sp-cli.exe
+.\sp.exe                          # desktop application
+.\sp-cli.exe --version            # console
 ```
 
-Windows ARM64 — the `windows-arm64` archive. Portable build: nothing is written to the registry, the config stays next to the binary.
+Windows ARM64 — the `windows-arm64-cli` archive. Portable build: nothing is written to the registry, the config stays next to the binary.
 
 ### macOS
 
 ```bash
 # universal: Intel + Apple Silicon
-tar -xzf secretpiece-<version>-macos-universal.tar.gz
-xattr -dr com.apple.quarantine ./sp
-./sp --version
+tar -xzf secretpiece-<version>-macos-universal-gui.tar.gz   # sp / secretpiece
+tar -xzf secretpiece-<version>-macos-universal-cli.tar.gz   # sp-cli
+xattr -dr com.apple.quarantine ./sp ./secretpiece ./sp-cli
+./sp
 ```
 
 ### Android
@@ -95,8 +98,9 @@ optional **app disguise** (calculator). Details:
 [`docs/ANDROID.md`](docs/ANDROID.md), and on the format itself:
 [`docs/SPV.md`](docs/SPV.md).
 
-> The APK currently ships the UI and SAF access to the drive; the crypto core is
-> wired in v1.4 through `sp-ffi`.
+> The APK already reads vaults: the SAF descriptor is passed to the shared core
+> through `sp-ffi`, so files are read straight from the drive, without copying
+> the container into app storage.
 
 <p align="center">
   <img src="docs/assets/android.svg" alt="SecretPiece for Android: USB drive over OTG, .spv picker and password" width="100%">
@@ -105,18 +109,22 @@ optional **app disguise** (calculator). Details:
 ### Linux
 
 ```bash
-# static musl, no dependencies
-tar -xzf secretpiece-<version>-linux-x64.tar.gz
-./sp --version
+# separate archives: GUI and CLI
+tar -xzf secretpiece-<version>-linux-x64-gui.tar.gz   # sp, secretpiece
+tar -xzf secretpiece-<version>-linux-x64-cli.tar.gz   # sp-cli
+./sp                  # GUI
+./sp-cli --version    # CLI
 ```
 
-ARM64 — `linux-arm64`. Works on Ubuntu 22.04+, Fedora, Debian, Arch, Alpine.
+ARM64 — `linux-arm64-cli` and `linux-arm64-gui` (GUI is built against glibc).
+The CLI is static musl: it runs on Ubuntu 22.04+, Fedora, Debian, Arch and Alpine.
+A dedicated Alpine archive is `alpine-x64-cli`.
 
 ### Arch Linux
 
 ```bash
 # ready-made pacman package from Releases (x86_64)
-sudo pacman -U secretpiece-1.3-1-x86_64.pkg.tar.zst
+sudo pacman -U secretpiece-1.4-1-x86_64.pkg.tar.zst
 
 # AUR (once the recipe is published)
 yay -S secretpiece-bin    # prebuilt binary
@@ -155,12 +163,12 @@ BSD builds in CI are marked experimental: a release still ships even if a BSD VM
 
 | Layer | Algorithm | Status |
 |---|---|---|
-| Data and metadata | **XChaCha20-Poly1305** (256-bit key, 192-bit nonce) | default |
-| Alternative | **ChaCha20-Poly1305** (RFC 8439, 96-bit nonce) | optional |
-| Alternative | **AES-256-GCM** (AES-NI / ARMv8 Crypto) | optional |
+| Data and metadata | **XChaCha20-Poly1305** (256-bit key, 192-bit nonce) | ✅ v1.4 |
+| Password KDF | **Argon2id**: light 16 MiB · default 64 MiB · paranoid 256 MiB | ✅ v1.4 |
+| Hashing and MAC | **BLAKE3** (headers and integrity checks) | ✅ v1.4 |
+| Alternative | **ChaCha20-Poly1305** (RFC 8439, 96-bit nonce) | optional, later |
+| Alternative | **AES-256-GCM** (AES-NI / ARMv8 Crypto) | optional, later |
 | Alternative | **AES-256-GCM-SIV** (nonce-misuse resistant) | optional, later |
-| Password KDF | **Argon2id**: light 256 MiB · default 512 MiB · paranoid 1 GiB | v1.4 |
-| Hashing and MAC | **BLAKE3** (keyed mode) | v1.4 |
 | Key exchange | **X25519** for recipient slots | v1.7 |
 | Recovery | **BIP39** (24 words) + **Shamir** k-of-n | v1.7 |
 | Unlock slots | password · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1.4–v1.7 |
@@ -215,25 +223,27 @@ Durability profiles: **Fast** · **Balanced** (default) · **Paranoid** · **Cus
 ## 🚀 Quick start
 
 ```bash
-# interface language: ru or en (auto-detected from the system locale)
-sp --lang en init E:\vaults\personal.spv --size 8G --hidden 2G --profile balanced
-sp shell E:\vaults\personal.spv
+# CLI: password via prompt, SP_PASSWORD, or --password-stdin
+sp-cli init personal.spv
+sp-cli put personal.spv .\Documents\report.pdf docs/report.pdf
+sp-cli ls personal.spv
+sp-cli get personal.spv docs/report.pdf .\report.pdf
+sp-cli df personal.spv
+sp-cli verify personal.spv
 
-sp> put .\Documents docs/
-sp> get docs/report.pdf .\report.pdf
-sp> snapshot create before-trip
-sp> shred docs/old.pdf --passes 3
-sp> lock
+# GUI: a separate application
+sp            # or secretpiece — dark UI, RU/EN
 ```
 
-GUI comes after the format stabilizes (Tauri 2 + Svelte).
+The password is never stored: the key is derived with Argon2id and lives only in
+memory. The container is a regular `.spv` file and can be renamed to `report.pdf`.
 
 ## 🌍 Languages
 
 - Russian and English — complete, including hints and error messages.
 - Auto-detection: `LC_ALL`, `LC_MESSAGES`, `LANG`, `SP_LANG`.
-- Explicit: `sp --lang ru …` or `sp --lang en …`.
-- In the GUI — a switcher in settings and on the unlock screen.
+- Explicit: `sp-cli --lang ru …` or `sp-cli --lang en …`.
+- In the GUI — an RU/EN toggle in the header.
 - New languages — through resource files, without touching the core.
 
 <p align="center">
@@ -251,9 +261,9 @@ SecretPiece checks free space **before** writing and never leaves partial commit
 | Import larger than free space | preflight refusal, no garbage | import in parts or into the outer volume |
 | Media actually full | `E_NOSPC`, read-only, index stays intact | empty trash/snapshots, export data |
 | FAT32 and a file > 4 GiB | automatic split into 3.5 GiB parts | use exFAT/NTFS |
-| Need more capacity | `sp resize` (planned v1.4) | create a new container and move data |
+| Need more capacity | `sp-cli` resize (planned v1.6) | create a new container and move data |
 
-Hints are everywhere: in CLI errors, in `sp df`, in the GUI banner, and in `sp doctor --explain`. A 64 MiB reserve is always kept for metadata and superblocks.
+Hints are everywhere: in `sp-cli` errors, in `sp-cli df`, in the GUI banner, and in `sp-cli doctor`. A 64 MiB reserve is always kept for metadata and superblocks.
 
 ## 🛡️ Security
 
@@ -267,11 +277,12 @@ Hints are everywhere: in CLI errors, in `sp df`, in the GUI banner, and in `sp d
 
 | OS | Ready builds | Status |
 |---|---|---|
-| Windows 10/11 | x64, ARM64 | v1.2 |
-| macOS 13+ | universal (Intel + Apple Silicon) | v1.2 |
-| Android 8+ | APK (UI + SAF), ARM64 | v1.3 (skeleton + disguise) |
-| Linux | x64, ARM64 (static musl) | v1.2 |
-| Arch Linux | x64, pacman package, PKGBUILD, AUR (yay/paru) | v1.2 |
+| Windows 10/11 | x64 GUI + CLI, ARM64 CLI | v1.4 |
+| macOS 13+ | universal (Intel + Apple Silicon) GUI + CLI | v1.4 |
+| Android 8+ | APK (SAF + JNI reads), ARM64/ARMv7 | v1.4 (read) |
+| Linux | x64 GUI (glibc), x64/ARM64 CLI (static musl) | v1.4 |
+| Alpine Linux | x64 CLI (musl) | v1.4 |
+| Arch Linux | x64 CLI, pacman package, PKGBUILD, AUR (yay/paru) | v1.4 |
 | FreeBSD | x64 (VM build) | experimental |
 | OpenBSD | x64 (VM build) | experimental |
 | NetBSD | x64 (VM build) | experimental |
@@ -285,15 +296,16 @@ git clone https://github.com/AmazingCoderA/secretpiece.git
 cd secretpiece
 cargo build --workspace
 cargo test --workspace
-cargo run -p sp-cli --bin sp -- --version
+cargo run -p sp-cli --bin sp-cli -- --version   # CLI
+cargo run -p sp-gui --bin sp                    # GUI (egui/eframe)
 ```
 
 Requires Rust stable (MSRV **1.85**, edition 2024).
 
 - **Auto-build** — on every push to `main` and every PR: artifacts on the workflow run page.
 - **Release** — on a `v*` tag: archives + `SHA256SUMS.txt` in GitHub Releases.
-- **Release assets:** `windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`, `macos-universal`, `arch-x64`, `*.pkg.tar.zst`, `android.apk` + `SHA256SUMS.txt`.
-- Versions — `1.1`, `1.2`, `1.3`, `2.0` (no micro-patch tags).
+- **Release assets:** `*-cli` and `*-gui` for `windows-x64`, `linux-x64`, `macos-universal`; `linux-arm64-cli`, `windows-arm64-cli`, `alpine-x64-cli`, `arch-x64-cli`, `*.pkg.tar.zst`, `android.apk` + `SHA256SUMS.txt`.
+- Versions — `1.1`, `1.2`, `1.3`, `1.4`, `2.0` (no micro-patch tags).
 
 ## 📚 Documentation
 
@@ -306,7 +318,7 @@ Requires Rust stable (MSRV **1.85**, edition 2024).
 | [ADR](docs/ADR/README.md) | architecture decision records |
 | [CHANGELOG.md](CHANGELOG.md) | change history |
 
-The byte-level format spec (`docs/FORMAT.md`) and crypto design (`docs/CRYPTO.md`) will land together with v1.4.
+The byte-level specification lives in [`docs/SPV.md`](docs/SPV.md); a separate `docs/FORMAT.md` will follow.
 
 ## 🧭 Roadmap
 
@@ -315,12 +327,12 @@ The byte-level format spec (`docs/FORMAT.md`) and crypto design (`docs/CRYPTO.md
 | **v1.1** | ✅ | skeleton, CI, auto-build, GPL-3.0, any drive |
 | **v1.2** | ✅ | visuals, RU/EN CLI, pacman/AUR, Android skeleton, Windows ARM64, Linux ARM64, BSD |
 | **v1.3** | ✅ | Android: app disguise, `docs/SPV.md`, polish |
-| **v1.4** | ⏳ | crypto core and SPV1 format: Argon2id, XChaCha20-Poly1305, slots, chunks |
-| **v1.5** | ⏳ | CLI and filesystem: `init/open/ls/put/get/rm`, extents, index, FAT32 split, ARMv7/RISC-V |
+| **v1.4** | ✅ | SPV1 crypto core (Argon2id, XChaCha20-Poly1305, BLAKE3), CLI, egui GUI, Android JNI reads, Alpine |
+| **v1.5** | ⏳ | extents, FAT32 split, ARMv7/RISC-V, format migration |
 | **v1.6** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
 | **v1.7** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |
 | **v1.8** | ⏳ | shred, free-space wipe, destroy, Reed-Solomon sharding |
-| **v1.9** | ⏳ | GUI: Tauri 2 + Svelte, creation wizard, file manager |
+| **v1.9** | ⏳ | GUI: creation wizard, file manager, drag-and-drop, themes |
 | **v2.0** | ⏳ | hardening, fuzzing, Miri, external audit, signatures, SBOM |
 
 ## 🤝 Contributing

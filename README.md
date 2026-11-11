@@ -28,11 +28,12 @@
 > 🔐 **Your secret, in pieces.** Один файл. Внутри — зашифрованный виртуальный том, скрытый том с отдельным паролем и всё, что нужно, чтобы данные пережили потерю носителя.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-v1.3%20·%20skeleton-9b6bff" alt="status">
-  <img src="https://img.shields.io/badge/crypto-not%20implemented%20yet-critical" alt="crypto not implemented">
+  <img src="https://img.shields.io/badge/status-v1.4%20·%20crypto%20core-9b6bff" alt="status">
+  <img src="https://img.shields.io/badge/Argon2id%20%2B%20XChaCha20%20%2B%20BLAKE3-implemented-2ea043" alt="crypto implemented">
 </p>
 
-> ⚠️ **Ранняя стадия.** Криптография и формат ещё не реализованы. Не храните в текущих сборках ничего важного.
+> ⚠️ **Бета.** Формат SPV1 и криптоядро реализованы и покрыты тестами, но внешний
+> аудит ещё не проводился. Держите резервную копию контейнера.
 
 ## ✨ Возможности
 
@@ -40,11 +41,11 @@
 |---|---|
 | 🧩 **Не ломает носитель** | Только обычные файлы. MBR/GPT, boot sector и файловая система не изменяются. |
 | 💾 **Любой носитель** | USB-флешка, внешний HDD/SSD, внутренний диск, SMB/NFS. Основной сценарий — съёмные носители. |
-| 🕵️ **Скрытый том** | Область внутри контейнера выглядит как свободное место. Открывается отдельным паролем. |
-| 🔐 **Выбор шифрования** | XChaCha20-Poly1305 по умолчанию, ChaCha20-Poly1305 и AES-256-GCM опционально, параметры в заголовке. |
+| 🕵️ **Скрытый том** | Область внутри контейнера выглядит как свободное место. Открывается отдельным паролем (план v1.7). |
+| 🔐 **Шифрование** | XChaCha20-Poly1305 уже в v1.4; ChaCha20-Poly1305 и AES-256-GCM — позже, параметры в заголовке. |
 | 🗂️ **Разные форматы** | Один файл, набор частей для FAT32, папка-хранилище, nested-контейнер, k/n shards. |
 | 🚀 **Любые платформы** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux. |
-| 🤖 **Android** | APK: флешка через OTG, SAF, RU/EN, опциональная маскировка под «Калькулятор». |
+| 🤖 **Android** | APK: флешка через OTG, SAF + JNI-чтение, RU/EN, опциональная маскировка под «Калькулятор». |
 | 🛟 **Восстанавливаемость** | Два заголовка, два суперблока, `doctor`, recovery BIP39, схема Шамира, снапшоты. |
 | 🧹 **Безопасное удаление** | Shred файлов и свободного места, crypto-erase контейнера — с честным отчётом. |
 | 🌍 **RU / EN** | Интерфейс и подсказки на русском и английском, автодетект языка, `--lang`. |
@@ -65,20 +66,22 @@
 ### Windows
 
 ```powershell
-# скачать secretpiece-<version>-windows-x64.zip и распаковать
-.\sp.exe --version
-.\sp.exe --help
+# GUI: secretpiece-<version>-windows-x64-gui.zip → sp.exe / secretpiece.exe
+# CLI: secretpiece-<version>-windows-x64-cli.zip → sp-cli.exe
+.\sp.exe                          # графическое приложение
+.\sp-cli.exe --version            # консоль
 ```
 
-Windows ARM64 — архив `windows-arm64`. Портативная сборка: ничего не пишет в реестр, конфиг — рядом с бинарником.
+Windows ARM64 — архив `windows-arm64-cli`. Портативная сборка: ничего не пишет в реестр, конфиг — рядом с бинарником.
 
 ### macOS
 
 ```bash
 # universal: Intel + Apple Silicon
-tar -xzf secretpiece-<version>-macos-universal.tar.gz
-xattr -dr com.apple.quarantine ./sp
-./sp --version
+tar -xzf secretpiece-<version>-macos-universal-gui.tar.gz   # sp / secretpiece
+tar -xzf secretpiece-<version>-macos-universal-cli.tar.gz   # sp-cli
+xattr -dr com.apple.quarantine ./sp ./secretpiece ./sp-cli
+./sp
 ```
 
 ### Android
@@ -95,8 +98,8 @@ adb install -r secretpiece-<version>-android.apk
 Подробнее — [`docs/ANDROID.md`](docs/ANDROID.md), про сам формат —
 [`docs/SPV.md`](docs/SPV.md).
 
-> Сейчас в APK готовы UI и доступ к носителю через SAF; криптоядро подключается
-> в v1.4 через `sp-ffi`.
+> В APK уже работает чтение: SAF-дескриптор передаётся в общее ядро через
+> `sp-ffi`, поэтому файлы читаются прямо с флешки, без копии в память приложения.
 
 <p align="center">
   <img src="docs/assets/android.svg" alt="SecretPiece для Android: флешка через OTG, выбор .spv и пароль" width="100%">
@@ -105,18 +108,22 @@ adb install -r secretpiece-<version>-android.apk
 ### Linux
 
 ```bash
-# статический musl, без зависимостей
-tar -xzf secretpiece-<version>-linux-x64.tar.gz
-./sp --version
+# GUI и CLI лежат в отдельных архивах
+tar -xzf secretpiece-<version>-linux-x64-gui.tar.gz   # sp, secretpiece
+tar -xzf secretpiece-<version>-linux-x64-cli.tar.gz   # sp-cli
+./sp                  # GUI
+./sp-cli --version    # CLI
 ```
 
-Для ARM64 — `linux-arm64`. Работает на Ubuntu 22.04+, Fedora, Debian, Arch, Alpine.
+Для ARM64 — `linux-arm64-cli` и `linux-arm64-gui` (GUI собирается под glibc).
+CLI — статический musl: работает на Ubuntu 22.04+, Fedora, Debian, Arch и Alpine.
+Отдельный musl-архив для Alpine — `alpine-x64-cli`.
 
 ### Arch Linux
 
 ```bash
 # готовый pacman-пакет из Releases (x86_64)
-sudo pacman -U secretpiece-1.3-1-x86_64.pkg.tar.zst
+sudo pacman -U secretpiece-1.4-1-x86_64.pkg.tar.zst
 
 # AUR (после публикации рецепта)
 yay -S secretpiece-bin    # готовый бинарник
@@ -155,12 +162,12 @@ BSD-сборки в CI помечены как экспериментальны�
 
 | Слой | Алгоритм | Статус |
 |---|---|---|
-| Данные и метаданные | **XChaCha20-Poly1305** (256-bit key, 192-bit nonce) | по умолчанию |
-| Альтернатива | **ChaCha20-Poly1305** (RFC 8439, 96-bit nonce) | опционально |
-| Альтернатива | **AES-256-GCM** (AES-NI / ARMv8 Crypto) | опционально |
+| Данные и метаданные | **XChaCha20-Poly1305** (256-bit key, 192-bit nonce) | ✅ v1.4 |
+| Парольный KDF | **Argon2id**: light 16 МиБ · default 64 МиБ · paranoid 256 МиБ | ✅ v1.4 |
+| Хеши и MAC | **BLAKE3** (заголовки и контроль целостности) | ✅ v1.4 |
+| Альтернатива | **ChaCha20-Poly1305** (RFC 8439, 96-bit nonce) | опционально, позже |
+| Альтернатива | **AES-256-GCM** (AES-NI / ARMv8 Crypto) | опционально, позже |
 | Альтернатива | **AES-256-GCM-SIV** (nonce-misuse resistant) | опционально, позже |
-| Парольный KDF | **Argon2id**: light 256 МиБ · default 512 МиБ · paranoid 1 ГиБ | v1.4 |
-| Хеши и MAC | **BLAKE3** (keyed mode) | v1.4 |
 | Обмен ключами | **X25519** для слотов получателей | v1.7 |
 | Recovery | **BIP39** (24 слова) + **Shamir** K из N | v1.7 |
 | Слоты разблокировки | пароль · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1.4–v1.7 |
@@ -215,25 +222,27 @@ N−hidden hidden area    ← перекрывается свободным ме
 ## 🚀 Быстрый старт
 
 ```bash
-# язык интерфейса: ru или en (автодетект по системной локали)
-sp --lang ru init E:\vaults\personal.spv --size 8G --hidden 2G --profile balanced
-sp shell E:\vaults\personal.spv
+# CLI ставьте паролем через запрос, SP_PASSWORD или --password-stdin
+sp-cli init personal.spv
+sp-cli put personal.spv .\Documents\report.pdf docs/report.pdf
+sp-cli ls personal.spv
+sp-cli get personal.spv docs/report.pdf .\report.pdf
+sp-cli df personal.spv
+sp-cli verify personal.spv
 
-sp> put .\Documents docs/
-sp> get docs/report.pdf .\report.pdf
-sp> snapshot create before-trip
-sp> shred docs/old.pdf --passes 3
-sp> lock
+# GUI: отдельное приложение
+sp            # или secretpiece — тёмный интерфейс, RU/EN
 ```
 
-GUI — после стабилизации формата (Tauri 2 + Svelte).
+Пароль нигде не сохраняется: ключ выводится из него через Argon2id и живёт только
+в памяти. Контейнер — один обычный файл `.spv`, его можно переименовать в `report.pdf`.
 
 ## 🌍 Языки
 
 - Русский и английский — полностью, включая подсказки и сообщения об ошибках.
 - Автодетект: `LC_ALL`, `LC_MESSAGES`, `LANG`, `SP_LANG`.
-- Явно: `sp --lang ru …` или `sp --lang en …`.
-- В GUI — переключатель в настройках и на экране входа.
+- Явно: `sp-cli --lang ru …` или `sp-cli --lang en …`.
+- В GUI — переключатель RU/EN в шапке.
 - Новые языки — через файлы ресурсов, без правки ядра.
 
 <p align="center">
@@ -251,9 +260,9 @@ SecretPiece проверяет свободное место **до** запис
 | Импорт больше свободного | preflight-отказ без мусора | импортировать частями или во внешний том |
 | Кончилось место на носителе | `E_NOSPC`, read-only, без повреждения индекса | очистить корзину/снапшоты, экспортировать данные |
 | FAT32 и файл > 4 ГиБ | автосплит на части 3.5 ГиБ | использовать exFAT/NTFS |
-| Нужно больше объёма | `sp resize` (план v1.4) | создать новый контейнер и перенести данные |
+| Нужно больше объёма | `sp-cli` resize (план v1.6) | создать новый контейнер и перенести данные |
 
-Подсказки есть везде: в CLI-ошибках, в `sp df`, в GUI-баннере и в `sp doctor --explain`. Резерв 64 МиБ всегда держится под метаданные и суперблоки.
+Подсказки есть везде: в ошибках `sp-cli`, в `sp-cli df`, в GUI-баннере и в `sp-cli doctor`. Резерв 64 МиБ всегда держится под метаданные и суперблоки.
 
 ## 🛡️ Безопасность
 
@@ -267,11 +276,12 @@ SecretPiece проверяет свободное место **до** запис
 
 | ОС | Готовые сборки | Статус |
 |---|---|---|
-| Windows 10/11 | x64, ARM64 | v1.2 |
-| macOS 13+ | universal (Intel + Apple Silicon) | v1.2 |
-| Android 8+ | APK (UI + SAF), ARM64 | v1.3 (каркас + маскировка) |
-| Linux | x64, ARM64 (static musl) | v1.2 |
-| Arch Linux | x64, pacman-пакет, PKGBUILD, AUR (yay/paru) | v1.2 |
+| Windows 10/11 | x64 GUI + CLI, ARM64 CLI | v1.4 |
+| macOS 13+ | universal (Intel + Apple Silicon) GUI + CLI | v1.4 |
+| Android 8+ | APK (SAF + JNI чтение), ARM64/ARMv7 | v1.4 (чтение) |
+| Linux | x64 GUI (glibc), x64/ARM64 CLI (static musl) | v1.4 |
+| Alpine Linux | x64 CLI (musl) | v1.4 |
+| Arch Linux | x64 CLI, pacman-пакет, PKGBUILD, AUR (yay/paru) | v1.4 |
 | FreeBSD | x64 (VM build) | экспериментально |
 | OpenBSD | x64 (VM build) | экспериментально |
 | NetBSD | x64 (VM build) | экспериментально |
@@ -285,15 +295,16 @@ git clone https://github.com/AmazingCoderA/secretpiece.git
 cd secretpiece
 cargo build --workspace
 cargo test --workspace
-cargo run -p sp-cli --bin sp -- --version
+cargo run -p sp-cli --bin sp-cli -- --version   # CLI
+cargo run -p sp-gui --bin sp                    # GUI (egui/eframe)
 ```
 
 Нужен Rust stable (MSRV **1.85**, edition 2024).
 
 - **Auto-build** — на каждый push в `main` и на каждый PR: артефакты на странице запуска workflow.
 - **Release** — на тег `v*`: архивы + `SHA256SUMS.txt` в GitHub Releases.
-- **Ассеты релиза:** `windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`, `macos-universal`, `arch-x64`, `*.pkg.tar.zst`, `android.apk` + `SHA256SUMS.txt`.
-- Версии — `1.1`, `1.2`, `1.3`, `2.0` (без микро-патчей в тегах).
+- **Ассеты релиза:** `*-cli` и `*-gui` для `windows-x64`, `linux-x64`, `macos-universal`; `linux-arm64-cli`, `windows-arm64-cli`, `alpine-x64-cli`, `arch-x64-cli`, `*.pkg.tar.zst`, `android.apk` + `SHA256SUMS.txt`.
+- Версии — `1.1`, `1.2`, `1.3`, `1.4`, `2.0` (без микро-патчей в тегах).
 
 ## 📚 Документация
 
@@ -306,7 +317,7 @@ cargo run -p sp-cli --bin sp -- --version
 | [ADR](docs/ADR/README.md) | архитектурные решения |
 | [CHANGELOG.md](CHANGELOG.md) | история изменений |
 
-Байтовая спецификация (`docs/FORMAT.md`) и крипто-дизайн (`docs/CRYPTO.md`) появятся вместе с v1.4.
+Байтовая спецификация — [`docs/SPV.md`](docs/SPV.md); отдельный `docs/FORMAT.md` появится позже.
 
 ## 🧭 Дорожная карта
 
@@ -315,12 +326,12 @@ cargo run -p sp-cli --bin sp -- --version
 | **v1.1** | ✅ | каркас, CI, автосборка, GPL-3.0, любые носители |
 | **v1.2** | ✅ | визуал, RU/EN CLI, pacman/AUR, Android-каркас, Windows ARM64, Linux ARM64, BSD |
 | **v1.3** | ✅ | Android: маскировка приложения, `docs/SPV.md`, полировка |
-| **v1.4** | ⏳ | крипто-ядро и формат SPV1: Argon2id, XChaCha20-Poly1305, слоты, чанки |
-| **v1.5** | ⏳ | CLI и ФС: `init/open/ls/put/get/rm`, extents, индекс, FAT32 split, ARMv7/RISC-V |
+| **v1.4** | ✅ | криптоядро SPV1 (Argon2id, XChaCha20-Poly1305, BLAKE3), CLI, GUI на egui, Android-чтение через JNI, Alpine |
+| **v1.5** | ⏳ | extents, FAT32 split, ARMv7/RISC-V, миграция формата |
 | **v1.6** | ⏳ | надёжность: COW, снапшоты, корзина, `doctor`, resize, crash-тесты |
 | **v1.7** | ⏳ | скрытый том, recovery, Shamir, слоты получателей X25519 |
 | **v1.8** | ⏳ | затирание, free-space wipe, destroy, Reed-Solomon sharding |
-| **v1.9** | ⏳ | GUI: Tauri 2 + Svelte, мастер создания, менеджер файлов |
+| **v1.9** | ⏳ | GUI: мастер создания, менеджер файлов, drag-and-drop, темы |
 | **v2.0** | ⏳ | hardening, фаззинг, Miri, внешний аудит, подписи, SBOM |
 
 ## 🤝 Участие

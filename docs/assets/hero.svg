@@ -113,42 +113,42 @@
       <circle cx="26" cy="23" r="6" fill="#ff5f57"/>
       <circle cx="48" cy="23" r="6" fill="#febc2e"/>
       <circle cx="70" cy="23" r="6" fill="#28c840"/>
-      <text x="320" y="28" font-size="13" fill="#6f84a8" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">sp — SecretPiece</text>
+      <text x="320" y="28" font-size="13" fill="#6f84a8" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">sp-cli — SecretPiece</text>
 
       <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14.5">
         <text x="28" y="86" fill="#5be37f">$</text>
-        <text x="48" y="86" fill="#dbe6ff">sp init vault.spv --size 8G --hidden 2G</text>
+        <text x="48" y="86" fill="#dbe6ff">sp-cli init vault.spv --profile default</text>
 
         <text x="28" y="120" fill="#5be37f">✔</text>
         <text x="48" y="120" fill="#9fb4d8">container created</text>
         <text x="486" y="120" fill="#8ce6a1">vault.spv</text>
 
         <text x="28" y="148" fill="#5be37f">✔</text>
-        <text x="48" y="148" fill="#9fb4d8">outer volume</text>
-        <text x="486" y="148" fill="#9feaff">5.9 GiB</text>
+        <text x="48" y="148" fill="#9fb4d8">format</text>
+        <text x="486" y="148" fill="#9feaff">SPV1</text>
 
         <text x="28" y="176" fill="#5be37f">✔</text>
-        <text x="48" y="176" fill="#9fb4d8">hidden volume</text>
-        <text x="486" y="176" fill="#c9b4ff">1.9 GiB</text>
+        <text x="48" y="176" fill="#9fb4d8">cipher</text>
+        <text x="486" y="176" fill="#c9b4ff">xchacha20-poly1305</text>
 
         <text x="28" y="204" fill="#5be37f">✔</text>
         <text x="48" y="204" fill="#9fb4d8">argon2id · xchacha20 · blake3</text>
         <text x="486" y="204" fill="#8ce6a1">ready</text>
 
         <text x="28" y="248" fill="#5be37f">$</text>
-        <text x="48" y="248" fill="#dbe6ff">sp shell vault.spv</text>
+        <text x="48" y="248" fill="#dbe6ff">sp-cli put vault.spv ./report.pdf docs/</text>
 
-        <text x="28" y="282" fill="#6ea8ff">sp&gt;</text>
-        <text x="76" y="282" fill="#dbe6ff">put ./Documents docs/</text>
+        <text x="28" y="282" fill="#5be37f">✔</text>
+        <text x="48" y="282" fill="#9fb4d8">added: docs/report.pdf</text>
 
-        <text x="28" y="310" fill="#6ea8ff">sp&gt;</text>
-        <text x="76" y="310" fill="#dbe6ff">get docs/report.pdf ./report.pdf</text>
+        <text x="28" y="310" fill="#5be37f">$</text>
+        <text x="48" y="310" fill="#dbe6ff">sp-cli get vault.spv docs/report.pdf .</text>
 
-        <text x="28" y="338" fill="#6ea8ff">sp&gt;</text>
-        <text x="76" y="338" fill="#dbe6ff">snapshot create before-trip</text>
+        <text x="28" y="338" fill="#5be37f">✔</text>
+        <text x="48" y="338" fill="#9fb4d8">extracted: ./report.pdf</text>
 
-        <text x="28" y="366" fill="#6ea8ff">sp&gt;</text>
-        <text x="76" y="366" fill="#5be37f">lock</text>
+        <text x="28" y="366" fill="#5be37f">$</text>
+        <text x="48" y="366" fill="#9feaff">sp-cli verify vault.spv</text>
       </g>
 
       <!-- glow edge -->

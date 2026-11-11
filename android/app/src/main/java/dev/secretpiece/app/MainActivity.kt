@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +67,7 @@ private val SurfaceDark = Color(0xFF0D1424)
 private val Cyan = Color(0xFF4DE8FF)
 private val Violet = Color(0xFF9B6BFF)
 private val Muted = Color(0xFF8EA3C8)
+private val Danger = Color(0xFFFF7A90)
 
 private enum class Lang { Ru, En }
 
@@ -74,8 +77,6 @@ private data class Copy(
     val chosen: String,
     val password: String,
     val open: String,
-    val pendingTitle: String,
-    val pendingBody: String,
     val ok: String,
     val scenarioTitle: String,
     val scenario: List<String>,
@@ -88,6 +89,18 @@ private data class Copy(
     val maskOnBody: String,
     val maskOffTitle: String,
     val maskOffBody: String,
+    val browserTitle: String,
+    val readingMode: String,
+    val up: String,
+    val emptyFolder: String,
+    val lock: String,
+    val close: String,
+    val openFailed: String,
+    val readFailed: String,
+    val binaryFile: String,
+    val verify: String,
+    val integrityOk: String,
+    val integrityFail: String,
 )
 
 private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
@@ -97,9 +110,6 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         chosen = "Выбран файл",
         password = "Пароль",
         open = "Открыть хранилище",
-        pendingTitle = "Криптоядро ещё не подключено",
-        pendingBody = "UI и доступ к флешке уже работают. Argon2id и XChaCha20-Poly1305 " +
-            "подключаются в v1.4 через общий Rust-крейт sp-ffi — без переписывания формата.",
         ok = "Понятно",
         scenarioTitle = "Сценарий: флешка + телефон",
         scenario = listOf(
@@ -118,6 +128,18 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
             "Выключите переключатель, чтобы вернуть название SecretPiece.",
         maskOffTitle = "Маскировка выключена",
         maskOffBody = "Иконка и название SecretPiece снова видны в лаунчере.",
+        browserTitle = "Хранилище",
+        readingMode = "только чтение · прямо с носителя",
+        up = "Вверх",
+        emptyFolder = "Папка пуста",
+        lock = "Закрыть",
+        close = "Закрыть",
+        openFailed = "Не удалось открыть: неверный пароль или повреждённый файл.",
+        readFailed = "Не удалось прочитать файл.",
+        binaryFile = "Двоичный файл — предпросмотр недоступен.",
+        verify = "Проверить",
+        integrityOk = "Целостность в порядке.",
+        integrityFail = "Проверка не пройдена: данные повреждены.",
     )
 } else {
     Copy(
@@ -126,9 +148,6 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         chosen = "Selected file",
         password = "Password",
         open = "Open vault",
-        pendingTitle = "Crypto core is not wired yet",
-        pendingBody = "The UI and USB access already work. Argon2id and XChaCha20-Poly1305 " +
-            "land in v1.4 through the shared Rust crate sp-ffi — without changing the format.",
         ok = "Got it",
         scenarioTitle = "Scenario: USB drive + phone",
         scenario = listOf(
@@ -147,6 +166,18 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
             "Turn the switch off to restore the SecretPiece name.",
         maskOffTitle = "Disguise disabled",
         maskOffBody = "The SecretPiece icon and name are back on the launcher.",
+        browserTitle = "Vault",
+        readingMode = "read-only · straight from the drive",
+        up = "Up",
+        emptyFolder = "This folder is empty",
+        lock = "Lock",
+        close = "Close",
+        openFailed = "Cannot open: wrong password or a damaged file.",
+        readFailed = "Cannot read the file.",
+        binaryFile = "Binary file — preview is not available.",
+        verify = "Verify",
+        integrityOk = "Integrity check passed.",
+        integrityFail = "Integrity check failed: data is damaged.",
     )
 }
 
@@ -244,9 +275,23 @@ private fun VaultScreen(
         mutableStateOf(initialUri?.let { displayName(context, it) } ?: "")
     }
     var password by remember { mutableStateOf("") }
-    var showPending by remember { mutableStateOf(false) }
     var masked by remember { mutableStateOf(disguiseEnabled(context)) }
     var maskDialog by remember { mutableStateOf<String?>(null) }
+    var handle by remember { mutableStateOf(0L) }
+    var openError by remember { mutableStateOf<String?>(null) }
+
+    DisposableEffect(handle) {
+        onDispose {
+            if (handle != 0L) NativeVault.close(handle)
+        }
+    }
+
+    if (handle != 0L) {
+        VaultBrowser(handle, t) {
+            handle = 0L
+        }
+        return
+    }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -358,13 +403,33 @@ private fun VaultScreen(
         )
 
         Button(
-            onClick = { showPending = true },
+            onClick = {
+                val uri = fileUri
+                if (uri != null && password.isNotEmpty()) {
+                    openError = null
+                    runCatching {
+                        val descriptor = context.contentResolver
+                            .openFileDescriptor(uri, "r")
+                            ?: throw IllegalStateException("no descriptor")
+                        val opened = NativeVault.openFd(descriptor.detachFd(), password)
+                        if (opened == 0L) throw IllegalStateException("unlock failed")
+                        handle = opened
+                        password = ""
+                    }.onFailure {
+                        openError = t.openFailed
+                    }
+                }
+            },
             enabled = fileUri != null && password.isNotEmpty(),
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Violet),
         ) {
             Text(t.open, color = Color(0xFF0B0618), fontWeight = FontWeight.Bold)
+        }
+
+        openError?.let { message ->
+            Text(message, fontSize = 13.sp, color = Color(0xFFFF7A90))
         }
 
         Text(
@@ -425,14 +490,154 @@ private fun VaultScreen(
         )
     }
 
-    if (showPending) {
+}
+
+@Composable
+private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
+    var prefix by remember { mutableStateOf("") }
+    var tick by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    var previewTitle by remember { mutableStateOf("") }
+    var preview by remember { mutableStateOf<String?>(null) }
+
+    val entries = remember(prefix, tick) { parseEntries(NativeVault.list(handle, prefix)) }
+    val stats = remember(handle, tick) { parseStats(NativeVault.info(handle)) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                Text(
+                    t.browserTitle,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Cyan,
+                )
+                Text(
+                    t.readingMode,
+                    fontSize = 11.sp,
+                    color = Muted,
+                    fontFamily = FontFamily.Monospace,
+                )
+            }
+            Button(
+                onClick = onLock,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
+            ) {
+                Text(t.lock, color = Cyan, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        stats?.let { data ->
+            Text(
+                "${humanBytes(data.bytes)} · ${data.files} ${t.browserTitle.lowercase()} · " +
+                    "SPV1 · gen ${data.generation}",
+                fontSize = 11.sp,
+                color = Muted,
+                fontFamily = FontFamily.Monospace,
+            )
+        }
+
+        if (prefix.isNotEmpty()) {
+            TextButton(onClick = {
+                prefix = prefix.substringBeforeLast('/', "")
+                error = null
+            }) {
+                Text("← ${t.up}", color = Cyan)
+            }
+        }
+
+        if (entries.isEmpty()) {
+            Text(t.emptyFolder, fontSize = 13.sp, color = Muted)
+        }
+
+        entries.forEach { entry ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        error = null
+                        if (entry.isDir) {
+                            prefix = entry.path
+                        } else {
+                            val data = NativeVault.read(handle, entry.path)
+                            previewTitle = entry.name
+                            preview = when {
+                                data == null -> {
+                                    error = t.readFailed
+                                    null
+                                }
+                                data.size > 2_000_000 || data.any { it == 0.toByte() } ->
+                                    t.binaryFile
+                                else -> String(data, Charsets.UTF_8)
+                                    .takeIf { !it.contains('\uFFFD') }
+                                    ?: t.binaryFile
+                            }
+                        }
+                    },
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            entry.name,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFE8F0FF),
+                        )
+                        Text(
+                            if (entry.isDir) t.browserTitle else humanBytes(entry.size),
+                            fontSize = 11.sp,
+                            color = Muted,
+                        )
+                    }
+                    if (entry.isDir) Text("›", fontSize = 20.sp, color = Muted)
+                }
+            }
+        }
+
+        error?.let { Text(it, fontSize = 13.sp, color = Danger) }
+        notice?.let { Text(it, fontSize = 13.sp, color = Cyan) }
+
+        TextButton(onClick = {
+            notice = if (NativeVault.verify(handle) == 1) t.integrityOk else t.integrityFail
+        }) {
+            Text(t.verify, color = Violet)
+        }
+    }
+
+    preview?.let { text ->
         AlertDialog(
-            onDismissRequest = { showPending = false },
+            onDismissRequest = { preview = null },
             confirmButton = {
-                TextButton(onClick = { showPending = false }) { Text(t.ok) }
+                TextButton(onClick = { preview = null }) { Text(t.close) }
             },
-            title = { Text(t.pendingTitle) },
-            text = { Text(t.pendingBody) },
+            title = { Text(previewTitle) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .height(360.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(text, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                }
+            },
         )
     }
 }

@@ -18,9 +18,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Stable, release-blocking builds.
-  build:
-    name: ${{ matrix.platform }}
+  # Command-line interface. Static musl builds on Linux, native elsewhere.
+  cli:
+    name: cli-${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -63,7 +63,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.platform }}
+          key: cli-${{ matrix.platform }}
 
       - name: Build
         shell: bash
@@ -76,16 +76,12 @@ jobs:
           if [ "${{ matrix.target }}" = "universal" ]; then
             cargo build --release --locked -p sp-cli --target aarch64-apple-darwin
             cargo build --release --locked -p sp-cli --target x86_64-apple-darwin
-            lipo -create -output dist/sp \
-              target/aarch64-apple-darwin/release/sp \
-              target/x86_64-apple-darwin/release/sp
-            lipo -create -output dist/secretpiece \
-              target/aarch64-apple-darwin/release/secretpiece \
-              target/x86_64-apple-darwin/release/secretpiece
+            lipo -create -output dist/sp-cli \
+              target/aarch64-apple-darwin/release/sp-cli \
+              target/x86_64-apple-darwin/release/sp-cli
           else
             cargo build --release --locked -p sp-cli --target ${{ matrix.target }}
-            cp "target/${{ matrix.target }}/release/sp${{ matrix.ext }}" dist/
-            cp "target/${{ matrix.target }}/release/secretpiece${{ matrix.ext }}" dist/
+            cp "target/${{ matrix.target }}/release/sp-cli${{ matrix.ext }}" dist/
           fi
 
       - name: Stage package
@@ -97,7 +93,7 @@ jobs:
           else
             version="dev-${GITHUB_SHA::7}"
           fi
-          name="secretpiece-${version}-${{ matrix.platform }}"
+          name="secretpiece-${version}-${{ matrix.platform }}-cli"
           mkdir -p "package/${name}"
           cp dist/* "package/${name}/"
           cp README.md README.en.md LICENSE CHANGELOG.md "package/${name}/"
@@ -115,33 +111,76 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: secretpiece-${{ matrix.platform }}
+          name: secretpiece-cli-${{ matrix.platform }}
           path: |
             package/*.zip
             package/*.tar.gz
           if-no-files-found: error
 
-  # Windows on ARM is still a preview runner: never block a release on it.
-  windows-arm64:
-    name: windows-arm64
-    runs-on: windows-11-arm
-    continue-on-error: true
+  # Graphical application: `sp` and `secretpiece` are GUI binaries.
+  gui:
+    name: gui-${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x64
+            target: x86_64-pc-windows-msvc
+            targets: x86_64-pc-windows-msvc
+            ext: .exe
+            archive: zip
+          - os: ubuntu-latest
+            platform: linux-x64
+            target: x86_64-unknown-linux-gnu
+            targets: x86_64-unknown-linux-gnu
+            ext: ""
+            archive: tar.gz
+          - os: macos-latest
+            platform: macos-universal
+            target: universal
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+            ext: ""
+            archive: tar.gz
     steps:
       - uses: actions/checkout@v7
+
+      - name: Install Linux GUI dependencies
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev \
+            libgl1-mesa-dev libegl1-mesa-dev
+
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-pc-windows-msvc
+          targets: ${{ matrix.targets }}
+
       - uses: Swatinem/rust-cache@v2
         with:
-          key: windows-arm64
+          key: gui-${{ matrix.platform }}
+
       - name: Build
         shell: bash
         run: |
           set -euo pipefail
-          cargo build --release --locked -p sp-cli --target aarch64-pc-windows-msvc
           mkdir -p dist
-          cp target/aarch64-pc-windows-msvc/release/sp.exe dist/
-          cp target/aarch64-pc-windows-msvc/release/secretpiece.exe dist/
+          if [ "${{ matrix.target }}" = "universal" ]; then
+            cargo build --release --locked -p sp-gui --target aarch64-apple-darwin
+            cargo build --release --locked -p sp-gui --target x86_64-apple-darwin
+            lipo -create -output dist/sp \
+              target/aarch64-apple-darwin/release/sp \
+              target/x86_64-apple-darwin/release/sp
+            lipo -create -output dist/secretpiece \
+              target/aarch64-apple-darwin/release/secretpiece \
+              target/x86_64-apple-darwin/release/secretpiece
+          else
+            cargo build --release --locked -p sp-gui --target ${{ matrix.target }}
+            cp "target/${{ matrix.target }}/release/sp${{ matrix.ext }}" dist/
+            cp "target/${{ matrix.target }}/release/secretpiece${{ matrix.ext }}" dist/
+          fi
+
       - name: Stage package
         shell: bash
         run: |
@@ -151,7 +190,60 @@ jobs:
           else
             version="dev-${GITHUB_SHA::7}"
           fi
-          name="secretpiece-${version}-windows-arm64"
+          name="secretpiece-${version}-${{ matrix.platform }}-gui"
+          mkdir -p "package/${name}"
+          cp dist/* "package/${name}/"
+          cp README.md README.en.md LICENSE CHANGELOG.md "package/${name}/"
+          echo "PACKAGE_NAME=${name}" >> "$GITHUB_ENV"
+
+      - name: Archive (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: Compress-Archive -Path "package/$env:PACKAGE_NAME/*" -DestinationPath "package/$env:PACKAGE_NAME.zip"
+
+      - name: Archive (Unix)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: tar -czf "package/${{ env.PACKAGE_NAME }}.tar.gz" -C package "${{ env.PACKAGE_NAME }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secretpiece-gui-${{ matrix.platform }}
+          path: |
+            package/*.zip
+            package/*.tar.gz
+          if-no-files-found: error
+
+  # Windows on ARM is still a preview runner: never block a release on it.
+  windows-arm64:
+    name: cli-windows-arm64
+    runs-on: windows-11-arm
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: cli-windows-arm64
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --locked -p sp-cli --target aarch64-pc-windows-msvc
+          mkdir -p dist
+          cp target/aarch64-pc-windows-msvc/release/sp-cli.exe dist/
+      - name: Stage package
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="dev-${GITHUB_SHA::7}"
+          fi
+          name="secretpiece-${version}-windows-arm64-cli"
           mkdir -p "package/${name}"
           cp dist/* "package/${name}/"
           cp README.md README.en.md LICENSE CHANGELOG.md "package/${name}/"
@@ -161,13 +253,45 @@ jobs:
         run: Compress-Archive -Path "package/$env:PACKAGE_NAME/*" -DestinationPath "package/$env:PACKAGE_NAME.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: secretpiece-windows-arm64
+          name: secretpiece-cli-windows-arm64
           path: package/*.zip
+          if-no-files-found: error
+
+  # Alpine Linux: musl-native CLI build inside the real distribution.
+  alpine:
+    name: cli-alpine-x64
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    continue-on-error: true
+    steps:
+      - name: Bootstrap
+        run: apk add --no-cache git
+      - uses: actions/checkout@v7
+      - name: Install toolchain
+        run: apk add --no-cache build-base rust cargo
+      - name: Build
+        run: |
+          set -euo pipefail
+          cargo build --release --locked -p sp-cli
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="dev-${GITHUB_SHA::7}"
+          fi
+          name="secretpiece-${version}-alpine-x64-cli"
+          mkdir -p "package/${name}"
+          cp target/release/sp-cli "package/${name}/"
+          cp README.md README.en.md LICENSE CHANGELOG.md "package/${name}/"
+          tar -czf "package/${name}.tar.gz" -C package "${name}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secretpiece-cli-alpine-x64
+          path: package/*.tar.gz
           if-no-files-found: error
 
   # Arch Linux: real build inside a clean Arch container.
   arch:
-    name: arch-x64
+    name: cli-arch-x64
     runs-on: ubuntu-latest
     container: archlinux:latest
     continue-on-error: true
@@ -186,9 +310,9 @@ jobs:
           else
             version="dev-${GITHUB_SHA::7}"
           fi
-          name="secretpiece-${version}-arch-x64"
+          name="secretpiece-${version}-arch-x64-cli"
           mkdir -p "package/${name}"
-          cp target/release/sp target/release/secretpiece "package/${name}/"
+          cp target/release/sp-cli "package/${name}/"
           cp README.md README.en.md LICENSE CHANGELOG.md packaging/arch/PKGBUILD "package/${name}/"
           tar -czf "package/${name}.tar.gz" -C package "${name}"
 
@@ -213,8 +337,7 @@ jobs:
           license=('GPL-3.0-only')
           options=('!strip')
           package() {
-            install -Dm755 "${GITHUB_WORKSPACE}/target/release/sp" "\${pkgdir}/usr/bin/sp"
-            install -Dm755 "${GITHUB_WORKSPACE}/target/release/secretpiece" "\${pkgdir}/usr/bin/secretpiece"
+            install -Dm755 "${GITHUB_WORKSPACE}/target/release/sp-cli" "\${pkgdir}/usr/bin/sp-cli"
             install -Dm644 "${GITHUB_WORKSPACE}/LICENSE" "\${pkgdir}/usr/share/licenses/secretpiece/LICENSE"
             install -Dm644 "${GITHUB_WORKSPACE}/README.md" "\${pkgdir}/usr/share/doc/secretpiece/README.md"
           }
@@ -225,7 +348,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: secretpiece-arch-x64
+          name: secretpiece-cli-arch-x64
           path: |
             package/*.tar.gz
             package/*.pkg.tar.zst
@@ -233,7 +356,7 @@ jobs:
 
   # BSD builds run inside real VMs. Experimental: a failure never blocks the release.
   freebsd:
-    name: freebsd-x64
+    name: cli-freebsd-x64
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -245,11 +368,11 @@ jobs:
           run: |
             set -eu
             cargo build --release --locked -p sp-cli
-            ./target/release/sp --version
-            ./target/release/sp --help | head -n 5
+            ./target/release/sp-cli --version
+            ./target/release/sp-cli --help | head -n 5
 
   openbsd:
-    name: openbsd-x64
+    name: cli-openbsd-x64
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -261,11 +384,11 @@ jobs:
           run: |
             set -eu
             cargo build --release --locked -p sp-cli
-            ./target/release/sp --version
-            ./target/release/sp --help | head -n 5
+            ./target/release/sp-cli --version
+            ./target/release/sp-cli --help | head -n 5
 
   netbsd:
-    name: netbsd-x64
+    name: cli-netbsd-x64
     runs-on: ubuntu-latest
     # NetBSD base images ship without pkgin/pkg_add; run manually from the
     # Actions tab (workflow_dispatch) until a reliable Rust bootstrap lands.
@@ -284,10 +407,10 @@ jobs:
             set -eu
             export PATH=/usr/pkg/bin:/usr/pkg/sbin:$PATH
             cargo build --release --locked -p sp-cli
-            ./target/release/sp --version
-            ./target/release/sp --help | head -n 5
+            ./target/release/sp-cli --version
+            ./target/release/sp-cli --help | head -n 5
 
-  # Android APK: Compose UI + SAF access to a .spv file on a USB drive via OTG.
+  # Android APK: Compose UI + JNI over sp-vault, reading a .spv on a USB drive.
   android:
     name: android-apk
     runs-on: ubuntu-latest
@@ -298,6 +421,26 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android
+      - name: Build JNI library
+        run: |
+          set -euo pipefail
+          ndk="${ANDROID_NDK_HOME:-$(ls -d "$ANDROID_HOME"/ndk/* 2>/dev/null | tail -n 1)}"
+          if [ -z "$ndk" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;26.3.11579264" >/dev/null
+            ndk="$ANDROID_HOME/ndk/26.3.11579264"
+          fi
+          echo "NDK: $ndk"
+          export ANDROID_NDK_HOME="$ndk"
+          cargo install cargo-ndk --locked
+          cargo ndk -t arm64-v8a -t armeabi-v7a \
+            -o android/app/src/main/jniLibs build --release --locked -p sp-ffi
+          find android/app/src/main/jniLibs -type f -name '*.so'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
@@ -323,7 +466,7 @@ jobs:
 
   release:
     name: publish release
-    needs: [build, windows-arm64, arch, android]
+    needs: [cli, gui, windows-arm64, arch, alpine, android]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,32 @@
+[package]
+name = "sp-gui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "SecretPiece desktop application."
+
+[lib]
+name = "sp_gui"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sp"
+path = "src/bin/sp.rs"
+
+[[bin]]
+name = "secretpiece"
+path = "src/bin/secretpiece.rs"
+
+[dependencies]
+sp-core.workspace = true
+sp-crypto.workspace = true
+sp-format.workspace = true
+sp-vault.workspace = true
+eframe.workspace = true
+rfd.workspace = true
+zeroize.workspace = true
+
+[lints]
+workspace = true

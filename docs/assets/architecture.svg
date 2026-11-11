@@ -42,15 +42,15 @@
     <g>
       <rect x="60" y="68" width="200" height="74" rx="16" fill="#0f1728" stroke="#2a3b5c"/>
       <text x="160" y="101" font-size="20" font-weight="700" fill="#dfe9ff" text-anchor="middle">CLI</text>
-      <text x="160" y="123" font-size="13" fill="#8093b8" text-anchor="middle">sp · secretpiece</text>
+      <text x="160" y="123" font-size="13" fill="#8093b8" text-anchor="middle">sp-cli</text>
 
       <rect x="280" y="68" width="200" height="74" rx="16" fill="#0f1728" stroke="#2a3b5c"/>
       <text x="380" y="101" font-size="20" font-weight="700" fill="#dfe9ff" text-anchor="middle">GUI</text>
-      <text x="380" y="123" font-size="13" fill="#8093b8" text-anchor="middle">Tauri 2 · Svelte</text>
+      <text x="380" y="123" font-size="13" fill="#8093b8" text-anchor="middle">egui · eframe</text>
 
       <rect x="500" y="68" width="200" height="74" rx="16" fill="#0f1728" stroke="#2a3b5c"/>
       <text x="600" y="101" font-size="20" font-weight="700" fill="#dfe9ff" text-anchor="middle">FFI · SDK</text>
-      <text x="600" y="123" font-size="13" fill="#8093b8" text-anchor="middle">C ABI · mobile later</text>
+      <text x="600" y="123" font-size="13" fill="#8093b8" text-anchor="middle">JNI · Android reads</text>
     </g>
 
     <line x1="380" y1="146" x2="380" y2="186" stroke="#5b7bb5" stroke-width="2" marker-end="url(#arrow)"/>
@@ -58,15 +58,15 @@
     <!-- vault -->
     <rect x="60" y="190" width="640" height="84" rx="18" fill="url(#card)" stroke="url(#edge)" stroke-width="1.6"/>
     <text x="86" y="224" font-size="21" font-weight="700" fill="#e6efff">sp-vault</text>
-    <text x="86" y="250" font-size="14" fill="#8ea3c8">sessions · auto-lock · profiles · import / export · free-space preflight</text>
+    <text x="86" y="250" font-size="14" fill="#8ea3c8">create · open · put/get · list · verify · info</text>
 
     <line x1="380" y1="278" x2="380" y2="316" stroke="#5b7bb5" stroke-width="2" marker-end="url(#arrow)"/>
 
     <!-- format -->
     <rect x="60" y="320" width="640" height="94" rx="18" fill="url(#card)" stroke="#2f4a74" stroke-width="1.4"/>
     <text x="86" y="354" font-size="21" font-weight="700" fill="#e6efff">sp-format · SPV1</text>
-    <text x="86" y="378" font-size="14" fill="#8ea3c8">headers A/A′ · B/B′ · 512-byte key slots · superblocks · COW index · generations</text>
-    <text x="86" y="400" font-size="13" fill="#6f84a8">format_version · algorithm_id · volume_uuid · flags</text>
+    <text x="86" y="378" font-size="14" fill="#8ea3c8">2 × 4 KiB header slots · wrapped master key · encrypted JSON index · generations</text>
+    <text x="86" y="400" font-size="13" fill="#6f84a8">format_version · argon2id params · index offset · blake3 checksum</text>
 
     <line x1="380" y1="418" x2="380" y2="456" stroke="#5b7bb5" stroke-width="2" marker-end="url(#arrow)"/>
 
@@ -86,7 +86,7 @@
     <!-- crypto -->
     <rect x="60" y="590" width="640" height="84" rx="18" fill="#101a30" stroke="#4de8ff" stroke-opacity="0.5" stroke-width="1.4"/>
     <text x="86" y="624" font-size="21" font-weight="700" fill="#bfefff">sp-crypto</text>
-    <text x="86" y="650" font-size="13" fill="#8ecfe8">Argon2id · XChaCha20-Poly1305 / AES-256-GCM · BLAKE3 · X25519 · Shamir · BIP39</text>
+    <text x="86" y="650" font-size="13" fill="#8ecfe8">Argon2id · XChaCha20-Poly1305 · BLAKE3 · zeroizing keys</text>
 
     <!-- right: container -->
     <text x="780" y="50" font-size="14" font-weight="700" letter-spacing="3" fill="#6b7c9e">SPV1 ON DISK</text>
@@ -98,28 +98,28 @@
 
     <!-- outer area -->
     <rect x="784" y="156" width="332" height="176" rx="12" fill="#0f1a2f" stroke="#2b4675" stroke-dasharray="4 4"/>
-    <text x="800" y="176" font-size="12" font-weight="700" fill="#7fb2ff">OUTER VOLUME</text>
+    <text x="800" y="176" font-size="12" font-weight="700" fill="#7fb2ff">SPV1 HEADERS</text>
     <rect x="800" y="186" width="300" height="26" rx="6" fill="#16233d"/>
-    <text x="812" y="204" font-size="12" fill="#a9c0e8">header A + backup A′</text>
+    <text x="812" y="204" font-size="12" fill="#a9c0e8">header slot 0 · 4096 B</text>
     <rect x="800" y="218" width="300" height="26" rx="6" fill="#16233d"/>
-    <text x="812" y="236" font-size="12" fill="#a9c0e8">superblock A / B</text>
+    <text x="812" y="236" font-size="12" fill="#a9c0e8">header slot 1 · 4096 B</text>
     <rect x="800" y="250" width="300" height="64" rx="6" fill="#13203a"/>
-    <text x="812" y="270" font-size="12" fill="#a9c0e8">encrypted chunks</text>
-    <text x="812" y="290" font-size="11" fill="#6f84a8">files · index · versions · trash</text>
+    <text x="812" y="270" font-size="12" fill="#a9c0e8">encrypted index + chunks</text>
+    <text x="812" y="290" font-size="11" fill="#6f84a8">files · paths · 64 KiB chunks</text>
 
     <!-- free space -->
     <rect x="784" y="342" width="332" height="66" rx="12" fill="#0d1626" stroke="#31456b" stroke-dasharray="4 4"/>
-    <text x="800" y="364" font-size="12" font-weight="700" fill="#8ea3c8">FREE SPACE (outer)</text>
-    <text x="800" y="386" font-size="11" fill="#6f84a8">looks like random data · read-only in deniable mode</text>
+    <text x="800" y="364" font-size="12" font-weight="700" fill="#8ea3c8">DATA AREA</text>
+    <text x="800" y="386" font-size="11" fill="#6f84a8">authenticated chunks · path + index in AAD</text>
 
     <!-- hidden -->
     <rect x="784" y="418" width="332" height="126" rx="12" fill="#1a1533" stroke="#7c5cff" stroke-dasharray="5 4"/>
-    <text x="800" y="440" font-size="12" font-weight="700" fill="#b9a4ff">HIDDEN VOLUME (password 2)</text>
+    <text x="800" y="440" font-size="12" font-weight="700" fill="#b9a4ff">HIDDEN VOLUME · PLANNED</text>
     <rect x="800" y="450" width="300" height="24" rx="6" fill="#241c47"/>
-    <text x="812" y="467" font-size="11" fill="#cbb8ff">header B + backup B′</text>
+    <text x="812" y="467" font-size="11" fill="#cbb8ff">not in v1.4</text>
     <rect x="800" y="480" width="300" height="50" rx="6" fill="#201942"/>
-    <text x="812" y="500" font-size="11" fill="#cbb8ff">hidden superblocks + chunks</text>
-    <text x="812" y="518" font-size="10" fill="#9a86d6">separate master key · separate index</text>
+    <text x="812" y="500" font-size="11" fill="#cbb8ff">separate key + separate index</text>
+    <text x="812" y="518" font-size="10" fill="#9a86d6">planned for v1.7</text>
 
     <text x="950" y="562" font-size="11" fill="#6f84a8" text-anchor="middle">no partitions · no drivers · no admin rights</text>
 

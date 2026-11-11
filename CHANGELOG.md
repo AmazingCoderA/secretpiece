@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-11
+
+The crypto core, the SPV1 container, separate GUI/CLI applications, and Android
+read support.
+
+### Added
+
+- **Real crypto core** (`sp-crypto`): Argon2id password KDF with three profiles
+  (light 16 MiB, default 64 MiB, paranoid 256 MiB), XChaCha20-Poly1305 AEAD with
+  per-chunk random nonces and path/chunk AAD, BLAKE3 header checksums, and
+  zeroizing key material that is never formatted into logs.
+- **SPV1 on-disk format** (`sp-format`): two 4 KiB header slots with alternating
+  generations, checksums covering the whole slot, an encrypted JSON index, and
+  64 KiB encrypted chunks. A crash leaves the previous generation readable.
+- **Vault engine** (`sp-vault`): `create`, `open`, `put`, `get`, `mkdir`,
+  `remove`, `list`, `verify`, `info`, with path normalization (`..` rejected),
+  chunk authentication, and no-space/permission error mapping.
+- **CLI** (`sp-cli`): `init`, `ls`, `put`, `get`, `mkdir`, `rm`, `df`, `verify`,
+  `doctor`, RU/EN output, `--profile`, `--password-stdin`, `SP_PASSWORD`.
+- **Desktop GUI** (`sp-gui`, egui/eframe): unlock/create screen, vault browser,
+  add/extract/delete/new-folder, integrity check, live size counters, RU/EN,
+  drag-and-drop, dark cyan/violet material design.
+- **Android reads vaults** through `sp-ffi`: the SAF file descriptor is detached
+  and passed to `Vault::open_file`, so files are read directly from the USB drive
+  without copying the container into app storage. Compose browser with folder
+  navigation, text preview, and integrity check.
+- **New release assets**: Alpine `alpine-x64-cli`, GUI archives for Windows,
+  Linux and macOS (`*-gui`), and CLI archives (`*-cli`) for every platform.
+
+### Changed
+
+- **Binaries are separated by interface**: `sp` and `secretpiece` are the GUI,
+  `sp-cli` is the CLI. Packaging recipes and CI were updated accordingly.
+- Workspace version bumped to 1.4.0; MSRV stays at Rust 1.85 (edition 2024).
+
 ## [1.3.0] - 2026-11-11
 
 ### Added
@@ -104,7 +139,8 @@ format are **not** implemented yet — do not use for real data.
   macOS universal, archives with `SHA256SUMS.txt`, automatic GitHub Release.
 - Dependabot and issue templates.
 
-[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v1.3...HEAD
+[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v1.4...HEAD
+[1.4.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.4
 [1.3.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.3
 [1.2.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.2
 [1.1.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.1

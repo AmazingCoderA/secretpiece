@@ -30,7 +30,7 @@ Positive, negative, and open questions. Security impact must be explicit.
 Planned ADRs:
 
 - 0001 — container file instead of hidden partition;
-- 0002 — GUI stack: Tauri 2 + Svelte (with egui fallback);
+- 0002 — GUI stack: egui + eframe on desktop, Compose on Android;
 - 0003 — SPV1 on-disk layout and generation rules;
 - 0004 — key hierarchy and slot model;
 - 0005 — deniable vs protected hidden volume;

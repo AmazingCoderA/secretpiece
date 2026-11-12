@@ -4,13 +4,24 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
+import android.graphics.drawable.Icon
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,12 +32,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -34,7 +48,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -49,27 +65,42 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.sin
 
 private const val PREFS = "secretpiece"
 private const val PREF_DISGUISE = "disguise"
+private const val PREF_SKY = "sky"
+private const val PREF_LANG = "lang"
 
 private val Bg = Color(0xFF05080F)
+private val Deep = Color(0xFF0A1020)
 private val SurfaceDark = Color(0xFF0D1424)
+private val SurfaceSoft = Color(0xFF121B2E)
 private val Cyan = Color(0xFF4DE8FF)
 private val Violet = Color(0xFF9B6BFF)
 private val Muted = Color(0xFF8EA3C8)
+private val Faint = Color(0xFF6F84A8)
 private val Danger = Color(0xFFFF7A90)
+private val Gold = Color(0xFFFFD48A)
 
 private enum class Lang { Ru, En }
+
+/** Ambient effect drawn behind the whole app. */
+private enum class Sky { None, Snow, Rain, Sun }
 
 private data class Copy(
     val tagline: String,
@@ -77,7 +108,22 @@ private data class Copy(
     val chosen: String,
     val password: String,
     val open: String,
+    val unlockTitle: String,
+    val unlockHint: String,
+    val show: String,
+    val hide: String,
     val ok: String,
+    val done: String,
+    val settingsTitle: String,
+    val lookTitle: String,
+    val lookHint: String,
+    val language: String,
+    val shortcut: String,
+    val shortcutHint: String,
+    val skyNone: String,
+    val skySnow: String,
+    val skyRain: String,
+    val skySun: String,
     val scenarioTitle: String,
     val scenario: List<String>,
     val platforms: String,
@@ -110,7 +156,22 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         chosen = "Выбран файл",
         password = "Пароль",
         open = "Открыть хранилище",
+        unlockTitle = "Открыть сейф",
+        unlockHint = "Пароль не покидает устройство: ключ выводится через Argon2id.",
+        show = "Показать",
+        hide = "Скрыть",
         ok = "Понятно",
+        done = "Готово",
+        settingsTitle = "Настройки",
+        lookTitle = "Атмосфера",
+        lookHint = "Живой фон приложения. На работу сейфа не влияет.",
+        language = "Язык",
+        shortcut = "Создать ярлык",
+        shortcutHint = "Закрепить SecretPiece на главном экране.",
+        skyNone = "Нет",
+        skySnow = "Снег",
+        skyRain = "Дождь",
+        skySun = "Солнце",
         scenarioTitle = "Сценарий: флешка + телефон",
         scenario = listOf(
             "1. Подключите USB-флешку через OTG/USB-C.",
@@ -118,7 +179,7 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
             "3. Введите пароль и откройте хранилище.",
             "4. Читайте и копируйте файлы прямо с флешки.",
         ),
-        platforms = "Android 8+ · ARM64 · без root · доступ через SAF",
+        platforms = "Android 8+ · ARM64/ARMv7 · без root · доступ через SAF",
         advancedTitle = "Дополнительно",
         maskTitle = "Маскировка приложения",
         maskSummary = "Иконка и название «Калькулятор» в лаунчере.",
@@ -148,7 +209,22 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         chosen = "Selected file",
         password = "Password",
         open = "Open vault",
+        unlockTitle = "Unlock your vault",
+        unlockHint = "The password never leaves the device: the key is derived with Argon2id.",
+        show = "Show",
+        hide = "Hide",
         ok = "Got it",
+        done = "Done",
+        settingsTitle = "Settings",
+        lookTitle = "Ambience",
+        lookHint = "A living background. It does not affect the vault.",
+        language = "Language",
+        shortcut = "Create shortcut",
+        shortcutHint = "Pin SecretPiece to the home screen.",
+        skyNone = "None",
+        skySnow = "Snow",
+        skyRain = "Rain",
+        skySun = "Sun",
         scenarioTitle = "Scenario: USB drive + phone",
         scenario = listOf(
             "1. Plug a USB drive in via OTG/USB-C.",
@@ -156,7 +232,7 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
             "3. Enter the password and open the vault.",
             "4. Read and copy files directly from the drive.",
         ),
-        platforms = "Android 8+ · ARM64 · no root · SAF access",
+        platforms = "Android 8+ · ARM64/ARMv7 · no root · SAF access",
         advancedTitle = "Advanced",
         maskTitle = "Disguise app",
         maskSummary = "Show «Calculator» as the launcher icon and name.",
@@ -198,9 +274,32 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private fun disguiseEnabled(context: Context): Boolean =
+private fun prefs(context: Context) =
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getBoolean(PREF_DISGUISE, false)
+
+private fun disguiseEnabled(context: Context): Boolean =
+    prefs(context).getBoolean(PREF_DISGUISE, false)
+
+private fun loadLang(context: Context): Lang =
+    if (prefs(context).getString(PREF_LANG, "ru") == "en") Lang.En else Lang.Ru
+
+private fun loadSky(context: Context): Sky =
+    when (prefs(context).getString(PREF_SKY, "none")) {
+        "snow" -> Sky.Snow
+        "rain" -> Sky.Rain
+        "sun" -> Sky.Sun
+        else -> Sky.None
+    }
+
+private fun saveSky(context: Context, sky: Sky) {
+    val value = when (sky) {
+        Sky.None -> "none"
+        Sky.Snow -> "snow"
+        Sky.Rain -> "rain"
+        Sky.Sun -> "sun"
+    }
+    prefs(context).edit().putString(PREF_SKY, value).apply()
+}
 
 private fun launcherAlias(context: Context, suffix: String): ComponentName =
     ComponentName(context, "${context.packageName}.$suffix")
@@ -221,10 +320,7 @@ private fun applyDisguise(context: Context, enabled: Boolean) {
         if (enabled) enabledState else disabledState,
         PackageManager.DONT_KILL_APP,
     )
-    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .edit()
-        .putBoolean(PREF_DISGUISE, enabled)
-        .apply()
+    prefs(context).edit().putBoolean(PREF_DISGUISE, enabled).apply()
 }
 
 /** Re-apply the saved choice after a reinstall or a package manager reset. */
@@ -240,9 +336,28 @@ private fun syncDisguise(context: Context) {
     if (current != expected) applyDisguise(context, wanted)
 }
 
+/** Asks the launcher to pin a home-screen shortcut. */
+private fun pinShortcut(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    val manager = context.getSystemService(ShortcutManager::class.java) ?: return
+    if (!manager.isRequestPinShortcutSupported) return
+    val intent = Intent(context, MainActivity::class.java)
+        .setAction(Intent.ACTION_MAIN)
+        .addCategory(Intent.CATEGORY_LAUNCHER)
+    val shortcut = ShortcutInfo.Builder(context, "secretpiece-vault")
+        .setShortLabel("SecretPiece")
+        .setLongLabel("SecretPiece encrypted vault")
+        .setIcon(Icon.createWithResource(context, R.mipmap.ic_launcher))
+        .setIntent(intent)
+        .build()
+    runCatching { manager.requestPinShortcut(shortcut, null) }
+}
+
 @Composable
 fun SecretPieceApp(initialUri: Uri? = null) {
-    var lang by remember { mutableStateOf(Lang.Ru) }
+    val context = LocalContext.current
+    var lang by remember { mutableStateOf(loadLang(context)) }
+    var sky by remember { mutableStateOf(loadSky(context)) }
     val t = copyFor(lang)
 
     MaterialTheme(
@@ -256,8 +371,103 @@ fun SecretPieceApp(initialUri: Uri? = null) {
             onSurface = Color(0xFFE8F0FF),
         ),
     ) {
-        Surface(modifier = Modifier.fillMaxSize(), color = Bg) {
-            VaultScreen(t, lang, initialUri) { lang = it }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Brush.verticalGradient(listOf(Bg, Deep, Bg))),
+        ) {
+            Ambient(sky)
+            Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
+                VaultScreen(
+                    t = t,
+                    lang = lang,
+                    initialUri = initialUri,
+                    onLang = {
+                        lang = it
+                        prefs(context).edit()
+                            .putString(PREF_LANG, if (it == Lang.En) "en" else "ru")
+                            .apply()
+                    },
+                    onSky = {
+                        sky = it
+                        saveSky(context, it)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Ambient(sky: Sky) {
+    if (sky == Sky.None) return
+    val transition = rememberInfiniteTransition(label = "ambient")
+    val drift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = if (sky == Sky.Rain) 1100 else 9000,
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "drift",
+    )
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        when (sky) {
+            Sky.Snow -> {
+                for (index in 0 until 90) {
+                    val seed = (index * 0.6180339f) % 1f
+                    val sway = sin((drift * 6.283f) + index.toFloat()) * size.width * 0.02f
+                    val x = ((seed + drift * 0.06f) % 1f) * size.width + sway
+                    val y = ((seed * 1.7f + drift) % 1f) * size.height
+                    val radius = 1.1f + (index % 4) * 0.75f
+                    drawCircle(
+                        color = Color(0xCCBBD8FF),
+                        radius = radius,
+                        center = Offset(x, y),
+                    )
+                }
+            }
+            Sky.Rain -> {
+                for (index in 0 until 80) {
+                    val seed = (index * 0.7548776f) % 1f
+                    val x = ((seed + drift * 0.22f) % 1f) * size.width
+                    val y = ((seed * 1.3f + drift * 1.15f) % 1f) * size.height
+                    drawLine(
+                        color = Color(0x554DE8FF),
+                        start = Offset(x, y),
+                        end = Offset(x - 14f, y + 46f),
+                        strokeWidth = 1.6f,
+                    )
+                }
+            }
+            Sky.Sun -> {
+                val cx = size.width * 0.82f
+                val cy = size.height * 0.10f
+                val pulse = 0.5f + 0.5f * sin(drift * 6.283f)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0x33FFC46B), Color(0x00FFC46B)),
+                        center = Offset(cx, cy),
+                        radius = 240f + pulse * 30f,
+                    ),
+                    radius = 240f + pulse * 30f,
+                    center = Offset(cx, cy),
+                )
+                drawCircle(
+                    color = Color(0x22FFD48A),
+                    radius = 64f + pulse * 8f,
+                    center = Offset(cx, cy),
+                )
+                drawCircle(
+                    color = Gold,
+                    radius = 22f + pulse * 2.5f,
+                    center = Offset(cx, cy),
+                )
+            }
+            Sky.None -> Unit
         }
     }
 }
@@ -268,6 +478,7 @@ private fun VaultScreen(
     lang: Lang,
     initialUri: Uri?,
     onLang: (Lang) -> Unit,
+    onSky: (Sky) -> Unit,
 ) {
     val context = LocalContext.current
     var fileUri by remember { mutableStateOf(initialUri) }
@@ -275,8 +486,11 @@ private fun VaultScreen(
         mutableStateOf(initialUri?.let { displayName(context, it) } ?: "")
     }
     var password by remember { mutableStateOf("") }
+    var visible by remember { mutableStateOf(false) }
     var masked by remember { mutableStateOf(disguiseEnabled(context)) }
     var maskDialog by remember { mutableStateOf<String?>(null) }
+    var settings by remember { mutableStateOf(false) }
+    var sky by remember { mutableStateOf(loadSky(context)) }
     var handle by remember { mutableStateOf(0L) }
     var openError by remember { mutableStateOf<String?>(null) }
 
@@ -303,6 +517,24 @@ private fun VaultScreen(
             }
             fileUri = uri
             fileName = displayName(context, uri)
+            openError = null
+        }
+    }
+
+    fun unlock() {
+        val uri = fileUri
+        if (uri == null || password.isEmpty()) return
+        openError = null
+        runCatching {
+            val descriptor = context.contentResolver
+                .openFileDescriptor(uri, "r")
+                ?: throw IllegalStateException("no descriptor")
+            val opened = NativeVault.openFd(descriptor.detachFd(), password)
+            if (opened == 0L) throw IllegalStateException("unlock failed")
+            handle = opened
+            password = ""
+        }.onFailure {
+            openError = t.openFailed
         }
     }
 
@@ -310,7 +542,8 @@ private fun VaultScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+            .imePadding()
+            .padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Row(
@@ -321,14 +554,14 @@ private fun VaultScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(13.dp))
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(14.dp))
                         .background(Brush.linearGradient(listOf(Cyan, Violet))),
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(18.dp)
+                            .size(19.dp)
                             .clip(CircleShape)
                             .background(Bg),
                     )
@@ -355,21 +588,141 @@ private fun VaultScreen(
                     onClick = { onLang(Lang.En) },
                     label = { Text("EN") },
                 )
+                TextButton(onClick = { settings = true }) {
+                    Text("⚙", fontSize = 20.sp, color = Cyan)
+                }
             }
         }
 
-        Text(t.tagline, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE8F0FF))
-        Text(t.platforms, fontSize = 12.sp, color = Muted, fontFamily = FontFamily.Monospace)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                t.tagline,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFFE8F0FF),
+            )
+            Text(t.platforms, fontSize = 11.sp, color = Muted, fontFamily = FontFamily.Monospace)
+        }
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    t.unlockTitle,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFE8F0FF),
+                )
+                Text(t.unlockHint, fontSize = 12.sp, color = Muted)
+
+                OutlinedButton(
+                    onClick = { picker.launch(arrayOf("*/*")) },
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Text(
+                        "＋  ${t.pick}",
+                        color = Cyan,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                    )
+                }
+
+                if (fileUri != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(SurfaceSoft)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Cyan),
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(t.chosen, fontSize = 10.sp, color = Faint)
+                            Text(
+                                fileName,
+                                fontSize = 13.sp,
+                                color = Color(0xFFE8F0FF),
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(t.password) },
+                    singleLine = true,
+                    visualTransformation = if (visible) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { unlock() }),
+                    trailingIcon = {
+                        TextButton(onClick = { visible = !visible }) {
+                            Text(
+                                if (visible) t.hide else t.show,
+                                fontSize = 11.sp,
+                                color = Cyan,
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .alpha(if (fileUri != null && password.isNotEmpty()) 1f else 0.45f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Brush.horizontalGradient(listOf(Cyan, Violet)))
+                        .clickable(enabled = fileUri != null && password.isNotEmpty()) { unlock() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        t.open,
+                        color = Color(0xFF06101A),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp,
+                    )
+                }
+
+                openError?.let { message ->
+                    Text(message, fontSize = 13.sp, color = Danger)
+                }
+            }
+        }
 
         Card(
             colors = CardDefaults.cardColors(containerColor = SurfaceDark),
             shape = RoundedCornerShape(20.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     t.scenarioTitle,
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFE8F0FF),
                 )
@@ -379,104 +732,96 @@ private fun VaultScreen(
             }
         }
 
-        Button(
-            onClick = { picker.launch(arrayOf("*/*")) },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Cyan),
-        ) {
-            Text(t.pick, color = Color(0xFF031018), fontWeight = FontWeight.Bold)
-        }
-
-        if (fileUri != null) {
-            Text("${t.chosen}: $fileName", fontSize = 13.sp, color = Cyan)
-        }
-
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text(t.password) },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-        )
-
-        Button(
-            onClick = {
-                val uri = fileUri
-                if (uri != null && password.isNotEmpty()) {
-                    openError = null
-                    runCatching {
-                        val descriptor = context.contentResolver
-                            .openFileDescriptor(uri, "r")
-                            ?: throw IllegalStateException("no descriptor")
-                        val opened = NativeVault.openFd(descriptor.detachFd(), password)
-                        if (opened == 0L) throw IllegalStateException("unlock failed")
-                        handle = opened
-                        password = ""
-                    }.onFailure {
-                        openError = t.openFailed
-                    }
-                }
-            },
-            enabled = fileUri != null && password.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Violet),
-        ) {
-            Text(t.open, color = Color(0xFF0B0618), fontWeight = FontWeight.Bold)
-        }
-
-        openError?.let { message ->
-            Text(message, fontSize = 13.sp, color = Color(0xFFFF7A90))
-        }
-
-        Text(
-            "SPV1 · XChaCha20-Poly1305 · Argon2id · BLAKE3",
-            fontSize = 11.sp,
-            color = Muted,
-            fontFamily = FontFamily.Monospace,
-        )
-
         Text(
             t.advancedTitle,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFFE8F0FF),
-            modifier = Modifier.padding(top = 6.dp),
+            modifier = Modifier.padding(top = 2.dp),
         )
 
         Card(
             colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(20.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        t.maskTitle,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE8F0FF),
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            t.maskTitle,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE8F0FF),
+                        )
+                        Text(t.maskSummary, fontSize = 12.sp, color = Muted)
+                        Text(t.maskNote, fontSize = 11.sp, color = Faint)
+                    }
+                    Switch(
+                        checked = masked,
+                        onCheckedChange = { checked ->
+                            applyDisguise(context, checked)
+                            masked = checked
+                            maskDialog = if (checked) "on" else "off"
+                        },
                     )
-                    Text(t.maskSummary, fontSize = 12.sp, color = Muted)
-                    Text(t.maskNote, fontSize = 11.sp, color = Color(0xFF6F84A8))
                 }
-                Switch(
-                    checked = masked,
-                    onCheckedChange = { checked ->
-                        applyDisguise(context, checked)
-                        masked = checked
-                        maskDialog = if (checked) "on" else "off"
-                    },
-                )
+                HorizontalDivider(color = Color(0xFF1C2A44))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            t.shortcut,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE8F0FF),
+                        )
+                        Text(t.shortcutHint, fontSize = 11.sp, color = Faint)
+                    }
+                    OutlinedButton(
+                        onClick = { pinShortcut(context) },
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("＋", color = Cyan, fontSize = 18.sp)
+                    }
+                }
             }
         }
+
+        Text(
+            "SPV1 · XChaCha20-Poly1305 · Argon2id · BLAKE3",
+            fontSize = 10.sp,
+            color = Faint,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+    }
+
+    if (settings) {
+        SettingsDialog(
+            t = t,
+            lang = lang,
+            sky = sky,
+            masked = masked,
+            onLang = onLang,
+            onSky = {
+                sky = it
+                onSky(it)
+            },
+            onDisguise = { checked ->
+                applyDisguise(context, checked)
+                masked = checked
+            },
+            onShortcut = { pinShortcut(context) },
+            onDismiss = { settings = false },
+        )
     }
 
     maskDialog?.let { which ->
@@ -489,7 +834,94 @@ private fun VaultScreen(
             text = { Text(if (which == "on") t.maskOnBody else t.maskOffBody) },
         )
     }
+}
 
+@Composable
+private fun SettingsDialog(
+    t: Copy,
+    lang: Lang,
+    sky: Sky,
+    masked: Boolean,
+    onLang: (Lang) -> Unit,
+    onSky: (Sky) -> Unit,
+    onDisguise: (Boolean) -> Unit,
+    onShortcut: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(t.done, color = Cyan) }
+        },
+        title = { Text(t.settingsTitle) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(t.lookTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(t.lookHint, fontSize = 11.sp, color = Muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = sky == Sky.None,
+                        onClick = { onSky(Sky.None) },
+                        label = { Text(t.skyNone) },
+                    )
+                    FilterChip(
+                        selected = sky == Sky.Snow,
+                        onClick = { onSky(Sky.Snow) },
+                        label = { Text(t.skySnow) },
+                    )
+                    FilterChip(
+                        selected = sky == Sky.Rain,
+                        onClick = { onSky(Sky.Rain) },
+                        label = { Text(t.skyRain) },
+                    )
+                    FilterChip(
+                        selected = sky == Sky.Sun,
+                        onClick = { onSky(Sky.Sun) },
+                        label = { Text(t.skySun) },
+                    )
+                }
+
+                HorizontalDivider(color = Color(0xFF1C2A44))
+                Text(t.language, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = lang == Lang.Ru,
+                        onClick = { onLang(Lang.Ru) },
+                        label = { Text("Русский") },
+                    )
+                    FilterChip(
+                        selected = lang == Lang.En,
+                        onClick = { onLang(Lang.En) },
+                        label = { Text("English") },
+                    )
+                }
+
+                HorizontalDivider(color = Color(0xFF1C2A44))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(t.maskTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(t.maskNote, fontSize = 11.sp, color = Muted)
+                    }
+                    Switch(checked = masked, onCheckedChange = onDisguise)
+                }
+
+                OutlinedButton(
+                    onClick = onShortcut,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text(t.shortcut, color = Cyan)
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -649,7 +1081,7 @@ private fun displayName(context: Context, uri: Uri): String {
             ?.use { cursor ->
                 val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 if (index >= 0 && cursor.moveToFirst()) {
-                    return cursor.getString(index)
+                    cursor.getString(index)?.takeIf { it.isNotBlank() }?.let { return it }
                 }
             }
     }

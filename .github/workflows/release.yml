@@ -258,21 +258,27 @@ jobs:
           if-no-files-found: error
 
   # Alpine Linux: musl-native CLI build inside the real distribution.
+  # The build runs in Docker because GitHub's Node-based actions cannot run
+  # inside a musl container, but the resulting binary is 100% Alpine-native.
   alpine:
     name: cli-alpine-x64
     runs-on: ubuntu-latest
-    container: alpine:latest
     continue-on-error: true
     steps:
-      - name: Bootstrap
-        run: apk add --no-cache git
       - uses: actions/checkout@v7
-      - name: Install toolchain
-        run: apk add --no-cache build-base rust cargo
-      - name: Build
+      - name: Build inside Alpine
         run: |
           set -euo pipefail
-          cargo build --release --locked -p sp-cli
+          docker run --rm -v "$PWD":/src -w /src rust:1.85-alpine sh -c '
+            apk add --no-cache musl-dev &&
+            cargo build --release --locked -p sp-cli &&
+            cp target/release/sp-cli /src/sp-cli-alpine
+          '
+          file sp-cli-alpine || true
+      - name: Stage package
+        shell: bash
+        run: |
+          set -euo pipefail
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             version="${GITHUB_REF_NAME#v}"
           else
@@ -280,7 +286,7 @@ jobs:
           fi
           name="secretpiece-${version}-alpine-x64-cli"
           mkdir -p "package/${name}"
-          cp target/release/sp-cli "package/${name}/"
+          cp sp-cli-alpine "package/${name}/sp-cli"
           cp README.md README.en.md LICENSE CHANGELOG.md "package/${name}/"
           tar -czf "package/${name}.tar.gz" -C package "${name}"
       - uses: actions/upload-artifact@v4

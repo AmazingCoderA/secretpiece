@@ -112,6 +112,8 @@ private data class Copy(
     val create: String,
     val createHint: String,
     val createFailed: String,
+    val confirmPassword: String,
+    val createMismatch: String,
     val unlockTitle: String,
     val unlockHint: String,
     val show: String,
@@ -165,6 +167,8 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         create = "Создать новый сейф",
         createHint = "Пустой контейнер .spv на флешке или в памяти телефона.",
         createFailed = "Не удалось создать хранилище.",
+        confirmPassword = "Повторите пароль",
+        createMismatch = "Пароли не совпадают или короче 8 символов.",
         unlockTitle = "Открыть сейф",
         unlockHint = "Пароль не покидает устройство: ключ выводится через Argon2id.",
         show = "Показать",
@@ -223,6 +227,8 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         create = "Create new vault",
         createHint = "An empty .spv container on the drive or in phone storage.",
         createFailed = "Cannot create the vault.",
+        confirmPassword = "Repeat password",
+        createMismatch = "Passwords do not match or are shorter than 8 characters.",
         unlockTitle = "Unlock your vault",
         unlockHint = "The password never leaves the device: the key is derived with Argon2id.",
         show = "Show",
@@ -509,6 +515,11 @@ private fun VaultScreen(
     var sky by remember { mutableStateOf(loadSky(context)) }
     var handle by remember { mutableStateOf(0L) }
     var openError by remember { mutableStateOf<String?>(null) }
+    var createOpen by remember { mutableStateOf(false) }
+    var newPassword by remember { mutableStateOf("") }
+    var newConfirm by remember { mutableStateOf("") }
+    var newVisible by remember { mutableStateOf(false) }
+    var newError by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(handle) {
         onDispose {
@@ -546,10 +557,11 @@ private fun VaultScreen(
                 val descriptor = context.contentResolver
                     .openFileDescriptor(uri, "rw")
                     ?: throw IllegalStateException("no descriptor")
-                val created = NativeVault.createFd(descriptor.detachFd(), password)
+                val created = NativeVault.createFd(descriptor.detachFd(), newPassword)
                 if (created == 0L) throw IllegalStateException("create failed")
                 handle = created
-                password = ""
+                newPassword = ""
+                newConfirm = ""
             }.onFailure {
                 openError = t.createFailed
             }
@@ -752,8 +764,12 @@ private fun VaultScreen(
                 }
 
                 OutlinedButton(
-                    onClick = { creator.launch("vault.spv") },
-                    enabled = password.isNotEmpty(),
+                    onClick = {
+                        newPassword = ""
+                        newConfirm = ""
+                        newError = null
+                        createOpen = true
+                    },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(16.dp),
                 ) {
@@ -886,6 +902,67 @@ private fun VaultScreen(
             },
             title = { Text(if (which == "on") t.maskOnTitle else t.maskOffTitle) },
             text = { Text(if (which == "on") t.maskOnBody else t.maskOffBody) },
+        )
+    }
+
+    if (createOpen) {
+        AlertDialog(
+            onDismissRequest = { createOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newPassword.length < 8 || newPassword != newConfirm) {
+                            newError = t.createMismatch
+                        } else {
+                            createOpen = false
+                            creator.launch("vault.spv")
+                        }
+                    },
+                ) {
+                    Text(t.create, color = Violet, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { createOpen = false }) {
+                    Text(t.close, color = Muted)
+                }
+            },
+            title = { Text(t.create) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(t.createHint, fontSize = 12.sp, color = Muted)
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        label = { Text(t.password) },
+                        singleLine = true,
+                        visualTransformation = if (newVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { newVisible = !newVisible }) {
+                                Text(if (newVisible) "🙈" else "👁", fontSize = 16.sp)
+                            }
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = newConfirm,
+                        onValueChange = { newConfirm = it },
+                        label = { Text(t.confirmPassword) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    newError?.let { message ->
+                        Text(message, fontSize = 12.sp, color = Danger)
+                    }
+                }
+            },
         )
     }
 }

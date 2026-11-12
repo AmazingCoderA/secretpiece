@@ -3109,6 +3109,7 @@ dependencies = [
  "jni 0.21.1",
  "serde_json",
  "sp-core",
+ "sp-crypto",
  "sp-format",
  "sp-vault",
 ]

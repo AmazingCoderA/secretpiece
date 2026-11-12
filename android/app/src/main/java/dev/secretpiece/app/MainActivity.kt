@@ -108,6 +108,9 @@ private data class Copy(
     val chosen: String,
     val password: String,
     val open: String,
+    val create: String,
+    val createHint: String,
+    val createFailed: String,
     val unlockTitle: String,
     val unlockHint: String,
     val show: String,
@@ -156,6 +159,9 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         chosen = "Выбран файл",
         password = "Пароль",
         open = "Открыть хранилище",
+        create = "Создать новый сейф",
+        createHint = "Пустой контейнер .spv на флешке или в памяти телефона.",
+        createFailed = "Не удалось создать хранилище.",
         unlockTitle = "Открыть сейф",
         unlockHint = "Пароль не покидает устройство: ключ выводится через Argon2id.",
         show = "Показать",
@@ -209,6 +215,9 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         chosen = "Selected file",
         password = "Password",
         open = "Open vault",
+        create = "Create new vault",
+        createHint = "An empty .spv container on the drive or in phone storage.",
+        createFailed = "Cannot create the vault.",
         unlockTitle = "Unlock your vault",
         unlockHint = "The password never leaves the device: the key is derived with Argon2id.",
         show = "Show",
@@ -521,6 +530,25 @@ private fun VaultScreen(
         }
     }
 
+    val creator = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/x-secretpiece"),
+    ) { uri ->
+        if (uri != null) {
+            openError = null
+            runCatching {
+                val descriptor = context.contentResolver
+                    .openFileDescriptor(uri, "rw")
+                    ?: throw IllegalStateException("no descriptor")
+                val created = NativeVault.createFd(descriptor.detachFd(), password)
+                if (created == 0L) throw IllegalStateException("create failed")
+                handle = created
+                password = ""
+            }.onFailure {
+                openError = t.createFailed
+            }
+        }
+    }
+
     fun unlock() {
         val uri = fileUri
         if (uri == null || password.isEmpty()) return
@@ -633,6 +661,21 @@ private fun VaultScreen(
                         fontSize = 15.sp,
                     )
                 }
+
+                OutlinedButton(
+                    onClick = { creator.launch("vault.spv") },
+                    enabled = password.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Text(
+                        "✚  ${t.create}",
+                        color = Violet,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                    )
+                }
+                Text(t.createHint, fontSize = 11.sp, color = Faint)
 
                 if (fileUri != null) {
                     Row(

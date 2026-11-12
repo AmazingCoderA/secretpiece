@@ -62,6 +62,48 @@ fn open_from_fd(fd: i32, password: &[u8]) -> Option<Handle> {
     }
 }
 
+fn create_from_fd(fd: i32, password: &[u8]) -> Option<Handle> {
+    #[cfg(unix)]
+    {
+        use std::fs::File;
+        use std::os::unix::io::FromRawFd;
+        use std::path::PathBuf;
+        // SAFETY: the descriptor is detached by Kotlin and owned by us now.
+        let file = unsafe { File::from_raw_fd(fd) };
+        match Vault::create_file(
+            file,
+            PathBuf::from("android-fd"),
+            password,
+            sp_crypto::KdfParams::DEFAULT,
+        ) {
+            Ok(vault) => Some(Handle { vault }),
+            Err(_) => None,
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (fd, password);
+        None
+    }
+}
+
+/// Creates a vault inside an empty file descriptor. Returns `0` on failure.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_createFd(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    fd: jint,
+    password: JString<'_>,
+) -> jlong {
+    let Some(password) = read_password(&mut env, &password) else {
+        return 0;
+    };
+    match create_from_fd(fd, &password) {
+        Some(handle) => Box::into_raw(Box::new(handle)) as jlong,
+        None => 0,
+    }
+}
+
 /// Opens a vault from a detached file descriptor. Returns `0` on failure.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_dev_secretpiece_app_NativeVault_openFd(

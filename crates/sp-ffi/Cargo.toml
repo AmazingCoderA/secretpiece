@@ -12,6 +12,7 @@ crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 sp-core.workspace = true
+sp-crypto.workspace = true
 sp-format.workspace = true
 sp-vault.workspace = true
 jni = "0.21"

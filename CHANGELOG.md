@@ -33,6 +33,12 @@ read support.
   and passed to `Vault::open_file`, so files are read directly from the USB drive
   without copying the container into app storage. Compose browser with folder
   navigation, text preview, and integrity check.
+- **Android can create a vault** through `sp-ffi::createFd`: the system
+  "create document" picker gives a writable descriptor, and the empty SPV1
+  container is written straight to the drive or phone storage.
+- **Android settings and ambience**: RU/EN, optional disguise, home-screen
+  shortcut pinning, and animated snow / rain / sun backgrounds rendered in
+  Compose Canvas (no extra permissions, no network).
 - **New release assets**: Alpine `alpine-x64-cli`, GUI archives for Windows,
   Linux and macOS (`*-gui`), and CLI archives (`*-cli`) for every platform.
 

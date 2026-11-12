@@ -16,6 +16,7 @@ object NativeVault {
     }
 
     external fun openFd(fd: Int, password: String): Long
+    external fun createFd(fd: Int, password: String): Long
     external fun list(handle: Long, prefix: String): String
     external fun read(handle: Long, path: String): ByteArray?
     external fun info(handle: Long): String?

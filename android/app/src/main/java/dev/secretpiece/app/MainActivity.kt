@@ -145,6 +145,8 @@ private data class Copy(
     val emptyFolder: String,
     val lock: String,
     val close: String,
+    val copyText: String,
+    val copied: String,
     val openFailed: String,
     val readFailed: String,
     val binaryFile: String,
@@ -202,6 +204,8 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         emptyFolder = "Папка пуста",
         lock = "Закрыть",
         close = "Закрыть",
+        copyText = "Копировать",
+        copied = "Скопировано",
         openFailed = "Не удалось открыть: неверный пароль или повреждённый файл.",
         readFailed = "Не удалось прочитать файл.",
         binaryFile = "Двоичный файл — предпросмотр недоступен.",
@@ -258,6 +262,8 @@ private fun copyFor(lang: Lang): Copy = if (lang == Lang.Ru) {
         emptyFolder = "This folder is empty",
         lock = "Lock",
         close = "Close",
+        copyText = "Copy",
+        copied = "Copied",
         openFailed = "Cannot open: wrong password or a damaged file.",
         readFailed = "Cannot read the file.",
         binaryFile = "Binary file — preview is not available.",
@@ -979,6 +985,7 @@ private fun SettingsDialog(
 
 @Composable
 private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
+    val context = LocalContext.current
     var prefix by remember { mutableStateOf("") }
     var tick by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1034,13 +1041,26 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
             )
         }
 
-        if (prefix.isNotEmpty()) {
-            TextButton(onClick = {
-                prefix = prefix.substringBeforeLast('/', "")
-                error = null
-            }) {
-                Text("← ${t.up}", color = Cyan)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (prefix.isNotEmpty()) {
+                TextButton(onClick = {
+                    prefix = prefix.substringBeforeLast('/', "")
+                    error = null
+                }) {
+                    Text("← ${t.up}", color = Cyan)
+                }
             }
+            Text(
+                "root" + if (prefix.isEmpty()) "" else " / $prefix",
+                fontSize = 11.sp,
+                color = Faint,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.weight(1f),
+            )
         }
 
         if (entries.isEmpty()) {
@@ -1112,6 +1132,21 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
             onDismissRequest = { preview = null },
             confirmButton = {
                 TextButton(onClick = { preview = null }) { Text(t.close) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    runCatching {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                            as? android.content.ClipboardManager
+                        clipboard?.setPrimaryClip(
+                            android.content.ClipData.newPlainText(previewTitle, text),
+                        )
+                        notice = t.copied
+                    }
+                    preview = null
+                }) {
+                    Text(t.copyText, color = Cyan)
+                }
             },
             title = { Text(previewTitle) },
             text = {

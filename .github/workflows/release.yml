@@ -493,6 +493,11 @@ jobs:
             echo "no release archives were produced" >&2
             exit 1
           fi
+          # A failed Android job must not silently ship the previous APK.
+          if ! printf '%s\n' "${files[@]}" | grep -q '\.apk$'; then
+            echo "::error::Android APK is missing; refusing to publish a stale release"
+            exit 1
+          fi
           sha256sum "${files[@]}" > SHA256SUMS.txt
           cat SHA256SUMS.txt
 

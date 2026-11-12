@@ -49,6 +49,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -662,21 +663,6 @@ private fun VaultScreen(
                     )
                 }
 
-                OutlinedButton(
-                    onClick = { creator.launch("vault.spv") },
-                    enabled = password.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Text(
-                        "✚  ${t.create}",
-                        color = Violet,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                    )
-                }
-                Text(t.createHint, fontSize = 11.sp, color = Faint)
-
                 if (fileUri != null) {
                     Row(
                         modifier = Modifier
@@ -710,6 +696,9 @@ private fun VaultScreen(
                     onValueChange = { password = it },
                     label = { Text(t.password) },
                     singleLine = true,
+                    leadingIcon = {
+                        Text(if (visible) "🔓" else "🔒", fontSize = 15.sp)
+                    },
                     visualTransformation = if (visible) {
                         VisualTransformation.None
                     } else {
@@ -721,12 +710,8 @@ private fun VaultScreen(
                     ),
                     keyboardActions = KeyboardActions(onDone = { unlock() }),
                     trailingIcon = {
-                        TextButton(onClick = { visible = !visible }) {
-                            Text(
-                                if (visible) t.hide else t.show,
-                                fontSize = 11.sp,
-                                color = Cyan,
-                            )
+                        IconButton(onClick = { visible = !visible }) {
+                            Text(if (visible) "🙈" else "👁", fontSize = 16.sp)
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -754,6 +739,31 @@ private fun VaultScreen(
                 openError?.let { message ->
                     Text(message, fontSize = 13.sp, color = Danger)
                 }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    HorizontalDivider(Modifier.weight(1f), color = Color(0xFF1C2A44))
+                    Text("·", color = Faint)
+                    HorizontalDivider(Modifier.weight(1f), color = Color(0xFF1C2A44))
+                }
+
+                OutlinedButton(
+                    onClick = { creator.launch("vault.spv") },
+                    enabled = password.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Text(
+                        "✚  ${t.create}",
+                        color = Violet,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                    )
+                }
+                Text(t.createHint, fontSize = 11.sp, color = Faint)
             }
         }
 

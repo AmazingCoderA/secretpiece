@@ -83,43 +83,43 @@
       <text x="34" y="176" font-size="9.5" fill="#8ea3c8" font-family="ui-monospace, Menlo, Consolas, monospace">Android 8+ · ARM64 · no root · SAF</text>
 
       <!-- unlock card -->
-      <rect x="34" y="192" width="312" height="276" rx="22" fill="url(#card)" stroke="#1b2a45"/>
-      <text x="50" y="218" font-size="13" font-weight="700" fill="#e8f0ff">Открыть сейф</text>
-      <text x="50" y="234" font-size="8.5" fill="#8ea3c8">Пароль не покидает устройство: ключ выводится</text>
-      <text x="50" y="246" font-size="8.5" fill="#8ea3c8">через Argon2id.</text>
+      <rect x="34" y="186" width="312" height="292" rx="22" fill="url(#card)" stroke="#1b2a45"/>
+      <text x="50" y="210" font-size="13" font-weight="700" fill="#e8f0ff">Открыть сейф</text>
+      <text x="50" y="225" font-size="8.5" fill="#8ea3c8">Пароль не покидает устройство · Argon2id</text>
 
       <!-- picker -->
-      <rect x="50" y="258" width="280" height="40" rx="13" fill="none" stroke="#2b3f63"/>
-      <text x="190" y="283" font-size="11.5" font-weight="700" fill="#4de8ff" text-anchor="middle">＋  Выбрать файл .spv</text>
+      <rect x="50" y="236" width="280" height="38" rx="13" fill="none" stroke="#2b3f63"/>
+      <text x="190" y="260" font-size="11.5" font-weight="700" fill="#4de8ff" text-anchor="middle">＋  Выбрать файл .spv</text>
 
       <!-- selected file -->
-      <rect x="50" y="306" width="280" height="32" rx="11" fill="#121b2e"/>
-      <circle cx="64" cy="322" r="4" fill="#4de8ff"/>
-      <text x="76" y="318" font-size="7.5" fill="#6f84a8">ВЫБРАН ФАЙЛ</text>
-      <text x="76" y="330" font-size="10" font-weight="600" fill="#e8f0ff">personal.spv · USB OTG</text>
+      <rect x="50" y="282" width="280" height="30" rx="11" fill="#121b2e"/>
+      <circle cx="64" cy="297" r="4" fill="#4de8ff"/>
+      <text x="76" y="293" font-size="7.5" fill="#6f84a8">ВЫБРАН ФАЙЛ</text>
+      <text x="76" y="305" font-size="9.5" font-weight="600" fill="#e8f0ff">personal.spv · USB OTG</text>
 
       <!-- password field -->
-      <rect x="50" y="346" width="280" height="42" rx="13" fill="#0b1220" stroke="#2b3f63"/>
+      <rect x="50" y="320" width="280" height="40" rx="13" fill="#0b1220" stroke="#2b3f63"/>
       <g stroke="#8ea3c8" stroke-width="1.3" fill="none" stroke-linecap="round">
-        <rect x="62" y="364" width="9" height="7" rx="1.6"/>
-        <path d="M63.8 364v-2.1a2.7 2.7 0 0 1 5.4 0V364"/>
+        <rect x="62" y="337" width="9" height="7" rx="1.6"/>
+        <path d="M63.8 337v-2.1a2.7 2.7 0 0 1 5.4 0V337"/>
       </g>
-      <text x="86" y="364" font-size="7.5" fill="#6f84a8">Пароль</text>
-      <text x="86" y="378" font-size="11" fill="#8ea3c8">••••••••••••</text>
+      <text x="86" y="338" font-size="7.5" fill="#6f84a8">Пароль</text>
+      <text x="86" y="352" font-size="11" fill="#8ea3c8">••••••••••••</text>
       <g stroke="#4de8ff" stroke-width="1.3" fill="none">
-        <path d="M303 367q9 -6.5 18 0q-9 6.5 -18 0z"/>
-        <circle cx="312" cy="367" r="2.4" fill="#4de8ff" stroke="none"/>
+        <path d="M303 340q9 -6.5 18 0q-9 6.5 -18 0z"/>
+        <circle cx="312" cy="340" r="2.4" fill="#4de8ff" stroke="none"/>
       </g>
 
       <!-- primary action -->
-      <rect x="50" y="396" width="280" height="40" rx="13" fill="url(#cta)"/>
-      <text x="190" y="421" font-size="11.5" font-weight="800" fill="#06101a" text-anchor="middle">Открыть хранилище</text>
+      <rect x="50" y="368" width="280" height="38" rx="13" fill="url(#cta)"/>
+      <text x="190" y="392" font-size="11.5" font-weight="800" fill="#06101a" text-anchor="middle">Открыть хранилище</text>
 
       <!-- divider + create -->
-      <line x1="50" y1="450" x2="150" y2="450" stroke="#1c2a44"/>
-      <text x="190" y="454" font-size="9" fill="#6f84a8" text-anchor="middle">·</text>
-      <line x1="230" y1="450" x2="330" y2="450" stroke="#1c2a44"/>
-      <text x="190" y="468" font-size="8" fill="#6f84a8" text-anchor="middle">или создайте новый сейф</text>
+      <line x1="50" y1="418" x2="152" y2="418" stroke="#1c2a44"/>
+      <text x="190" y="422" font-size="8.5" fill="#6f84a8" text-anchor="middle">или</text>
+      <line x1="228" y1="418" x2="330" y2="418" stroke="#1c2a44"/>
+      <rect x="50" y="428" width="280" height="36" rx="13" fill="none" stroke="#3a2f63"/>
+      <text x="190" y="451" font-size="10.5" font-weight="700" fill="#b28cff" text-anchor="middle">✚  Создать новый сейф</text>
     </g>
 
     <!-- ============ phone 2: create dialog ============ -->

@@ -560,12 +560,13 @@ private fun VaultScreen(
                 val created = NativeVault.createFd(descriptor.detachFd(), newPassword)
                 if (created == 0L) throw IllegalStateException("create failed")
                 handle = created
-                newPassword = ""
-                newConfirm = ""
             }.onFailure {
                 openError = t.createFailed
             }
         }
+        // Never keep the typed password after the picker closes.
+        newPassword = ""
+        newConfirm = ""
     }
 
     fun unlock() {

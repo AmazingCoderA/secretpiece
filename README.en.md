@@ -103,7 +103,7 @@ optional **app disguise** (calculator). Details:
 > the container into app storage.
 
 <p align="center">
-  <img src="docs/assets/android.svg" alt="SecretPiece for Android: USB drive over OTG, .spv picker and password" width="100%">
+  <img src="docs/assets/android.svg" alt="SecretPiece for Android: read a vault from a USB drive over OTG and create a container on the phone" width="100%">
 </p>
 
 ### Linux

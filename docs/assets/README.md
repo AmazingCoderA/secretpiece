@@ -5,7 +5,7 @@
 | `hero.svg` | README hero banner (RU and EN) |
 | `cli.svg` | bilingual CLI preview |
 | `architecture.svg` | architecture and SPV1 on-disk layout |
-| `android.svg` | Android app mockup (OTG scenario) |
+| `android.svg` | Android app mockup (OTG read + on-device create) |
 | `social-preview.png` | GitHub **Social preview** (Settings → General → Social preview) |
 | `banner.svg` | legacy banner, kept for old links |
 

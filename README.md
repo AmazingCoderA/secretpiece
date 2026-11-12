@@ -102,7 +102,7 @@ adb install -r secretpiece-<version>-android.apk
 > `sp-ffi`, поэтому файлы читаются прямо с флешки, без копии в память приложения.
 
 <p align="center">
-  <img src="docs/assets/android.svg" alt="SecretPiece для Android: флешка через OTG, выбор .spv и пароль" width="100%">
+  <img src="docs/assets/android.svg" alt="SecretPiece для Android: чтение сейфа с флешки через OTG и создание контейнера на телефоне" width="100%">
 </p>
 
 ### Linux

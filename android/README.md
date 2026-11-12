@@ -30,8 +30,9 @@ passes the descriptor to the Rust core (`sp-ffi`). There it becomes a `File` and
 is opened with `Vault::open_file`, using the same `sp-vault` crate as the desktop
 GUI and CLI.
 
-The bridge is intentionally **read-only**: `list`, `read`, `info`, `verify`,
-`close`. Mutations stay in the desktop app and `sp-cli`.
+The bridge is **read-oriented**: `list`, `read`, `info`, `verify`, `close`, plus
+`createFd` for a brand-new empty container. Writing into an existing vault,
+renaming and deleting stay in the desktop app and `sp-cli`.
 
 ## Scenario: USB drive + phone
 

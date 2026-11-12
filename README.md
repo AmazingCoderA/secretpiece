@@ -45,7 +45,7 @@
 | 🔐 **Шифрование** | XChaCha20-Poly1305 уже в v1.4; ChaCha20-Poly1305 и AES-256-GCM — позже, параметры в заголовке. |
 | 🗂️ **Разные форматы** | Один файл, набор частей для FAT32, папка-хранилище, nested-контейнер, k/n shards. |
 | 🚀 **Любые платформы** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux. |
-| 🤖 **Android** | APK: флешка через OTG, SAF + JNI-чтение, RU/EN, опциональная маскировка под «Калькулятор». |
+| 🤖 **Android** | APK: флешка через OTG, SAF + JNI, создание сейфа на телефоне, RU/EN, маскировка, снег/дождь/солнце. |
 | 🛟 **Восстанавливаемость** | Два заголовка, два суперблока, `doctor`, recovery BIP39, схема Шамира, снапшоты. |
 | 🧹 **Безопасное удаление** | Shred файлов и свободного места, crypto-erase контейнера — с честным отчётом. |
 | 🌍 **RU / EN** | Интерфейс и подсказки на русском и английском, автодетект языка, `--lang`. |
@@ -93,13 +93,16 @@ adb install -r secretpiece-<version>-android.apk
 
 Или включите «Установка из неизвестных источников» и откройте APK на телефоне
 (Android 8+, ARM64). Сценарий: флешка через OTG/USB-C → «Выбрать файл .spv» →
-пароль → работа с файлами. Без root и без разрешения `INTERNET`. В
-«Дополнительно» — опциональная **маскировка приложения** под калькулятор.
+пароль → работа с файлами. Новый пустой сейф создаётся там же: «Создать новый
+сейф» → пароль и повтор → «Сохранить как» на флешку или в память телефона. Без
+root и без разрешения `INTERNET`. В настройках — язык, **маскировка под
+калькулятор**, ярлык на главный экран и живой фон: снег, дождь или солнце.
 Подробнее — [`docs/ANDROID.md`](docs/ANDROID.md), про сам формат —
 [`docs/SPV.md`](docs/SPV.md).
 
-> В APK уже работает чтение: SAF-дескриптор передаётся в общее ядро через
-> `sp-ffi`, поэтому файлы читаются прямо с флешки, без копии в память приложения.
+> APK работает с ядром через `sp-ffi`: SAF-дескриптор передаётся напрямую,
+> поэтому файлы читаются с флешки без копии в память приложения, а новый
+> контейнер пишется сразу на носитель.
 
 <p align="center">
   <img src="docs/assets/android.svg" alt="SecretPiece для Android: чтение сейфа с флешки через OTG и создание контейнера на телефоне" width="100%">
@@ -278,7 +281,7 @@ SecretPiece проверяет свободное место **до** запис
 |---|---|---|
 | Windows 10/11 | x64 GUI + CLI, ARM64 CLI | v1.4 |
 | macOS 13+ | universal (Intel + Apple Silicon) GUI + CLI | v1.4 |
-| Android 8+ | APK (SAF + JNI чтение), ARM64/ARMv7 | v1.4 (чтение) |
+| Android 8+ | APK (SAF + JNI), ARM64/ARMv7 | v1.4 (чтение + создание) |
 | Linux | x64 GUI (glibc), x64/ARM64 CLI (static musl) | v1.4 |
 | Alpine Linux | x64 CLI (musl) | v1.4 |
 | Arch Linux | x64 CLI, pacman-пакет, PKGBUILD, AUR (yay/paru) | v1.4 |
@@ -311,7 +314,7 @@ cargo run -p sp-gui --bin sp                    # GUI (egui/eframe)
 | Документ | О чём |
 |---|---|
 | [docs/SPV.md](docs/SPV.md) | что такое файл `.spv`, layout SPV1, маскировка имени |
-| [docs/ANDROID.md](docs/ANDROID.md) | Android-приложение, OTG, маскировка приложения |
+| [docs/ANDROID.md](docs/ANDROID.md) | Android: OTG, чтение и создание сейфа, настройки, маскировка, атмосфера |
 | [SECURITY.md](SECURITY.md) | раскрытие уязвимостей, scope, гарантии |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | правила разработки и ревью |
 | [ADR](docs/ADR/README.md) | архитектурные решения |
@@ -326,7 +329,7 @@ cargo run -p sp-gui --bin sp                    # GUI (egui/eframe)
 | **v1.1** | ✅ | каркас, CI, автосборка, GPL-3.0, любые носители |
 | **v1.2** | ✅ | визуал, RU/EN CLI, pacman/AUR, Android-каркас, Windows ARM64, Linux ARM64, BSD |
 | **v1.3** | ✅ | Android: маскировка приложения, `docs/SPV.md`, полировка |
-| **v1.4** | ✅ | криптоядро SPV1 (Argon2id, XChaCha20-Poly1305, BLAKE3), CLI, GUI на egui, Android-чтение через JNI, Alpine |
+| **v1.4** | ✅ | криптоядро SPV1 (Argon2id, XChaCha20-Poly1305, BLAKE3), CLI, GUI на egui, Android: чтение и создание сейфа, Alpine |
 | **v1.5** | ⏳ | extents, FAT32 split, ARMv7/RISC-V, миграция формата |
 | **v1.6** | ⏳ | надёжность: COW, снапшоты, корзина, `doctor`, resize, crash-тесты |
 | **v1.7** | ⏳ | скрытый том, recovery, Shamir, слоты получателей X25519 |

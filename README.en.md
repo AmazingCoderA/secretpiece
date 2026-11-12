@@ -45,7 +45,7 @@
 | 🔐 **Ciphers** | XChaCha20-Poly1305 ships in v1.4; ChaCha20-Poly1305 and AES-256-GCM come later, parameters recorded in the header. |
 | 🗂️ **Multiple formats** | Single file, split parts for FAT32, vault folder, nested container, k-of-n shards. |
 | 🚀 **Every platform** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux. |
-| 🤖 **Android** | APK: USB drive over OTG, SAF + JNI reads, RU/EN, optional "Calculator" disguise. |
+| 🤖 **Android** | APK: USB drive over OTG, SAF + JNI, on-device vault creation, RU/EN, disguise, snow/rain/sun. |
 | 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, BIP39 recovery, Shamir secret sharing, snapshots. |
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
 | 🌍 **RU / EN** | Interface and hints in Russian and English, auto-detection, `--lang`. |
@@ -93,14 +93,16 @@ adb install -r secretpiece-<version>-android.apk
 
 Or enable "Install unknown apps" and open the APK on the phone (Android 8+,
 ARM64). Scenario: USB drive over OTG/USB-C → "Choose .spv file" → password →
-work with files. No root, no `INTERNET` permission. **Advanced** holds an
-optional **app disguise** (calculator). Details:
-[`docs/ANDROID.md`](docs/ANDROID.md), and on the format itself:
+work with files. A new empty vault is created right there: "Create new vault" →
+password and confirmation → "Save as" to the drive or phone storage. No root, no
+`INTERNET` permission. Settings hold the language, an optional **calculator
+disguise**, a home-screen shortcut, and an ambient background: snow, rain or
+sun. Details: [`docs/ANDROID.md`](docs/ANDROID.md), and on the format itself:
 [`docs/SPV.md`](docs/SPV.md).
 
-> The APK already reads vaults: the SAF descriptor is passed to the shared core
-> through `sp-ffi`, so files are read straight from the drive, without copying
-> the container into app storage.
+> The APK talks to the shared core through `sp-ffi`: the SAF descriptor is passed
+> directly, so files are read from the drive without copying the container into
+> app storage, and a new container is written straight to the medium.
 
 <p align="center">
   <img src="docs/assets/android.svg" alt="SecretPiece for Android: read a vault from a USB drive over OTG and create a container on the phone" width="100%">
@@ -279,7 +281,7 @@ Hints are everywhere: in `sp-cli` errors, in `sp-cli df`, in the GUI banner, and
 |---|---|---|
 | Windows 10/11 | x64 GUI + CLI, ARM64 CLI | v1.4 |
 | macOS 13+ | universal (Intel + Apple Silicon) GUI + CLI | v1.4 |
-| Android 8+ | APK (SAF + JNI reads), ARM64/ARMv7 | v1.4 (read) |
+| Android 8+ | APK (SAF + JNI), ARM64/ARMv7 | v1.4 (read + create) |
 | Linux | x64 GUI (glibc), x64/ARM64 CLI (static musl) | v1.4 |
 | Alpine Linux | x64 CLI (musl) | v1.4 |
 | Arch Linux | x64 CLI, pacman package, PKGBUILD, AUR (yay/paru) | v1.4 |
@@ -312,7 +314,7 @@ Requires Rust stable (MSRV **1.85**, edition 2024).
 | Document | Contents |
 |---|---|
 | [docs/SPV.md](docs/SPV.md) | what an `.spv` file is, SPV1 layout, file masking |
-| [docs/ANDROID.md](docs/ANDROID.md) | Android app, OTG, app disguise |
+| [docs/ANDROID.md](docs/ANDROID.md) | Android: OTG, read + create, settings, disguise, ambience |
 | [SECURITY.md](SECURITY.md) | vulnerability disclosure, scope, guarantees |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | development and review rules |
 | [ADR](docs/ADR/README.md) | architecture decision records |
@@ -327,7 +329,7 @@ The byte-level specification lives in [`docs/SPV.md`](docs/SPV.md); a separate `
 | **v1.1** | ✅ | skeleton, CI, auto-build, GPL-3.0, any drive |
 | **v1.2** | ✅ | visuals, RU/EN CLI, pacman/AUR, Android skeleton, Windows ARM64, Linux ARM64, BSD |
 | **v1.3** | ✅ | Android: app disguise, `docs/SPV.md`, polish |
-| **v1.4** | ✅ | SPV1 crypto core (Argon2id, XChaCha20-Poly1305, BLAKE3), CLI, egui GUI, Android JNI reads, Alpine |
+| **v1.4** | ✅ | SPV1 crypto core (Argon2id, XChaCha20-Poly1305, BLAKE3), CLI, egui GUI, Android read + on-device create, Alpine |
 | **v1.5** | ⏳ | extents, FAT32 split, ARMv7/RISC-V, format migration |
 | **v1.6** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
 | **v1.7** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |

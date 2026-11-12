@@ -67,12 +67,12 @@ fn create_from_fd(fd: i32, password: &[u8]) -> Option<Handle> {
     {
         use std::fs::File;
         use std::os::unix::io::FromRawFd;
-        use std::path::PathBuf;
+        use std::path::Path;
         // SAFETY: the descriptor is detached by Kotlin and owned by us now.
         let file = unsafe { File::from_raw_fd(fd) };
         match Vault::create_file(
             file,
-            PathBuf::from("android-fd"),
+            Path::new("android-fd"),
             password,
             sp_crypto::KdfParams::DEFAULT,
         ) {

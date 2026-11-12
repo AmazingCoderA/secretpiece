@@ -8,7 +8,7 @@ import org.json.JSONObject
  *
  * The vault is opened straight from the SAF file descriptor: the container is
  * never copied into app storage, so reading from an OTG USB drive stays direct.
- * All operations here are read-only.
+ * A brand-new empty container is created through the same descriptor.
  */
 object NativeVault {
     init {

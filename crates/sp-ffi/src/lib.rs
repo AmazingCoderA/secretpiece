@@ -2,10 +2,11 @@
 //!
 //! Android opens the `.spv` container through the Storage Access Framework and
 //! passes the raw file descriptor to [`Vault::open_file`], so the vault is read
-//! directly from the USB drive without copying it into app storage.
+//! directly from the USB drive without copying it into app storage. A new empty
+//! container is written the same way through [`Vault::create_file`].
 //!
-//! The bridge is deliberately read-only: list, read, and inspect. Mutations stay
-//! in the desktop application and the CLI.
+//! The bridge is read-oriented: list, read, inspect, and create. Mutations of an
+//! existing vault stay in the desktop application and the CLI.
 
 #![allow(unsafe_code)]
 
@@ -261,4 +262,57 @@ pub extern "system" fn Java_dev_secretpiece_app_NativeVault_version(
             sp_core::FORMAT_VERSION
         ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn temp_path(tag: &str) -> PathBuf {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_nanos());
+        let mut path = std::env::temp_dir();
+        path.push(format!("sp-ffi-{tag}-{}-{stamp}", std::process::id()));
+        path
+    }
+
+    fn writable(path: &std::path::Path) -> std::fs::File {
+        std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
+            .expect("open temporary container")
+    }
+
+    #[test]
+    fn create_file_writes_a_readable_container() {
+        let path = temp_path("create");
+        let vault = Vault::create_file(
+            writable(&path),
+            &path,
+            b"correct horse battery staple",
+            sp_crypto::KdfParams::LIGHT,
+        )
+        .expect("create vault");
+        assert_eq!(vault.info().expect("info").files, 0);
+        drop(vault);
+
+        let reopened = Vault::open(&path, b"correct horse battery staple").expect("reopen vault");
+        assert_eq!(reopened.info().expect("info").files, 0);
+        drop(reopened);
+
+        std::fs::remove_file(&path).expect("remove temporary container");
+    }
+
+    #[test]
+    fn create_file_rejects_an_empty_password() {
+        let path = temp_path("empty");
+        let result = Vault::create_file(writable(&path), &path, b"", sp_crypto::KdfParams::LIGHT);
+        assert!(result.is_err());
+        let _ = std::fs::remove_file(&path);
+    }
 }

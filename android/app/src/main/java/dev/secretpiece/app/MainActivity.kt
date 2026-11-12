@@ -612,20 +612,15 @@ private fun VaultScreen(
                     Text("Your secret, in pieces.", fontSize = 12.sp, color = Muted)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(
-                    selected = lang == Lang.Ru,
-                    onClick = { onLang(Lang.Ru) },
-                    label = { Text("RU") },
-                )
-                FilterChip(
-                    selected = lang == Lang.En,
-                    onClick = { onLang(Lang.En) },
-                    label = { Text("EN") },
-                )
-                TextButton(onClick = { settings = true }) {
-                    Text("⚙", fontSize = 20.sp, color = Cyan)
-                }
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(SurfaceSoft)
+                    .clickable { settings = true },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("⚙", fontSize = 20.sp, color = Cyan)
             }
         }
 
@@ -920,26 +915,38 @@ private fun SettingsDialog(
             ) {
                 Text(t.lookTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(t.lookHint, fontSize = 11.sp, color = Muted)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     FilterChip(
                         selected = sky == Sky.None,
                         onClick = { onSky(Sky.None) },
                         label = { Text(t.skyNone) },
+                        modifier = Modifier.weight(1f),
                     )
                     FilterChip(
                         selected = sky == Sky.Snow,
                         onClick = { onSky(Sky.Snow) },
                         label = { Text(t.skySnow) },
+                        modifier = Modifier.weight(1f),
                     )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     FilterChip(
                         selected = sky == Sky.Rain,
                         onClick = { onSky(Sky.Rain) },
                         label = { Text(t.skyRain) },
+                        modifier = Modifier.weight(1f),
                     )
                     FilterChip(
                         selected = sky == Sky.Sun,
                         onClick = { onSky(Sky.Sun) },
                         label = { Text(t.skySun) },
+                        modifier = Modifier.weight(1f),
                     )
                 }
 

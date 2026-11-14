@@ -108,6 +108,20 @@ sun. Details: [`docs/ANDROID.md`](docs/ANDROID.md), and on the format itself:
   <img src="docs/assets/android.svg" alt="SecretPiece for Android: read a vault from a USB drive over OTG and create a container on the phone" width="100%">
 </p>
 
+### Create a vault
+
+**On a PC:** launch `sp` → "Create a new vault" → file name (anything:
+`personal.spv`, `backup.bin`, `song.mp3`), password and confirmation, Argon2id
+hardness (16 / 64 / 256 MiB). The container is written immediately; the format
+inside is SPV1.
+
+**On a phone:** "Create new vault" → password and confirmation → "Save as" to
+the USB drive or phone storage.
+
+Disguise changes only the name and extension: the contents stay an encrypted
+SPV1 container. The GUI file dialog lists **all** files, not just `*.spv`, so a
+disguised vault opens through "Browse…" like any other.
+
 ### Linux
 
 ```bash

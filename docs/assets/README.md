@@ -6,6 +6,7 @@
 | `cli.svg` | bilingual CLI preview |
 | `architecture.svg` | architecture and SPV1 on-disk layout |
 | `android.svg` | Android app mockup (OTG read + on-device create) |
+| `desktop.svg` | Desktop GUI mockup (create screen, KDF choice, file disguise) |
 | `social-preview.png` | GitHub **Social preview** (Settings → General → Social preview) |
 | `banner.svg` | legacy banner, kept for old links |
 

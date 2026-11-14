@@ -122,6 +122,10 @@ Disguise changes only the name and extension: the contents stay an encrypted
 SPV1 container. The GUI file dialog lists **all** files, not just `*.spv`, so a
 disguised vault opens through "Browse…" like any other.
 
+<p align="center">
+  <img src="docs/assets/desktop.svg" alt="SecretPiece on the desktop: creating a vault, choosing Argon2id and disguising it as .mp3" width="100%">
+</p>
+
 ### Linux
 
 ```bash

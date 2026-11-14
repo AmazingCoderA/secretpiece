@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.0] - 2026-11-13
+## [1.5.0] - 2026-11-14
 
 Desktop and Android polish: a redesigned create screen on both, a dedicated
 container-creation flow on the phone, more Linux architectures, and hardened

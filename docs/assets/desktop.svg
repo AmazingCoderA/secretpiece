@@ -33,7 +33,7 @@
 
     <!-- window -->
     <g transform="translate(70 140)">
-      <rect x="0" y="0" width="1060" height="560" rx="20" fill="#080b10" stroke="#22304a" stroke-width="2"/>
+      <rect x="0" y="0" width="1060" height="550" rx="20" fill="#080b10" stroke="#22304a" stroke-width="2"/>
       <rect x="0" y="0" width="1060" height="42" rx="20" fill="#0d121a"/>
       <rect x="0" y="21" width="1060" height="21" fill="#0d121a"/>
       <line x1="0" y1="42" x2="1060" y2="42" stroke="#1b2740"/>
@@ -120,6 +120,6 @@
       </g>
     </g>
 
-    <text x="600" y="700" font-size="12" fill="#6f84a8" text-anchor="middle">любое расширение · проводник показывает все файлы · SPV1 внутри</text>
+    <text x="600" y="708" font-size="12" fill="#6f84a8" text-anchor="middle">любое расширение · проводник показывает все файлы · SPV1 внутри</text>
   </g>
 </svg>

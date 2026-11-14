@@ -20,6 +20,10 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="content" />
                 <data android:mimeType="application/x-secretpiece" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="audio/mpeg" />
+                <data android:mimeType="image/jpeg" />
+                <data android:mimeType="application/zip" />
             </intent-filter>
         </activity>
 

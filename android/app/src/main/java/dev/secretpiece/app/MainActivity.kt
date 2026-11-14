@@ -549,7 +549,7 @@ private fun VaultScreen(
     }
 
     val creator = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/x-secretpiece"),
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
     ) { uri ->
         if (uri != null) {
             openError = null
@@ -645,6 +645,24 @@ private fun VaultScreen(
                 color = Color(0xFFE8F0FF),
             )
             Text(t.platforms, fontSize = 11.sp, color = Muted, fontFamily = FontFamily.Monospace)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("SPV1", "Argon2id", "XChaCha20").forEach { label ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SurfaceSoft)
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    ) {
+                        Text(
+                            label,
+                            fontSize = 10.sp,
+                            color = Faint,
+                            fontFamily = FontFamily.Monospace,
+                        )
+                    }
+                }
+            }
         }
 
         Card(
@@ -656,6 +674,13 @@ private fun VaultScreen(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Brush.horizontalGradient(listOf(Cyan, Violet))),
+                )
                 Text(
                     t.unlockTitle,
                     fontSize = 18.sp,

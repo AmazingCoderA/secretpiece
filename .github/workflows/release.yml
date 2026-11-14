@@ -38,12 +38,38 @@ jobs:
             targets: x86_64-unknown-linux-musl
             ext: ""
             archive: tar.gz
+            apt: musl-tools
+            linker_var: CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER
+            linker: musl-gcc
           - os: ubuntu-24.04-arm
             platform: linux-arm64
             target: aarch64-unknown-linux-musl
             targets: aarch64-unknown-linux-musl
             ext: ""
             archive: tar.gz
+            apt: musl-tools
+            linker_var: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER
+            linker: musl-gcc
+          # 32-bit ARM boards: Raspberry Pi 2/Zero 2, routers, old tablets.
+          - os: ubuntu-latest
+            platform: linux-armv7
+            target: armv7-unknown-linux-gnueabihf
+            targets: armv7-unknown-linux-gnueabihf
+            ext: ""
+            archive: tar.gz
+            apt: gcc-arm-linux-gnueabihf
+            linker_var: CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER
+            linker: arm-linux-gnueabihf-gcc
+          # RISC-V single-board computers and emulators.
+          - os: ubuntu-latest
+            platform: linux-riscv64
+            target: riscv64gc-unknown-linux-gnu
+            targets: riscv64gc-unknown-linux-gnu
+            ext: ""
+            archive: tar.gz
+            apt: gcc-riscv64-linux-gnu
+            linker_var: CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER
+            linker: riscv64-linux-gnu-gcc
           - os: macos-latest
             platform: macos-universal
             target: universal
@@ -53,9 +79,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install musl toolchain
-        if: endsWith(matrix.target, '-musl')
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Install cross toolchain
+        if: matrix.apt != ''
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.apt }}
+
+      - name: Point the linker at the cross compiler
+        if: matrix.linker_var != ''
+        run: echo "${{ matrix.linker_var }}=${{ matrix.linker }}" >> "$GITHUB_ENV"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -67,9 +97,6 @@ jobs:
 
       - name: Build
         shell: bash
-        env:
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
         run: |
           set -euo pipefail
           mkdir -p dist

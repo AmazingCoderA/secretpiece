@@ -80,8 +80,50 @@ struct App {
     password: String,
     confirm: String,
     creating: bool,
+    show_password: bool,
+    kdf: KdfChoice,
     error: Option<String>,
     browser: Option<Browser>,
+}
+
+/// Argon2id effort offered in the create form.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KdfChoice {
+    Light,
+    Default,
+    Paranoid,
+}
+
+impl KdfChoice {
+    const fn params(self) -> KdfParams {
+        match self {
+            Self::Light => KdfParams::LIGHT,
+            Self::Default => KdfParams::DEFAULT,
+            Self::Paranoid => KdfParams::PARANOID,
+        }
+    }
+
+    fn label(self, lang: Lang) -> &'static str {
+        match (self, lang) {
+            (Self::Light, Lang::Ru) => "Быстро",
+            (Self::Light, Lang::En) => "Light",
+            (Self::Default, Lang::Ru) => "Стандарт",
+            (Self::Default, Lang::En) => "Default",
+            (Self::Paranoid, Lang::Ru) => "Параноид",
+            (Self::Paranoid, Lang::En) => "Paranoid",
+        }
+    }
+
+    fn hint(self, lang: Lang) -> &'static str {
+        match (self, lang) {
+            (Self::Light, Lang::Ru) => "16 МиБ · слабые устройства",
+            (Self::Light, Lang::En) => "16 MiB · low-end devices",
+            (Self::Default, Lang::Ru) => "64 МиБ · рекомендуется",
+            (Self::Default, Lang::En) => "64 MiB · recommended",
+            (Self::Paranoid, Lang::Ru) => "256 МиБ · максимум",
+            (Self::Paranoid, Lang::En) => "256 MiB · maximum",
+        }
+    }
 }
 
 impl App {
@@ -129,6 +171,8 @@ impl App {
             password: String::new(),
             confirm: String::new(),
             creating: false,
+            show_password: false,
+            kdf: KdfChoice::Default,
             error: None,
             browser: None,
         }
@@ -136,7 +180,7 @@ impl App {
 
     fn unlock(&mut self) {
         self.error = None;
-        let path = self.vault_path.trim();
+        let mut path = self.vault_path.trim().to_owned();
         if path.is_empty() {
             self.error = Some(
                 self.lang
@@ -144,6 +188,10 @@ impl App {
                     .to_owned(),
             );
             return;
+        }
+        if self.creating && !path.to_ascii_lowercase().ends_with(".spv") {
+            path.push_str(".spv");
+            self.vault_path.clone_from(&path);
         }
         if self.password.is_empty() {
             self.error = Some(
@@ -157,6 +205,17 @@ impl App {
             return;
         }
         if self.creating {
+            if self.password.chars().count() < 8 {
+                self.error = Some(
+                    self.lang
+                        .t(
+                            "Пароль короче 8 символов. Возьмите длиннее.",
+                            "The password is shorter than 8 characters. Use a longer one.",
+                        )
+                        .to_owned(),
+                );
+                return;
+            }
             if self.password != self.confirm {
                 self.error = Some(
                     self.lang
@@ -165,7 +224,7 @@ impl App {
                 );
                 return;
             }
-            if Path::new(path).exists() {
+            if Path::new(&path).exists() {
                 self.error = Some(
                     self.lang
                         .t(
@@ -179,12 +238,12 @@ impl App {
         }
         let result = if self.creating {
             Vault::create(
-                Path::new(path),
+                Path::new(&path),
                 self.password.as_bytes(),
-                KdfParams::DEFAULT,
+                self.kdf.params(),
             )
         } else {
-            Vault::open(Path::new(path), self.password.as_bytes())
+            Vault::open(Path::new(&path), self.password.as_bytes())
         };
         match result {
             Ok(vault) => {
@@ -274,115 +333,19 @@ impl eframe::App for App {
 impl App {
     #[allow(clippy::too_many_lines)]
     fn unlock_ui(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(24.0);
-        ui.vertical_centered(|ui| {
-            ui.set_max_width(460.0);
-            ui.label(
-                RichText::new(if self.creating {
-                    self.lang.t("Новое хранилище", "New vault")
-                } else {
-                    self.lang.t("Открыть хранилище", "Unlock your vault")
-                })
-                .size(24.0)
-                .strong()
-                .color(TEXT),
-            );
-            ui.add_space(6.0);
-            ui.label(
-                RichText::new(self.lang.t(
-                    "Пароль не покидает это устройство. Заголовок и индекс зашифрованы.",
-                    "Your password never leaves this device. Header and index are encrypted.",
-                ))
-                .size(13.0)
-                .color(MUTED),
-            );
-            ui.add_space(22.0);
-
-            Frame::new()
-                .fill(CARD)
-                .stroke(Stroke::new(1.0_f32, BORDER))
-                .corner_radius(18)
-                .inner_margin(Margin::same(24))
-                .show(ui, |ui| {
-                    ui.set_width(400.0);
-                    field_label(ui, self.lang.t("Файл хранилища", "Vault file"));
-                    ui.horizontal(|ui| {
-                        let width = ui.available_width() - 92.0;
-                        ui.add_sized(
-                            [width, 32.0],
-                            egui::TextEdit::singleline(&mut self.vault_path).hint_text("vault.spv"),
-                        );
-                        if ui.button(self.lang.t("Обзор…", "Browse…")).clicked() {
-                            let dialog = rfd::FileDialog::new().add_filter("SecretPiece", &["spv"]);
-                            let picked = if self.creating {
-                                dialog.save_file()
-                            } else {
-                                dialog.pick_file()
-                            };
-                            if let Some(path) = picked {
-                                self.vault_path = path.to_string_lossy().into_owned();
-                            }
-                        }
-                    });
-                    ui.add_space(14.0);
-                    field_label(ui, self.lang.t("Пароль", "Password"));
-                    ui.add_sized(
-                        [ui.available_width(), 32.0],
-                        egui::TextEdit::singleline(&mut self.password).password(true),
-                    );
-                    if self.creating {
-                        ui.add_space(14.0);
-                        field_label(ui, self.lang.t("Повторите пароль", "Repeat password"));
-                        ui.add_sized(
-                            [ui.available_width(), 32.0],
-                            egui::TextEdit::singleline(&mut self.confirm).password(true),
-                        );
-                    }
-                    ui.add_space(20.0);
-
-                    let primary = if self.creating {
-                        self.lang.t("Создать", "Create")
-                    } else {
-                        self.lang.t("Открыть", "Unlock")
-                    };
-                    let button =
-                        egui::Button::new(RichText::new(primary).size(16.0).strong().color(BG))
-                            .fill(ACCENT)
-                            .corner_radius(10)
-                            .min_size(egui::vec2(ui.available_width(), 40.0));
-                    if ui.add(button).clicked() {
-                        self.unlock();
-                    }
-                    ui.add_space(8.0);
-                    let switch = if self.creating {
-                        self.lang
-                            .t("У меня уже есть хранилище", "I already have a vault")
-                    } else {
-                        self.lang.t("Создать новое хранилище", "Create a new vault")
-                    };
-                    if ui
-                        .add(egui::Button::new(RichText::new(switch).color(VIOLET)).frame(false))
-                        .clicked()
-                    {
-                        self.creating = !self.creating;
-                        self.error = None;
-                    }
-                });
-
-            if let Some(error) = &self.error {
-                ui.add_space(14.0);
-                ui.label(RichText::new(error).color(DANGER));
-            }
-            ui.add_space(24.0);
-            ui.label(
-                RichText::new(self.lang.t(
-                    "Подсказка: перетащите .spv в окно, чтобы открыть его.",
-                    "Tip: drop a .spv file onto the window to open it.",
-                ))
-                .size(12.0)
-                .color(MUTED),
-            );
-        });
+        ui.add_space(16.0);
+        if ui.available_width() >= 880.0 {
+            ui.horizontal_top(|ui| {
+                ui.add_space(8.0);
+                hero_panel(ui, self.lang);
+                ui.add_space(40.0);
+                self.form_card(ui);
+            });
+        } else {
+            ui.vertical_centered(|ui| {
+                self.form_card(ui);
+            });
+        }
 
         let dropped = ui.ctx().input(|input| input.raw.dropped_files.clone());
         if let Some(file) = dropped.first() {
@@ -391,6 +354,233 @@ impl App {
                 self.creating = false;
             }
         }
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn form_card(&mut self, ui: &mut egui::Ui) {
+        let lang = self.lang;
+        Frame::new()
+            .fill(CARD)
+            .stroke(Stroke::new(1.0_f32, BORDER))
+            .corner_radius(20)
+            .inner_margin(Margin::same(26))
+            .show(ui, |ui| {
+                ui.set_width(408.0);
+                ui.label(
+                    RichText::new(if self.creating {
+                        lang.t("Новое хранилище", "New vault")
+                    } else {
+                        lang.t("Открыть хранилище", "Unlock your vault")
+                    })
+                    .size(23.0)
+                    .strong()
+                    .color(TEXT),
+                );
+                ui.add_space(4.0);
+                ui.label(
+                    RichText::new(lang.t(
+                        "Пароль не покидает это устройство · Argon2id",
+                        "Your password never leaves this device · Argon2id",
+                    ))
+                    .size(12.5)
+                    .color(MUTED),
+                );
+                ui.add_space(18.0);
+
+                field_label(ui, lang.t("Файл хранилища", "Vault file"));
+                ui.horizontal(|ui| {
+                    let width = ui.available_width() - 96.0;
+                    ui.add_sized(
+                        [width, 34.0],
+                        egui::TextEdit::singleline(&mut self.vault_path).hint_text("vault.spv"),
+                    );
+                    if ui
+                        .add(
+                            egui::Button::new(lang.t("Обзор…", "Browse…"))
+                                .min_size(egui::vec2(88.0, 34.0)),
+                        )
+                        .clicked()
+                    {
+                        let dialog = rfd::FileDialog::new();
+                        let picked = if self.creating {
+                            dialog.set_file_name("vault.spv").save_file()
+                        } else {
+                            dialog.pick_file()
+                        };
+                        if let Some(path) = picked {
+                            self.vault_path = path.to_string_lossy().into_owned();
+                        }
+                    }
+                });
+                ui.label(
+                    RichText::new(lang.t(
+                        "Любой файл: .spv, .bin, .mp3 — внутри всё равно контейнер SPV1.",
+                        "Any file: .spv, .bin, .mp3 — inside it is still an SPV1 container.",
+                    ))
+                    .size(11.0)
+                    .color(MUTED),
+                );
+
+                if self.creating {
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new(lang.t("Оболочка:", "Shell:"))
+                                .size(11.0)
+                                .color(MUTED),
+                        );
+                        for ext in ["spv", "bin", "mp3", "jpg"] {
+                            let active = self
+                                .vault_path
+                                .to_ascii_lowercase()
+                                .ends_with(&format!(".{ext}"));
+                            let button = egui::Button::new(
+                                RichText::new(format!(".{ext}"))
+                                    .size(11.0)
+                                    .color(if active { BG } else { MUTED }),
+                            )
+                            .fill(if active { ACCENT } else { PANEL })
+                            .stroke(Stroke::new(1.0_f32, if active { ACCENT } else { BORDER }))
+                            .corner_radius(7)
+                            .min_size(egui::vec2(52.0, 26.0));
+                            if ui.add(button).clicked() {
+                                self.vault_path = swap_extension(&self.vault_path, ext);
+                            }
+                        }
+                    });
+                }
+
+                ui.add_space(14.0);
+                field_label(ui, lang.t("Пароль", "Password"));
+                ui.horizontal(|ui| {
+                    let width = ui.available_width() - 78.0;
+                    ui.add_sized(
+                        [width, 34.0],
+                        egui::TextEdit::singleline(&mut self.password)
+                            .password(!self.show_password),
+                    );
+                    let toggle = if self.show_password {
+                        lang.t("Скрыть", "Hide")
+                    } else {
+                        lang.t("Показать", "Show")
+                    };
+                    if ui
+                        .add(
+                            egui::Button::new(RichText::new(toggle).size(11.0).color(MUTED))
+                                .fill(PANEL)
+                                .stroke(Stroke::new(1.0_f32, BORDER))
+                                .corner_radius(8)
+                                .min_size(egui::vec2(70.0, 34.0)),
+                        )
+                        .clicked()
+                    {
+                        self.show_password = !self.show_password;
+                    }
+                });
+
+                if self.creating {
+                    ui.add_space(8.0);
+                    let score = password_score(&self.password);
+                    let (color, label) = match score {
+                        0 => (MUTED, lang.t("Минимум 8 символов", "At least 8 characters")),
+                        1 => (DANGER, lang.t("Слабый пароль", "Weak password")),
+                        2 => (
+                            Color32::from_rgb(251, 191, 36),
+                            lang.t("Средний пароль", "Medium password"),
+                        ),
+                        3 => (OK, lang.t("Хороший пароль", "Good password")),
+                        _ => (ACCENT, lang.t("Отличный пароль", "Excellent password")),
+                    };
+                    let (rect, _) = ui.allocate_exact_size(
+                        egui::vec2(ui.available_width(), 6.0),
+                        egui::Sense::hover(),
+                    );
+                    ui.painter()
+                        .rect_filled(rect, 3.0, Color32::from_rgb(24, 32, 46));
+                    let ratio = f32::from(score) / 4.0;
+                    let filled = egui::Rect::from_min_size(
+                        rect.min,
+                        egui::vec2(rect.width() * ratio, rect.height()),
+                    );
+                    ui.painter().rect_filled(filled, 3.0, color);
+                    ui.add_space(2.0);
+                    ui.label(RichText::new(label).size(11.0).color(color));
+
+                    ui.add_space(12.0);
+                    field_label(ui, lang.t("Стойкость ключа", "Key hardness"));
+                    ui.horizontal(|ui| {
+                        for choice in [KdfChoice::Light, KdfChoice::Default, KdfChoice::Paranoid] {
+                            let selected = self.kdf == choice;
+                            let button = egui::Button::new(
+                                RichText::new(choice.label(lang))
+                                    .size(12.0)
+                                    .color(if selected { BG } else { TEXT }),
+                            )
+                            .fill(if selected { ACCENT } else { PANEL })
+                            .stroke(Stroke::new(1.0_f32, if selected { ACCENT } else { BORDER }))
+                            .corner_radius(8)
+                            .min_size(egui::vec2(126.0, 30.0));
+                            if ui.add(button).clicked() {
+                                self.kdf = choice;
+                            }
+                        }
+                    });
+                    ui.add_space(2.0);
+                    ui.label(RichText::new(self.kdf.hint(lang)).size(11.0).color(MUTED));
+
+                    ui.add_space(12.0);
+                    field_label(ui, lang.t("Повторите пароль", "Repeat password"));
+                    ui.add_sized(
+                        [ui.available_width(), 34.0],
+                        egui::TextEdit::singleline(&mut self.confirm).password(!self.show_password),
+                    );
+                }
+
+                ui.add_space(20.0);
+                let ready = !self.creating
+                    || (self.password.chars().count() >= 8 && self.password == self.confirm);
+                let primary = if self.creating {
+                    lang.t("Создать сейф", "Create vault")
+                } else {
+                    lang.t("Открыть", "Unlock")
+                };
+                let button =
+                    egui::Button::new(RichText::new(primary).size(16.0).strong().color(BG))
+                        .fill(ACCENT)
+                        .corner_radius(10)
+                        .min_size(egui::vec2(ui.available_width(), 42.0));
+                if ui.add_enabled(ready, button).clicked() {
+                    self.unlock();
+                }
+                ui.add_space(8.0);
+                let switch = if self.creating {
+                    lang.t("У меня уже есть хранилище", "I already have a vault")
+                } else {
+                    lang.t("Создать новое хранилище", "Create a new vault")
+                };
+                if ui
+                    .add(egui::Button::new(RichText::new(switch).color(VIOLET)).frame(false))
+                    .clicked()
+                {
+                    self.creating = !self.creating;
+                    self.error = None;
+                }
+
+                if let Some(error) = &self.error {
+                    ui.add_space(12.0);
+                    ui.label(RichText::new(error).size(12.5).color(DANGER));
+                }
+            });
+
+        ui.add_space(14.0);
+        ui.label(
+            RichText::new(lang.t(
+                "Подсказка: перетащите .spv в окно, чтобы открыть его.",
+                "Tip: drop a .spv file onto the window to open it.",
+            ))
+            .size(11.0)
+            .color(MUTED),
+        );
     }
 }
 
@@ -867,6 +1057,139 @@ fn chip(ui: &mut egui::Ui, label: &str, value: &str, accent: Color32) {
         });
 }
 
+fn hero_panel(ui: &mut egui::Ui, lang: Lang) {
+    ui.allocate_ui_with_layout(
+        egui::vec2(300.0, 520.0),
+        Layout::top_down(Align::Min),
+        |ui| {
+            let (tile, _) = ui.allocate_exact_size(egui::vec2(58.0, 58.0), egui::Sense::hover());
+            ui.painter().rect_filled(tile, 16.0, PANEL);
+            let bar = egui::Rect::from_min_size(tile.min, egui::vec2(58.0, 3.0));
+            gradient(ui.painter(), bar, ACCENT, VIOLET, 58);
+            ui.painter().text(
+                tile.center(),
+                egui::Align2::CENTER_CENTER,
+                "SP",
+                FontId::new(21.0, FontFamily::Proportional),
+                ACCENT,
+            );
+
+            ui.add_space(18.0);
+            ui.label(RichText::new("SecretPiece").size(26.0).strong().color(TEXT));
+            ui.add_space(4.0);
+            ui.label(
+                RichText::new(lang.t("Ваш секрет — в кусочках.", "Your secret, in pieces."))
+                    .size(13.0)
+                    .color(MUTED),
+            );
+            ui.add_space(22.0);
+            bullet(
+                ui,
+                lang.t(
+                    "Один обычный файл, без разметки диска",
+                    "One ordinary file, no disk layout",
+                ),
+                ACCENT,
+            );
+            bullet(
+                ui,
+                lang.t(
+                    "Argon2id · XChaCha20-Poly1305 · BLAKE3",
+                    "Argon2id · XChaCha20-Poly1305 · BLAKE3",
+                ),
+                VIOLET,
+            );
+            bullet(
+                ui,
+                lang.t(
+                    "Флешка, HDD/SSD, сетевая папка",
+                    "USB drive, HDD/SSD, network folder",
+                ),
+                ACCENT,
+            );
+            bullet(
+                ui,
+                lang.t(
+                    "Windows · macOS · Linux · Android",
+                    "Windows · macOS · Linux · Android",
+                ),
+                VIOLET,
+            );
+            ui.add_space(24.0);
+            Frame::new()
+                .fill(PANEL)
+                .stroke(Stroke::new(1.0_f32, BORDER))
+                .corner_radius(9)
+                .inner_margin(Margin::symmetric(12, 6))
+                .show(ui, |ui| {
+                    ui.label(
+                        RichText::new(format!(
+                            "v{} · SPV{}",
+                            env!("CARGO_PKG_VERSION"),
+                            sp_core::FORMAT_VERSION
+                        ))
+                        .size(11.0)
+                        .color(ACCENT),
+                    );
+                });
+        },
+    );
+}
+
+fn bullet(ui: &mut egui::Ui, text: &str, color: Color32) {
+    ui.horizontal(|ui| {
+        ui.label(RichText::new("•").size(14.0).color(color));
+        ui.label(RichText::new(text).size(12.5).color(MUTED));
+    });
+    ui.add_space(6.0);
+}
+
+/// Rough password strength from 0 (empty) to 4 (excellent).
+fn password_score(password: &str) -> u8 {
+    let len = password.chars().count();
+    if len == 0 {
+        return 0;
+    }
+    if len < 8 {
+        return 1;
+    }
+    let mut classes = 0;
+    if password.chars().any(char::is_lowercase) {
+        classes += 1;
+    }
+    if password.chars().any(char::is_uppercase) {
+        classes += 1;
+    }
+    if password.chars().any(|c| c.is_ascii_digit()) {
+        classes += 1;
+    }
+    if password.chars().any(|c| !c.is_alphanumeric()) {
+        classes += 1;
+    }
+    let mut score = 2;
+    if len >= 12 {
+        score += 1;
+    }
+    if classes >= 3 {
+        score += 1;
+    }
+    score.min(4)
+}
+
+/// Replaces the extension of `path`, keeping folders and the base name.
+fn swap_extension(path: &str, ext: &str) -> String {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return format!("vault.{ext}");
+    }
+    let slash = trimmed.rfind(['/', '\\']).map_or(0, |index| index + 1);
+    let stem = match trimmed.rfind('.') {
+        Some(index) if index > slash => &trimmed[..index],
+        _ => trimmed,
+    };
+    format!("{stem}.{ext}")
+}
+
 fn field_label(ui: &mut egui::Ui, text: &str) {
     ui.label(RichText::new(text).size(12.0).color(MUTED));
     ui.add_space(4.0);
@@ -964,5 +1287,25 @@ mod tests {
         let error = SpError::unlock();
         assert!(describe(Lang::Ru, &error).contains("пароль"));
         assert!(describe(Lang::En, &error).contains("password"));
+    }
+
+    #[test]
+    fn password_strength_grows_with_length_and_variety() {
+        assert_eq!(password_score(""), 0);
+        assert_eq!(password_score("short"), 1);
+        assert_eq!(password_score("abcdefgh"), 2);
+        assert!(password_score("Correct Horse 42!") >= 3);
+        assert_eq!(password_score("Aa1!Bb2@Cc3#Dd4$"), 4);
+    }
+
+    #[test]
+    fn disguise_swaps_only_the_extension() {
+        assert_eq!(swap_extension("D:/vaults/a.spv", "mp3"), "D:/vaults/a.mp3");
+        assert_eq!(swap_extension("a", "bin"), "a.bin");
+        assert_eq!(swap_extension("", "jpg"), "vault.jpg");
+        assert_eq!(
+            swap_extension("D:/my.vaults/secret", "spv"),
+            "D:/my.vaults/secret.spv"
+        );
     }
 }

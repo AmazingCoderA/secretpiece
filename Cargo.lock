@@ -3076,7 +3076,7 @@ dependencies = [
 
 [[package]]
 name = "sp-cli"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "rpassword",
  "sp-core",
@@ -3088,11 +3088,11 @@ dependencies = [
 
 [[package]]
 name = "sp-core"
-version = "1.4.0"
+version = "1.5.0"
 
 [[package]]
 name = "sp-crypto"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "argon2",
  "blake3",
@@ -3104,7 +3104,7 @@ dependencies = [
 
 [[package]]
 name = "sp-ffi"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "jni 0.21.1",
  "serde_json",
@@ -3116,7 +3116,7 @@ dependencies = [
 
 [[package]]
 name = "sp-format"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3126,11 +3126,11 @@ dependencies = [
 
 [[package]]
 name = "sp-fs"
-version = "1.4.0"
+version = "1.5.0"
 
 [[package]]
 name = "sp-gui"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "eframe",
  "rfd",
@@ -3143,19 +3143,19 @@ dependencies = [
 
 [[package]]
 name = "sp-platform"
-version = "1.4.0"
+version = "1.5.0"
 
 [[package]]
 name = "sp-storage"
-version = "1.4.0"
+version = "1.5.0"
 
 [[package]]
 name = "sp-testkit"
-version = "1.4.0"
+version = "1.5.0"
 
 [[package]]
 name = "sp-vault"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "serde_json",
  "sp-core",
@@ -3165,7 +3165,7 @@ dependencies = [
 
 [[package]]
 name = "sp-wipe"
-version = "1.4.0"
+version = "1.5.0"
 
 [[package]]
 name = "spirv"

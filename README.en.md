@@ -41,7 +41,7 @@
 |---|---|
 | 🧩 **Does not break the drive** | Only regular files. MBR/GPT, boot sector and the filesystem stay untouched. |
 | 💾 **Any drive** | USB stick, external HDD/SSD, internal disk, SMB/NFS. Removable media is the primary scenario. |
-| 🕵️ **Hidden volume** | The area inside the container looks like free space. It opens with a separate password (planned for v1.7). |
+| 🕵️ **Hidden volume** | The area inside the container looks like free space. It opens with a separate password (planned for v1.8). |
 | 🔐 **Ciphers** | XChaCha20-Poly1305 ships in v1.4; ChaCha20-Poly1305 and AES-256-GCM come later, parameters recorded in the header. |
 | 🗂️ **Multiple formats** | Single file, split parts for FAT32, vault folder, nested container, k-of-n shards. |
 | 🚀 **Every platform** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux. |
@@ -119,6 +119,7 @@ tar -xzf secretpiece-<version>-linux-x64-cli.tar.gz   # sp-cli
 ```
 
 ARM64 — `linux-arm64-cli` and `linux-arm64-gui` (GUI is built against glibc).
+ARMv7 and RISC-V 64 — `linux-armv7-cli` and `linux-riscv64-cli`.
 The CLI is static musl: it runs on Ubuntu 22.04+, Fedora, Debian, Arch and Alpine.
 A dedicated Alpine archive is `alpine-x64-cli`.
 
@@ -126,7 +127,7 @@ A dedicated Alpine archive is `alpine-x64-cli`.
 
 ```bash
 # ready-made pacman package from Releases (x86_64)
-sudo pacman -U secretpiece-1.4-1-x86_64.pkg.tar.zst
+sudo pacman -U secretpiece-1.5-1-x86_64.pkg.tar.zst
 
 # AUR (once the recipe is published)
 yay -S secretpiece-bin    # prebuilt binary
@@ -171,9 +172,9 @@ BSD builds in CI are marked experimental: a release still ships even if a BSD VM
 | Alternative | **ChaCha20-Poly1305** (RFC 8439, 96-bit nonce) | optional, later |
 | Alternative | **AES-256-GCM** (AES-NI / ARMv8 Crypto) | optional, later |
 | Alternative | **AES-256-GCM-SIV** (nonce-misuse resistant) | optional, later |
-| Key exchange | **X25519** for recipient slots | v1.7 |
-| Recovery | **BIP39** (24 words) + **Shamir** k-of-n | v1.7 |
-| Unlock slots | password · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1.4–v1.7 |
+| Key exchange | **X25519** for recipient slots | v1.8 |
+| Recovery | **BIP39** (24 words) + **Shamir** k-of-n | v1.8 |
+| Unlock slots | password · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1.4–v1.8 |
 | Manifest signatures | **Ed25519** (releases only, not volumes) | v2.0 |
 
 - `algorithm_id` and all KDF parameters are written into the header; silent changes are forbidden.
@@ -263,7 +264,7 @@ SecretPiece checks free space **before** writing and never leaves partial commit
 | Import larger than free space | preflight refusal, no garbage | import in parts or into the outer volume |
 | Media actually full | `E_NOSPC`, read-only, index stays intact | empty trash/snapshots, export data |
 | FAT32 and a file > 4 GiB | automatic split into 3.5 GiB parts | use exFAT/NTFS |
-| Need more capacity | `sp-cli` resize (planned v1.6) | create a new container and move data |
+| Need more capacity | `sp-cli` resize (planned v1.7) | create a new container and move data |
 
 Hints are everywhere: in `sp-cli` errors, in `sp-cli df`, in the GUI banner, and in `sp-cli doctor`. A 64 MiB reserve is always kept for metadata and superblocks.
 
@@ -281,14 +282,14 @@ Hints are everywhere: in `sp-cli` errors, in `sp-cli df`, in the GUI banner, and
 |---|---|---|
 | Windows 10/11 | x64 GUI + CLI, ARM64 CLI | v1.4 |
 | macOS 13+ | universal (Intel + Apple Silicon) GUI + CLI | v1.4 |
-| Android 8+ | APK (SAF + JNI), ARM64/ARMv7 | v1.4 (read + create) |
-| Linux | x64 GUI (glibc), x64/ARM64 CLI (static musl) | v1.4 |
+| Android 8+ | APK (SAF + JNI), ARM64/ARMv7 | v1.5 (read + create) |
+| Linux | x64 GUI (glibc), x64/ARM64/ARMv7/RISC-V CLI | v1.5 |
 | Alpine Linux | x64 CLI (musl) | v1.4 |
-| Arch Linux | x64 CLI, pacman package, PKGBUILD, AUR (yay/paru) | v1.4 |
+| Arch Linux | x64 CLI, pacman package, PKGBUILD, AUR (yay/paru) | v1.5 |
 | FreeBSD | x64 (VM build) | experimental |
 | OpenBSD | x64 (VM build) | experimental |
 | NetBSD | x64 (VM build) | experimental |
-| Linux ARMv7 / RISC-V | build from source | planned v1.5 |
+| Linux ARMv7 / RISC-V | prebuilt CLI (`linux-armv7-cli`, `linux-riscv64-cli`) | v1.5 |
 | Flatpak / AppImage | sandbox and portable image | planned v1.9 |
 
 ## 🛠️ Build and releases
@@ -307,7 +308,7 @@ Requires Rust stable (MSRV **1.85**, edition 2024).
 - **Auto-build** — on every push to `main` and every PR: artifacts on the workflow run page.
 - **Release** — on a `v*` tag: archives + `SHA256SUMS.txt` in GitHub Releases.
 - **Release assets:** `*-cli` and `*-gui` for `windows-x64`, `linux-x64`, `macos-universal`; `linux-arm64-cli`, `windows-arm64-cli`, `alpine-x64-cli`, `arch-x64-cli`, `*.pkg.tar.zst`, `android.apk` + `SHA256SUMS.txt`.
-- Versions — `1.1`, `1.2`, `1.3`, `1.4`, `2.0` (no micro-patch tags).
+- Versions — `1.1`, `1.2`, `1.3`, `1.4`, `1.5`, `2.0` (no micro-patch tags).
 
 ## 📚 Documentation
 
@@ -330,12 +331,12 @@ The byte-level specification lives in [`docs/SPV.md`](docs/SPV.md); a separate `
 | **v1.2** | ✅ | visuals, RU/EN CLI, pacman/AUR, Android skeleton, Windows ARM64, Linux ARM64, BSD |
 | **v1.3** | ✅ | Android: app disguise, `docs/SPV.md`, polish |
 | **v1.4** | ✅ | SPV1 crypto core (Argon2id, XChaCha20-Poly1305, BLAKE3), CLI, egui GUI, Android read + on-device create, Alpine |
-| **v1.5** | ⏳ | extents, FAT32 split, ARMv7/RISC-V, format migration |
-| **v1.6** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
-| **v1.7** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |
-| **v1.8** | ⏳ | shred, free-space wipe, destroy, Reed-Solomon sharding |
-| **v1.9** | ⏳ | GUI: creation wizard, file manager, drag-and-drop, themes |
-| **v2.0** | ⏳ | hardening, fuzzing, Miri, external audit, signatures, SBOM |
+| **v1.5** | ✅ | Android: create-vault dialog, settings, ambience; GUI: redesigned create screen, Argon2id choice, file disguise; ARMv7/RISC-V CLI |
+| **v1.6** | ⏳ | extents, FAT32 split, format migration |
+| **v1.7** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
+| **v1.8** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |
+| **v1.9** | ⏳ | shred, free-space wipe, destroy, Reed-Solomon sharding |
+| **v2.0** | ⏳ | GUI: creation wizard, file manager, themes; hardening, fuzzing, Miri, audit, SBOM |
 
 ## 🤝 Contributing
 

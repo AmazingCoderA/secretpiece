@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-13
+
+Desktop and Android polish: a redesigned create screen on both, a dedicated
+container-creation flow on the phone, more Linux architectures, and hardened
+releases. The vault format is unchanged — SPV1 files from v1.4 open as before.
+
+### Added
+
+- **Redesigned desktop create screen**: a hero panel with the product summary,
+  password visibility toggle, a strength meter, and a choice of three Argon2id
+  profiles (light 16 MiB / default 64 MiB / paranoid 256 MiB) written into the
+  header.
+- **File disguise on desktop**: the shell extension can be `.spv`, `.bin`,
+  `.mp3` or `.jpg` (or anything typed by hand). The container is still SPV1;
+  the picker now accepts **all files**, not only `*.spv`.
+- **Create-vault dialog on Android**: a separate screen with the password typed
+  twice (minimum 8 characters, mismatch is rejected before the system picker
+  opens). The empty SPV1 container is written straight to the USB drive or phone
+  storage through `sp-ffi::createFd`.
+- **Breadcrumb and copy** in the Android browser: the current path is shown as
+  `root / folder / sub`, and text previews can be copied to the clipboard.
+- **Linux ARMv7 and RISC-V 64 CLI builds** (`linux-armv7-cli`,
+  `linux-riscv64-cli`) in the release matrix.
+- **`sp-ffi` tests** for the exact creation path used by JNI: create + reopen a
+  container, and reject an empty password.
+
+### Changed
+
+- **Android password field**: lock icon, eye toggle, and IME "Done" that submits
+  the form; the unlock card is ordered picker → password → primary action →
+  create.
+- **Rotation no longer closes the vault**: `MainActivity` handles
+  `orientation|screenSize|screenLayout|keyboardHidden` itself, so the open
+  container and the typed state survive a turn.
+- **Releases cannot silently ship a stale APK**: the publish job fails when the
+  Android artifact is missing instead of uploading the previous build.
+- **Docs**: refreshed Android mockup (unlock + create dialog), README RU/EN and
+  `docs/ANDROID.md` describe on-device creation, settings and ambience.
+- Workspace version bumped to 1.5.0; MSRV stays at Rust 1.85 (edition 2024).
+
 ## [1.4.0] - 2026-11-11
 
 The crypto core, the SPV1 container, separate GUI/CLI applications, and Android
@@ -145,7 +185,8 @@ format are **not** implemented yet — do not use for real data.
   macOS universal, archives with `SHA256SUMS.txt`, automatic GitHub Release.
 - Dependabot and issue templates.
 
-[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v1.4...HEAD
+[Unreleased]: https://github.com/AmazingCoderA/secretpiece/compare/v1.5...HEAD
+[1.5.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.5
 [1.4.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.4
 [1.3.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.3
 [1.2.0]: https://github.com/AmazingCoderA/secretpiece/releases/tag/v1.2

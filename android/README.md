@@ -16,7 +16,7 @@ over OTG/USB-C. No root, no drivers, no `MANAGE_EXTERNAL_STORAGE`.
 | Password field, unlock flow | ✅ |
 | Argon2id / XChaCha20-Poly1305 / BLAKE3 | ✅ v1.4 through `sp-ffi` |
 | Folder browsing and file reads | ✅ v1.4 (read-only) |
-| Create a new vault on the phone | ✅ v1.4 (empty container, then fill from desktop/CLI) |
+| Create a new vault on the phone | ✅ v1.5 (password + confirmation dialog) |
 | Settings: language, ambience, disguise, shortcut | ✅ v1.4 |
 | Ambient effects: snow / rain / sun | ✅ v1.4 |
 | Writing/deleting files on the phone | ⏳ later |

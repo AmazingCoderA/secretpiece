@@ -106,6 +106,22 @@ impl Theme {
     fn is_light(self) -> bool {
         matches!(self, Self::Light)
     }
+
+    const fn key(self) -> &'static str {
+        match self {
+            Self::Midnight => "midnight",
+            Self::Neon => "neon",
+            Self::Light => "light",
+        }
+    }
+
+    fn from_key(key: &str) -> Self {
+        match key {
+            "neon" => Self::Neon,
+            "light" => Self::Light,
+            _ => Self::Midnight,
+        }
+    }
 }
 
 static PALETTE: RwLock<Palette> = RwLock::new(Theme::Midnight.palette());
@@ -162,6 +178,17 @@ fn selected_bg() -> Color32 {
     pal().selected
 }
 
+/// Text colour that stays readable on top of the accent fill.
+fn on_accent() -> Color32 {
+    let p = pal().accent;
+    let luminance = 0.299 * f32::from(p.r()) + 0.587 * f32::from(p.g()) + 0.114 * f32::from(p.b());
+    if luminance > 150.0 {
+        Color32::from_rgb(10, 14, 20)
+    } else {
+        Color32::WHITE
+    }
+}
+
 fn set_theme(theme: Theme) {
     *PALETTE.write().unwrap_or_else(PoisonError::into_inner) = theme.palette();
 }
@@ -193,6 +220,18 @@ fn apply_theme(ctx: &egui::Context) {
     style.visuals.widgets.open.bg_fill = p.selected;
     style.visuals.window_stroke = Stroke::new(1.0_f32, p.line);
     style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, p.line);
+    for widget in [
+        &mut style.visuals.widgets.inactive,
+        &mut style.visuals.widgets.hovered,
+        &mut style.visuals.widgets.active,
+        &mut style.visuals.widgets.open,
+        &mut style.visuals.widgets.noninteractive,
+    ] {
+        widget.corner_radius = egui::CornerRadius::same(9);
+    }
+    style.spacing.item_spacing = egui::vec2(8.0, 8.0);
+    style.spacing.button_padding = egui::vec2(11.0, 7.0);
+    style.spacing.interact_size.y = 30.0;
     style.text_styles = [
         (
             TextStyle::Heading,
@@ -226,17 +265,24 @@ pub enum Lang {
 }
 
 impl Lang {
-    const fn flip(self) -> Self {
-        match self {
-            Self::Ru => Self::En,
-            Self::En => Self::Ru,
-        }
-    }
-
     fn t(self, ru: &'static str, en: &'static str) -> &'static str {
         match self {
             Self::Ru => ru,
             Self::En => en,
+        }
+    }
+
+    const fn key(self) -> &'static str {
+        match self {
+            Self::Ru => "ru",
+            Self::En => "en",
+        }
+    }
+
+    fn from_key(key: &str) -> Self {
+        match key {
+            "en" => Self::En,
+            _ => Self::Ru,
         }
     }
 }
@@ -249,8 +295,9 @@ impl Lang {
 pub fn main_entry() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1020.0, 720.0])
-            .with_min_inner_size([800.0, 560.0])
+            .with_inner_size([1100.0, 760.0])
+            .with_min_inner_size([720.0, 520.0])
+            .with_resizable(true)
             .with_title("SecretPiece"),
         ..eframe::NativeOptions::default()
     };
@@ -316,11 +363,19 @@ impl KdfChoice {
 
 impl App {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        set_theme(Theme::Midnight);
+        let theme = cc
+            .storage
+            .and_then(|storage| storage.get_string("theme"))
+            .map_or(Theme::Midnight, |key| Theme::from_key(&key));
+        let lang = cc
+            .storage
+            .and_then(|storage| storage.get_string("lang"))
+            .map_or(Lang::Ru, |key| Lang::from_key(&key));
+        set_theme(theme);
         apply_theme(&cc.egui_ctx);
         Self {
-            lang: Lang::Ru,
-            theme: Theme::Midnight,
+            lang,
+            theme,
             vault_path: String::new(),
             password: String::new(),
             confirm: String::new(),
@@ -411,30 +466,21 @@ impl App {
 
     fn header(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("header")
-            .exact_height(96.0)
+            .exact_height(78.0)
             .frame(
                 Frame::new()
                     .fill(panel())
-                    .inner_margin(Margin::symmetric(28, 18)),
+                    .inner_margin(Margin::symmetric(24, 14)),
             )
             .show(ctx, |ui| {
                 let rect = ui.max_rect();
                 ui.horizontal(|ui| {
-                    let (tile, _) =
-                        ui.allocate_exact_size(egui::vec2(38.0, 38.0), egui::Sense::hover());
-                    gradient(ui.painter(), tile, accent(), violet(), 38);
-                    ui.painter().text(
-                        tile.center(),
-                        egui::Align2::CENTER_CENTER,
-                        "SP",
-                        FontId::new(15.0, FontFamily::Proportional),
-                        bg(),
-                    );
-                    ui.add_space(10.0);
+                    logo_tile(ui, 42.0);
+                    ui.add_space(11.0);
                     ui.vertical(|ui| {
                         ui.label(
                             RichText::new("SecretPiece")
-                                .size(24.0)
+                                .size(23.0)
                                 .strong()
                                 .color(ink()),
                         );
@@ -443,54 +489,41 @@ impl App {
                                 "зашифрованное хранилище · один файл",
                                 "encrypted vault · a single file",
                             ))
-                            .size(12.0)
+                            .size(11.5)
                             .color(muted()),
                         );
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if self.browser.is_some()
-                            && ui
-                                .add(
-                                    egui::Button::new(
-                                        RichText::new(self.lang.t("Заблокировать", "Lock"))
-                                            .size(12.0)
-                                            .color(muted()),
-                                    )
-                                    .fill(card_bg())
-                                    .stroke(Stroke::new(1.0_f32, line()))
-                                    .corner_radius(8),
-                                )
-                                .clicked()
-                        {
-                            self.browser = None;
-                            self.password.clear();
-                        }
-                        ui.add_space(10.0);
-                        let label = match self.lang {
-                            Lang::Ru => "EN",
-                            Lang::En => "RU",
-                        };
-                        if ui
-                            .add(
-                                egui::Button::new(
-                                    RichText::new(label).size(12.0).strong().color(ink()),
-                                )
-                                .fill(card_bg())
-                                .stroke(Stroke::new(1.0_f32, line()))
-                                .corner_radius(8)
-                                .min_size(egui::vec2(40.0, 28.0)),
+                        if self.browser.is_some() {
+                            let lock = egui::Button::new(
+                                RichText::new(self.lang.t("Заблокировать", "Lock"))
+                                    .size(12.0)
+                                    .color(ink()),
                             )
-                            .clicked()
-                        {
-                            self.lang = self.lang.flip();
+                            .fill(card_bg())
+                            .stroke(Stroke::new(1.0_f32, line()))
+                            .corner_radius(9)
+                            .min_size(egui::vec2(96.0, 30.0));
+                            if ui.add(lock).clicked() {
+                                self.browser = None;
+                                self.password.clear();
+                            }
+                            ui.add_space(12.0);
                         }
+                        language_switch(ui, &mut self.lang);
                         ui.add_space(12.0);
+                        ui.label(
+                            RichText::new(self.lang.t("Тема", "Theme"))
+                                .size(11.0)
+                                .color(muted()),
+                        );
+                        ui.add_space(6.0);
                         let mut picked = None;
                         for theme in [Theme::Light, Theme::Neon, Theme::Midnight] {
-                            if theme_chip(ui, theme, self.theme == theme, self.lang) {
+                            if theme_swatch(ui, theme, self.theme == theme, self.lang) {
                                 picked = Some(theme);
                             }
-                            ui.add_space(4.0);
+                            ui.add_space(5.0);
                         }
                         if let Some(theme) = picked {
                             self.theme = theme;
@@ -503,7 +536,7 @@ impl App {
                     egui::pos2(rect.left(), rect.bottom() - 2.0),
                     egui::pos2(rect.right(), rect.bottom()),
                 );
-                gradient(ui.painter(), line, accent(), violet(), 128);
+                gradient(ui.painter(), line, accent(), violet(), 160);
             });
     }
 }
@@ -512,8 +545,13 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.header(ctx);
         egui::CentralPanel::default()
-            .frame(Frame::new().fill(bg()).inner_margin(Margin::same(28)))
+            .frame(
+                Frame::new()
+                    .fill(bg())
+                    .inner_margin(Margin::symmetric(24, 18)),
+            )
             .show(ctx, |ui| {
+                paint_glow(ui);
                 if let Some(browser) = self.browser.as_mut() {
                     browser.ui(ui, self.lang);
                 } else {
@@ -521,22 +559,20 @@ impl eframe::App for App {
                 }
             });
     }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        storage.set_string("theme", self.theme.key().to_owned());
+        storage.set_string("lang", self.lang.key().to_owned());
+    }
 }
 
 impl App {
     fn unlock_ui(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(10.0);
+        let card_width = (ui.available_width() - 24.0).clamp(330.0, 470.0);
+        ui.add_space(6.0);
         ui.vertical_centered(|ui| {
-            let (tile, _) = ui.allocate_exact_size(egui::vec2(56.0, 56.0), egui::Sense::hover());
-            gradient(ui.painter(), tile, accent(), violet(), 56);
-            ui.painter().text(
-                tile.center(),
-                egui::Align2::CENTER_CENTER,
-                "SP",
-                FontId::new(20.0, FontFamily::Proportional),
-                bg(),
-            );
-            ui.add_space(10.0);
+            logo_tile(ui, 56.0);
+            ui.add_space(12.0);
             ui.label(
                 RichText::new("SecretPiece")
                     .size(30.0)
@@ -551,8 +587,37 @@ impl App {
                 .size(13.0)
                 .color(muted()),
             );
-            ui.add_space(16.0);
-            self.form_card(ui);
+            ui.add_space(18.0);
+            self.form_card(ui, card_width);
+            ui.add_space(18.0);
+            ui.horizontal(|ui| {
+                let total = 3.0 * 150.0 + 2.0 * 8.0;
+                ui.add_space((ui.available_width() - total).max(0.0) / 2.0);
+                for (label, color) in [
+                    ("Argon2id", accent()),
+                    ("XChaCha20-Poly1305", violet()),
+                    ("BLAKE3", good()),
+                ] {
+                    Frame::new()
+                        .fill(card_bg())
+                        .stroke(Stroke::new(1.0_f32, line()))
+                        .corner_radius(8)
+                        .inner_margin(Margin::symmetric(10, 5))
+                        .show(ui, |ui| {
+                            ui.label(RichText::new(label).size(10.5).color(color));
+                        });
+                    ui.add_space(8.0);
+                }
+            });
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new(self.lang.t(
+                    "Перетащите сейф в окно, чтобы открыть его.",
+                    "Drop a vault onto the window to open it.",
+                ))
+                .size(11.0)
+                .color(muted()),
+            );
         });
 
         let dropped = ui.ctx().input(|input| input.raw.dropped_files.clone());
@@ -565,15 +630,33 @@ impl App {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn form_card(&mut self, ui: &mut egui::Ui) {
+    fn form_card(&mut self, ui: &mut egui::Ui, width: f32) {
         let lang = self.lang;
+        let inner = width - 48.0;
         Frame::new()
             .fill(card_bg())
             .stroke(Stroke::new(1.0_f32, line()))
-            .corner_radius(20)
-            .inner_margin(Margin::same(26))
+            .corner_radius(22)
+            .inner_margin(Margin::same(24))
+            .shadow(egui::epaint::Shadow {
+                offset: [0, 14],
+                blur: 36,
+                spread: 0,
+                color: Color32::from_black_alpha(if self.theme.is_light() { 26 } else { 90 }),
+            })
             .show(ui, |ui| {
-                ui.set_width(408.0);
+                ui.set_width(inner);
+                ui.label(
+                    RichText::new(if self.creating {
+                        lang.t("СОЗДАНИЕ", "CREATE")
+                    } else {
+                        lang.t("ВХОД", "SIGN IN")
+                    })
+                    .size(10.0)
+                    .strong()
+                    .color(accent()),
+                );
+                ui.add_space(2.0);
                 ui.label(
                     RichText::new(if self.creating {
                         lang.t("Новое хранилище", "New vault")
@@ -584,33 +667,27 @@ impl App {
                     .strong()
                     .color(ink()),
                 );
-                ui.add_space(4.0);
                 ui.label(
                     RichText::new(lang.t(
                         "Пароль не покидает это устройство · Argon2id",
                         "Your password never leaves this device · Argon2id",
                     ))
-                    .size(12.5)
+                    .size(12.0)
                     .color(muted()),
                 );
-                ui.add_space(18.0);
+                ui.add_space(16.0);
 
                 field_label(ui, lang.t("Файл хранилища", "Vault file"));
                 ui.horizontal(|ui| {
                     let width = ui.available_width() - 96.0;
                     ui.add_sized(
-                        [width, 34.0],
+                        [width, 38.0],
                         egui::TextEdit::singleline(&mut self.vault_path)
                             .hint_text("vault.spv")
+                            .margin(egui::vec2(10.0, 9.0))
                             .background_color(input_bg()),
                     );
-                    if ui
-                        .add(
-                            egui::Button::new(lang.t("Обзор…", "Browse…"))
-                                .min_size(egui::vec2(88.0, 34.0)),
-                        )
-                        .clicked()
-                    {
+                    if secondary_button(ui, lang.t("Обзор…", "Browse…")).clicked() {
                         let dialog = rfd::FileDialog::new();
                         let picked = if self.creating {
                             dialog.set_file_name("vault.spv").save_file()
@@ -622,12 +699,13 @@ impl App {
                         }
                     }
                 });
+                ui.add_space(3.0);
                 ui.label(
                     RichText::new(lang.t(
                         "Любой файл: .spv, .bin, .mp3 — внутри всё равно контейнер SPV1.",
                         "Any file: .spv, .bin, .mp3 — inside it is still an SPV1 container.",
                     ))
-                    .size(11.0)
+                    .size(10.5)
                     .color(muted()),
                 );
 
@@ -647,9 +725,9 @@ impl App {
                             let button = egui::Button::new(
                                 RichText::new(format!(".{ext}"))
                                     .size(11.0)
-                                    .color(if active { bg() } else { muted() }),
+                                    .color(if active { on_accent() } else { muted() }),
                             )
-                            .fill(if active { accent() } else { panel() })
+                            .fill(if active { accent() } else { input_bg() })
                             .stroke(Stroke::new(1.0_f32, if active { accent() } else { line() }))
                             .corner_radius(7)
                             .min_size(egui::vec2(52.0, 26.0));
@@ -663,11 +741,12 @@ impl App {
                 ui.add_space(14.0);
                 field_label(ui, lang.t("Пароль", "Password"));
                 ui.horizontal(|ui| {
-                    let width = ui.available_width() - 78.0;
+                    let width = ui.available_width() - 82.0;
                     ui.add_sized(
-                        [width, 34.0],
+                        [width, 38.0],
                         egui::TextEdit::singleline(&mut self.password)
                             .password(!self.show_password)
+                            .margin(egui::vec2(10.0, 9.0))
                             .background_color(input_bg()),
                     );
                     let toggle = if self.show_password {
@@ -675,16 +754,7 @@ impl App {
                     } else {
                         lang.t("Показать", "Show")
                     };
-                    if ui
-                        .add(
-                            egui::Button::new(RichText::new(toggle).size(11.0).color(muted()))
-                                .fill(panel())
-                                .stroke(Stroke::new(1.0_f32, line()))
-                                .corner_radius(8)
-                                .min_size(egui::vec2(70.0, 34.0)),
-                        )
-                        .clicked()
-                    {
+                    if secondary_button(ui, toggle).clicked() {
                         self.show_password = !self.show_password;
                     }
                 });
@@ -709,53 +779,56 @@ impl App {
                         egui::vec2(ui.available_width(), 6.0),
                         egui::Sense::hover(),
                     );
-                    ui.painter()
-                        .rect_filled(rect, 3.0, Color32::from_rgb(24, 32, 46));
+                    ui.painter().rect_filled(rect, 3.0, line());
                     let ratio = f32::from(score) / 4.0;
                     let filled = egui::Rect::from_min_size(
                         rect.min,
                         egui::vec2(rect.width() * ratio, rect.height()),
                     );
                     ui.painter().rect_filled(filled, 3.0, color);
-                    ui.add_space(2.0);
+                    ui.add_space(3.0);
                     ui.label(RichText::new(label).size(11.0).color(color));
 
                     ui.add_space(12.0);
                     field_label(ui, lang.t("Стойкость ключа", "Key hardness"));
+                    let gap = 6.0;
+                    let button_width = (ui.available_width() - gap * 2.0) / 3.0;
                     ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = gap;
                         for choice in [KdfChoice::Light, KdfChoice::Default, KdfChoice::Paranoid] {
                             let selected = self.kdf == choice;
                             let button = egui::Button::new(
                                 RichText::new(choice.label(lang))
                                     .size(12.0)
-                                    .color(if selected { bg() } else { ink() }),
+                                    .color(if selected { on_accent() } else { ink() }),
                             )
-                            .fill(if selected { accent() } else { panel() })
+                            .fill(if selected { accent() } else { input_bg() })
                             .stroke(Stroke::new(
                                 1.0_f32,
                                 if selected { accent() } else { line() },
                             ))
                             .corner_radius(8)
-                            .min_size(egui::vec2(126.0, 30.0));
+                            .min_size(egui::vec2(button_width, 30.0));
                             if ui.add(button).clicked() {
                                 self.kdf = choice;
                             }
                         }
                     });
                     ui.add_space(2.0);
-                    ui.label(RichText::new(self.kdf.hint(lang)).size(11.0).color(muted()));
+                    ui.label(RichText::new(self.kdf.hint(lang)).size(10.5).color(muted()));
 
                     ui.add_space(12.0);
                     field_label(ui, lang.t("Повторите пароль", "Repeat password"));
                     ui.add_sized(
-                        [ui.available_width(), 34.0],
+                        [ui.available_width(), 38.0],
                         egui::TextEdit::singleline(&mut self.confirm)
                             .password(!self.show_password)
+                            .margin(egui::vec2(10.0, 9.0))
                             .background_color(input_bg()),
                     );
                 }
 
-                ui.add_space(20.0);
+                ui.add_space(18.0);
                 let ready = !self.creating
                     || (self.password.chars().count() >= 8 && self.password == self.confirm);
                 let primary = if self.creating {
@@ -763,22 +836,29 @@ impl App {
                 } else {
                     lang.t("Открыть", "Unlock")
                 };
-                let button =
-                    egui::Button::new(RichText::new(primary).size(16.0).strong().color(bg()))
-                        .fill(accent())
-                        .corner_radius(10)
-                        .min_size(egui::vec2(ui.available_width(), 42.0));
+                let button = egui::Button::new(
+                    RichText::new(primary)
+                        .size(15.5)
+                        .strong()
+                        .color(on_accent()),
+                )
+                .fill(accent())
+                .corner_radius(10)
+                .min_size(egui::vec2(ui.available_width(), 44.0));
                 if ui.add_enabled(ready, button).clicked() {
                     self.unlock();
                 }
-                ui.add_space(8.0);
+                ui.add_space(6.0);
                 let switch = if self.creating {
                     lang.t("У меня уже есть хранилище", "I already have a vault")
                 } else {
                     lang.t("Создать новое хранилище", "Create a new vault")
                 };
                 if ui
-                    .add(egui::Button::new(RichText::new(switch).color(violet())).frame(false))
+                    .add(
+                        egui::Button::new(RichText::new(switch).size(12.0).color(violet()))
+                            .frame(false),
+                    )
                     .clicked()
                 {
                     self.creating = !self.creating;
@@ -786,20 +866,21 @@ impl App {
                 }
 
                 if let Some(error) = &self.error {
-                    ui.add_space(12.0);
-                    ui.label(RichText::new(error).size(12.5).color(danger()));
+                    ui.add_space(10.0);
+                    Frame::new()
+                        .fill(Color32::from_rgba_unmultiplied(
+                            danger().r(),
+                            danger().g(),
+                            danger().b(),
+                            22,
+                        ))
+                        .corner_radius(8)
+                        .inner_margin(Margin::symmetric(10, 7))
+                        .show(ui, |ui| {
+                            ui.label(RichText::new(error).size(12.0).color(danger()));
+                        });
                 }
             });
-
-        ui.add_space(14.0);
-        ui.label(
-            RichText::new(lang.t(
-                "Подсказка: перетащите .spv в окно, чтобы открыть его.",
-                "Tip: drop a .spv file onto the window to open it.",
-            ))
-            .size(11.0)
-            .color(muted()),
-        );
     }
 }
 
@@ -938,26 +1019,36 @@ impl Browser {
                     });
             });
 
-        ui.add_space(10.0);
+        ui.add_space(8.0);
         if let Some(status) = &self.status {
             let color = if status.error { danger() } else { good() };
-            ui.label(RichText::new(&status.text).color(color));
+            Frame::new()
+                .fill(card_bg())
+                .stroke(Stroke::new(1.0_f32, color))
+                .corner_radius(8)
+                .inner_margin(Margin::symmetric(10, 6))
+                .show(ui, |ui| {
+                    ui.label(RichText::new(&status.text).size(12.5).color(color));
+                });
         }
 
         self.dialogs(ui, lang);
     }
 
+    #[allow(clippy::too_many_lines)]
     fn actions(&mut self, ui: &mut egui::Ui, lang: Lang) {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if ui
                 .add(
                     egui::Button::new(
                         RichText::new(lang.t("Добавить файл", "Add file"))
+                            .size(13.0)
                             .strong()
-                            .color(bg()),
+                            .color(on_accent()),
                     )
                     .fill(accent())
-                    .corner_radius(9),
+                    .corner_radius(9)
+                    .min_size(egui::vec2(0.0, 32.0)),
                 )
                 .clicked()
             {
@@ -965,7 +1056,7 @@ impl Browser {
                     self.add_file(&path, lang);
                 }
             }
-            if ui.button(lang.t("Новая папка", "New folder")).clicked() {
+            if secondary_button(ui, lang.t("Новая папка", "New folder")).clicked() {
                 self.new_folder = Some(String::new());
             }
             let selected = self.selected.clone();
@@ -973,7 +1064,11 @@ impl Browser {
             if ui
                 .add_enabled(
                     selected_file.is_some(),
-                    egui::Button::new(lang.t("Просмотр", "Preview")),
+                    egui::Button::new(RichText::new(lang.t("Просмотр", "Preview")).size(13.0))
+                        .fill(card_bg())
+                        .stroke(Stroke::new(1.0_f32, line()))
+                        .corner_radius(9)
+                        .min_size(egui::vec2(0.0, 32.0)),
                 )
                 .clicked()
             {
@@ -984,7 +1079,11 @@ impl Browser {
             if ui
                 .add_enabled(
                     selected_file.is_some(),
-                    egui::Button::new(lang.t("Извлечь", "Extract")),
+                    egui::Button::new(RichText::new(lang.t("Извлечь", "Extract")).size(13.0))
+                        .fill(card_bg())
+                        .stroke(Stroke::new(1.0_f32, line()))
+                        .corner_radius(9)
+                        .min_size(egui::vec2(0.0, 32.0)),
                 )
                 .clicked()
             {
@@ -995,14 +1094,39 @@ impl Browser {
             if ui
                 .add_enabled(
                     selected.is_some(),
-                    egui::Button::new(RichText::new(lang.t("Удалить", "Delete")).color(danger())),
+                    egui::Button::new(
+                        RichText::new(lang.t("Удалить", "Delete"))
+                            .size(13.0)
+                            .color(danger()),
+                    )
+                    .fill(card_bg())
+                    .stroke(Stroke::new(1.0_f32, line()))
+                    .corner_radius(9)
+                    .min_size(egui::vec2(0.0, 32.0)),
                 )
                 .clicked()
             {
                 self.pending_delete = selected;
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if ui.button(lang.t("Проверить", "Verify")).clicked() {
+                if ui
+                    .add(
+                        egui::Button::new(
+                            RichText::new(lang.t("Проверить целостность", "Verify integrity"))
+                                .size(12.5)
+                                .color(accent()),
+                        )
+                        .fill(card_bg())
+                        .stroke(Stroke::new(1.0_f32, accent()))
+                        .corner_radius(9)
+                        .min_size(egui::vec2(0.0, 32.0)),
+                    )
+                    .on_hover_text(lang.t(
+                        "Расшифровать и проверить каждый файл",
+                        "Decrypt and authenticate every file",
+                    ))
+                    .clicked()
+                {
                     match self.vault.verify() {
                         Ok(report) => {
                             self.status = Some(Status {
@@ -1545,22 +1669,109 @@ fn row(ui: &mut egui::Ui, lang: Lang, entry: &ListEntry, selected: bool) -> RowC
     }
 }
 
-fn theme_chip(ui: &mut egui::Ui, theme: Theme, active: bool, lang: Lang) -> bool {
-    let text = if active && theme.is_light() {
-        Color32::WHITE
-    } else if active {
-        bg()
-    } else {
-        muted()
-    };
+fn logo_tile(ui: &mut egui::Ui, size: f32) {
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
+    let painter = ui.painter();
+    painter.rect_filled(rect, size * 0.3, accent());
+    let lower = egui::Rect::from_min_max(
+        egui::pos2(rect.left() + size * 0.16, rect.center().y + size * 0.02),
+        egui::pos2(rect.right() - size * 0.16, rect.bottom() - size * 0.16),
+    );
+    painter.rect_filled(lower, size * 0.2, violet());
+    painter.text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        "SP",
+        FontId::new(size * 0.34, FontFamily::Proportional),
+        Color32::WHITE,
+    );
+}
+
+fn theme_swatch(ui: &mut egui::Ui, theme: Theme, active: bool, lang: Lang) -> bool {
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(26.0, 26.0), egui::Sense::click());
+    let center = rect.center();
+    let palette = theme.palette();
+    let painter = ui.painter();
+    if active {
+        painter.circle_stroke(center, 12.0, Stroke::new(2.0_f32, palette.accent));
+    } else if response.hovered() {
+        painter.circle_stroke(center, 11.0, Stroke::new(1.0_f32, line()));
+    }
+    painter.circle_filled(center, 8.5, palette.accent);
+    painter.circle_filled(
+        egui::pos2(center.x + 3.0, center.y + 3.0),
+        4.5,
+        palette.violet,
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    response.on_hover_text(theme.label(lang)).clicked()
+}
+
+fn language_switch(ui: &mut egui::Ui, lang: &mut Lang) {
+    Frame::new()
+        .fill(card_bg())
+        .stroke(Stroke::new(1.0_f32, line()))
+        .corner_radius(9)
+        .inner_margin(Margin::symmetric(3, 3))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                for (value, code) in [(Lang::Ru, "RU"), (Lang::En, "EN")] {
+                    let active = *lang == value;
+                    let button = egui::Button::new(
+                        RichText::new(code).size(11.5).strong().color(if active {
+                            bg()
+                        } else {
+                            muted()
+                        }),
+                    )
+                    .fill(if active {
+                        accent()
+                    } else {
+                        Color32::TRANSPARENT
+                    })
+                    .stroke(Stroke::NONE)
+                    .corner_radius(6)
+                    .min_size(egui::vec2(34.0, 24.0));
+                    if ui.add(button).clicked() {
+                        *lang = value;
+                    }
+                }
+            });
+        });
+}
+
+fn secondary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
     ui.add(
-        egui::Button::new(RichText::new(theme.label(lang)).size(11.5).color(text))
-            .fill(if active { accent() } else { card_bg() })
-            .stroke(Stroke::new(1.0_f32, if active { accent() } else { line() }))
-            .corner_radius(8)
-            .min_size(egui::vec2(52.0, 28.0)),
+        egui::Button::new(RichText::new(text).size(13.0).color(ink()))
+            .fill(card_bg())
+            .stroke(Stroke::new(1.0_f32, line()))
+            .corner_radius(9)
+            .min_size(egui::vec2(0.0, 30.0)),
     )
-    .clicked()
+}
+
+/// Soft corner glows that sit behind the content.
+fn paint_glow(ui: &egui::Ui) {
+    let rect = ui.max_rect();
+    let painter = ui.painter();
+    let a = accent();
+    let v = violet();
+    for step in 0_u8..7 {
+        let radius = 360.0 - f32::from(step) * 44.0;
+        let alpha = 4 + step * 2;
+        painter.circle_filled(
+            egui::pos2(rect.left() + 120.0, rect.top() + 20.0),
+            radius,
+            Color32::from_rgba_unmultiplied(a.r(), a.g(), a.b(), alpha),
+        );
+        painter.circle_filled(
+            egui::pos2(rect.right() - 80.0, rect.bottom() - 40.0),
+            radius,
+            Color32::from_rgba_unmultiplied(v.r(), v.g(), v.b(), alpha),
+        );
+    }
 }
 
 fn chip(ui: &mut egui::Ui, label: &str, value: &str, accent: Color32) {
@@ -1748,9 +1959,19 @@ mod tests {
     }
 
     #[test]
-    fn language_flips() {
-        assert_eq!(Lang::Ru.flip(), Lang::En);
-        assert_eq!(Lang::En.flip(), Lang::Ru);
+    fn language_keys_roundtrip() {
+        assert_eq!(Lang::from_key("ru"), Lang::Ru);
+        assert_eq!(Lang::from_key("en"), Lang::En);
+        assert_eq!(Lang::from_key("xx"), Lang::Ru);
+        assert_eq!(Lang::En.key(), "en");
+    }
+
+    #[test]
+    fn theme_keys_roundtrip() {
+        assert_eq!(Theme::from_key("neon"), Theme::Neon);
+        assert_eq!(Theme::from_key("light"), Theme::Light);
+        assert_eq!(Theme::from_key("midnight"), Theme::Midnight);
+        assert_eq!(Theme::Neon.key(), "neon");
     }
 
     #[test]

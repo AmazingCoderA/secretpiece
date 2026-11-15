@@ -8,6 +8,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 use std::path::Path;
+use std::sync::{PoisonError, RwLock};
 
 use eframe::egui;
 use egui::{
@@ -18,16 +19,202 @@ use sp_crypto::KdfParams;
 use sp_format::EntryKind;
 use sp_vault::{ListEntry, Vault, VaultInfo};
 
-const ACCENT: Color32 = Color32::from_rgb(34, 211, 238);
-const VIOLET: Color32 = Color32::from_rgb(167, 139, 250);
-const BG: Color32 = Color32::from_rgb(8, 11, 16);
-const PANEL: Color32 = Color32::from_rgb(13, 18, 26);
-const CARD: Color32 = Color32::from_rgb(19, 26, 38);
-const BORDER: Color32 = Color32::from_rgb(34, 45, 62);
-const TEXT: Color32 = Color32::from_rgb(231, 238, 247);
-const MUTED: Color32 = Color32::from_rgb(139, 155, 176);
-const DANGER: Color32 = Color32::from_rgb(248, 113, 113);
-const OK: Color32 = Color32::from_rgb(74, 222, 128);
+/// Colour set of the desktop app. Themes swap the whole palette at runtime.
+#[derive(Debug, Clone, Copy)]
+struct Palette {
+    bg: Color32,
+    panel: Color32,
+    card: Color32,
+    line: Color32,
+    ink: Color32,
+    muted: Color32,
+    accent: Color32,
+    violet: Color32,
+    danger: Color32,
+    good: Color32,
+    input: Color32,
+    selected: Color32,
+}
+
+/// Visual theme offered in the top bar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Theme {
+    Midnight,
+    Neon,
+    Light,
+}
+
+impl Theme {
+    const fn palette(self) -> Palette {
+        match self {
+            Self::Midnight => Palette {
+                bg: Color32::from_rgb(8, 11, 16),
+                panel: Color32::from_rgb(13, 18, 26),
+                card: Color32::from_rgb(19, 26, 38),
+                line: Color32::from_rgb(34, 45, 62),
+                ink: Color32::from_rgb(231, 238, 247),
+                muted: Color32::from_rgb(139, 155, 176),
+                accent: Color32::from_rgb(34, 211, 238),
+                violet: Color32::from_rgb(167, 139, 250),
+                danger: Color32::from_rgb(248, 113, 113),
+                good: Color32::from_rgb(74, 222, 128),
+                input: Color32::from_rgb(10, 14, 20),
+                selected: Color32::from_rgb(26, 37, 52),
+            },
+            Self::Neon => Palette {
+                bg: Color32::from_rgb(12, 6, 24),
+                panel: Color32::from_rgb(20, 10, 36),
+                card: Color32::from_rgb(28, 14, 48),
+                line: Color32::from_rgb(66, 32, 102),
+                ink: Color32::from_rgb(245, 235, 255),
+                muted: Color32::from_rgb(180, 160, 210),
+                accent: Color32::from_rgb(255, 79, 216),
+                violet: Color32::from_rgb(34, 211, 238),
+                danger: Color32::from_rgb(255, 99, 132),
+                good: Color32::from_rgb(74, 222, 128),
+                input: Color32::from_rgb(16, 8, 30),
+                selected: Color32::from_rgb(44, 22, 72),
+            },
+            Self::Light => Palette {
+                bg: Color32::from_rgb(244, 246, 251),
+                panel: Color32::from_rgb(255, 255, 255),
+                card: Color32::from_rgb(255, 255, 255),
+                line: Color32::from_rgb(214, 222, 236),
+                ink: Color32::from_rgb(17, 24, 39),
+                muted: Color32::from_rgb(91, 107, 131),
+                accent: Color32::from_rgb(37, 99, 235),
+                violet: Color32::from_rgb(124, 58, 237),
+                danger: Color32::from_rgb(220, 38, 38),
+                good: Color32::from_rgb(22, 163, 74),
+                input: Color32::from_rgb(248, 250, 253),
+                selected: Color32::from_rgb(226, 235, 250),
+            },
+        }
+    }
+
+    fn label(self, lang: Lang) -> &'static str {
+        match (self, lang) {
+            (Self::Midnight, Lang::Ru) => "Ночь",
+            (Self::Midnight, Lang::En) => "Night",
+            (Self::Neon, Lang::Ru) => "Неон",
+            (Self::Neon, Lang::En) => "Neon",
+            (Self::Light, Lang::Ru) => "Свет",
+            (Self::Light, Lang::En) => "Light",
+        }
+    }
+
+    fn is_light(self) -> bool {
+        matches!(self, Self::Light)
+    }
+}
+
+static PALETTE: RwLock<Palette> = RwLock::new(Theme::Midnight.palette());
+
+fn pal() -> Palette {
+    *PALETTE.read().unwrap_or_else(PoisonError::into_inner)
+}
+
+fn accent() -> Color32 {
+    pal().accent
+}
+
+fn violet() -> Color32 {
+    pal().violet
+}
+
+fn bg() -> Color32 {
+    pal().bg
+}
+
+fn panel() -> Color32 {
+    pal().panel
+}
+
+fn card_bg() -> Color32 {
+    pal().card
+}
+
+fn line() -> Color32 {
+    pal().line
+}
+
+fn ink() -> Color32 {
+    pal().ink
+}
+
+fn muted() -> Color32 {
+    pal().muted
+}
+
+fn danger() -> Color32 {
+    pal().danger
+}
+
+fn good() -> Color32 {
+    pal().good
+}
+
+fn input_bg() -> Color32 {
+    pal().input
+}
+
+fn selected_bg() -> Color32 {
+    pal().selected
+}
+
+fn set_theme(theme: Theme) {
+    *PALETTE.write().unwrap_or_else(PoisonError::into_inner) = theme.palette();
+}
+
+/// Pushes the active palette into egui's style, so every widget follows the theme.
+fn apply_theme(ctx: &egui::Context) {
+    let p = pal();
+    let light = p.bg.r() > 128;
+    let mut style = (*ctx.style()).clone();
+    style.visuals = if light {
+        egui::Visuals::light()
+    } else {
+        egui::Visuals::dark()
+    };
+    style.visuals.panel_fill = p.bg;
+    style.visuals.window_fill = p.panel;
+    style.visuals.extreme_bg_color = p.input;
+    style.visuals.faint_bg_color = p.card;
+    style.visuals.override_text_color = Some(p.ink);
+    style.visuals.selection.bg_fill = p.accent;
+    style.visuals.selection.stroke = Stroke::new(1.0_f32, p.ink);
+    style.visuals.widgets.inactive.bg_fill = p.card;
+    style.visuals.widgets.inactive.weak_bg_fill = p.card;
+    style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, p.ink);
+    style.visuals.widgets.hovered.bg_fill = p.selected;
+    style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, p.ink);
+    style.visuals.widgets.active.bg_fill = p.selected;
+    style.visuals.widgets.active.fg_stroke = Stroke::new(1.5_f32, p.accent);
+    style.visuals.widgets.open.bg_fill = p.selected;
+    style.visuals.window_stroke = Stroke::new(1.0_f32, p.line);
+    style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, p.line);
+    style.text_styles = [
+        (
+            TextStyle::Heading,
+            FontId::new(30.0, FontFamily::Proportional),
+        ),
+        (TextStyle::Body, FontId::new(15.0, FontFamily::Proportional)),
+        (
+            TextStyle::Button,
+            FontId::new(15.0, FontFamily::Proportional),
+        ),
+        (
+            TextStyle::Small,
+            FontId::new(12.0, FontFamily::Proportional),
+        ),
+        (
+            TextStyle::Monospace,
+            FontId::new(14.0, FontFamily::Monospace),
+        ),
+    ]
+    .into();
+    ctx.set_style(style);
+}
 
 /// Interface language of the desktop app.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,6 +263,7 @@ pub fn main_entry() -> eframe::Result<()> {
 
 struct App {
     lang: Lang,
+    theme: Theme,
     vault_path: String,
     password: String,
     confirm: String,
@@ -128,45 +316,11 @@ impl KdfChoice {
 
 impl App {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let mut style = (*cc.egui_ctx.style()).clone();
-        style.visuals = egui::Visuals::dark();
-        style.visuals.panel_fill = BG;
-        style.visuals.window_fill = PANEL;
-        style.visuals.extreme_bg_color = Color32::from_rgb(10, 14, 20);
-        style.visuals.faint_bg_color = CARD;
-        style.visuals.override_text_color = Some(TEXT);
-        style.visuals.selection.bg_fill = ACCENT;
-        style.visuals.selection.stroke = Stroke::new(1.0_f32, TEXT);
-        style.visuals.widgets.inactive.bg_fill = CARD;
-        style.visuals.widgets.inactive.weak_bg_fill = CARD;
-        style.visuals.widgets.hovered.bg_fill = Color32::from_rgb(28, 38, 54);
-        style.visuals.widgets.active.bg_fill = Color32::from_rgb(35, 48, 68);
-        style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, TEXT);
-        style.visuals.window_stroke = Stroke::new(1.0_f32, BORDER);
-        style.text_styles = [
-            (
-                TextStyle::Heading,
-                FontId::new(30.0, FontFamily::Proportional),
-            ),
-            (TextStyle::Body, FontId::new(15.0, FontFamily::Proportional)),
-            (
-                TextStyle::Button,
-                FontId::new(15.0, FontFamily::Proportional),
-            ),
-            (
-                TextStyle::Small,
-                FontId::new(12.0, FontFamily::Proportional),
-            ),
-            (
-                TextStyle::Monospace,
-                FontId::new(14.0, FontFamily::Monospace),
-            ),
-        ]
-        .into();
-        cc.egui_ctx.set_style(style);
-
+        set_theme(Theme::Midnight);
+        apply_theme(&cc.egui_ctx);
         Self {
             lang: Lang::Ru,
+            theme: Theme::Midnight,
             vault_path: String::new(),
             password: String::new(),
             confirm: String::new(),
@@ -260,49 +414,88 @@ impl App {
             .exact_height(96.0)
             .frame(
                 Frame::new()
-                    .fill(PANEL)
+                    .fill(panel())
                     .inner_margin(Margin::symmetric(28, 18)),
             )
             .show(ctx, |ui| {
                 let rect = ui.max_rect();
                 ui.horizontal(|ui| {
+                    let (tile, _) =
+                        ui.allocate_exact_size(egui::vec2(38.0, 38.0), egui::Sense::hover());
+                    gradient(ui.painter(), tile, accent(), violet(), 38);
+                    ui.painter().text(
+                        tile.center(),
+                        egui::Align2::CENTER_CENTER,
+                        "SP",
+                        FontId::new(15.0, FontFamily::Proportional),
+                        bg(),
+                    );
+                    ui.add_space(10.0);
                     ui.vertical(|ui| {
-                        ui.label(RichText::new("SecretPiece").size(27.0).strong().color(TEXT));
+                        ui.label(
+                            RichText::new("SecretPiece")
+                                .size(24.0)
+                                .strong()
+                                .color(ink()),
+                        );
                         ui.label(
                             RichText::new(self.lang.t(
-                                "зашифрованное хранилище · один файл .spv",
-                                "encrypted vault · a single .spv file",
+                                "зашифрованное хранилище · один файл",
+                                "encrypted vault · a single file",
                             ))
-                            .size(13.0)
-                            .color(MUTED),
+                            .size(12.0)
+                            .color(muted()),
                         );
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if self.browser.is_some()
+                            && ui
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new(self.lang.t("Заблокировать", "Lock"))
+                                            .size(12.0)
+                                            .color(muted()),
+                                    )
+                                    .fill(card_bg())
+                                    .stroke(Stroke::new(1.0_f32, line()))
+                                    .corner_radius(8),
+                                )
+                                .clicked()
+                        {
+                            self.browser = None;
+                            self.password.clear();
+                        }
+                        ui.add_space(10.0);
                         let label = match self.lang {
                             Lang::Ru => "EN",
                             Lang::En => "RU",
                         };
                         if ui
                             .add(
-                                egui::Button::new(RichText::new(label).strong().color(TEXT))
-                                    .fill(CARD)
-                                    .stroke(Stroke::new(1.0_f32, BORDER)),
+                                egui::Button::new(
+                                    RichText::new(label).size(12.0).strong().color(ink()),
+                                )
+                                .fill(card_bg())
+                                .stroke(Stroke::new(1.0_f32, line()))
+                                .corner_radius(8)
+                                .min_size(egui::vec2(40.0, 28.0)),
                             )
                             .clicked()
                         {
                             self.lang = self.lang.flip();
                         }
-                        ui.add_space(8.0);
-                        if self.browser.is_some()
-                            && ui
-                                .button(
-                                    RichText::new(self.lang.t("Заблокировать", "Lock"))
-                                        .color(MUTED),
-                                )
-                                .clicked()
-                        {
-                            self.browser = None;
-                            self.password.clear();
+                        ui.add_space(12.0);
+                        let mut picked = None;
+                        for theme in [Theme::Light, Theme::Neon, Theme::Midnight] {
+                            if theme_chip(ui, theme, self.theme == theme, self.lang) {
+                                picked = Some(theme);
+                            }
+                            ui.add_space(4.0);
+                        }
+                        if let Some(theme) = picked {
+                            self.theme = theme;
+                            set_theme(theme);
+                            apply_theme(ctx);
                         }
                     });
                 });
@@ -310,7 +503,7 @@ impl App {
                     egui::pos2(rect.left(), rect.bottom() - 2.0),
                     egui::pos2(rect.right(), rect.bottom()),
                 );
-                gradient(ui.painter(), line, ACCENT, VIOLET, 128);
+                gradient(ui.painter(), line, accent(), violet(), 128);
             });
     }
 }
@@ -319,7 +512,7 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.header(ctx);
         egui::CentralPanel::default()
-            .frame(Frame::new().fill(BG).inner_margin(Margin::same(28)))
+            .frame(Frame::new().fill(bg()).inner_margin(Margin::same(28)))
             .show(ctx, |ui| {
                 if let Some(browser) = self.browser.as_mut() {
                     browser.ui(ui, self.lang);
@@ -331,21 +524,36 @@ impl eframe::App for App {
 }
 
 impl App {
-    #[allow(clippy::too_many_lines)]
     fn unlock_ui(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(16.0);
-        if ui.available_width() >= 880.0 {
-            ui.horizontal_top(|ui| {
-                ui.add_space(8.0);
-                hero_panel(ui, self.lang);
-                ui.add_space(40.0);
-                self.form_card(ui);
-            });
-        } else {
-            ui.vertical_centered(|ui| {
-                self.form_card(ui);
-            });
-        }
+        ui.add_space(10.0);
+        ui.vertical_centered(|ui| {
+            let (tile, _) = ui.allocate_exact_size(egui::vec2(56.0, 56.0), egui::Sense::hover());
+            gradient(ui.painter(), tile, accent(), violet(), 56);
+            ui.painter().text(
+                tile.center(),
+                egui::Align2::CENTER_CENTER,
+                "SP",
+                FontId::new(20.0, FontFamily::Proportional),
+                bg(),
+            );
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new("SecretPiece")
+                    .size(30.0)
+                    .strong()
+                    .color(ink()),
+            );
+            ui.label(
+                RichText::new(self.lang.t(
+                    "Ваш секрет — в кусочках. Один файл, ноль следов на диске.",
+                    "Your secret, in pieces. One file, no disk layout.",
+                ))
+                .size(13.0)
+                .color(muted()),
+            );
+            ui.add_space(16.0);
+            self.form_card(ui);
+        });
 
         let dropped = ui.ctx().input(|input| input.raw.dropped_files.clone());
         if let Some(file) = dropped.first() {
@@ -360,8 +568,8 @@ impl App {
     fn form_card(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         Frame::new()
-            .fill(CARD)
-            .stroke(Stroke::new(1.0_f32, BORDER))
+            .fill(card_bg())
+            .stroke(Stroke::new(1.0_f32, line()))
             .corner_radius(20)
             .inner_margin(Margin::same(26))
             .show(ui, |ui| {
@@ -374,7 +582,7 @@ impl App {
                     })
                     .size(23.0)
                     .strong()
-                    .color(TEXT),
+                    .color(ink()),
                 );
                 ui.add_space(4.0);
                 ui.label(
@@ -383,7 +591,7 @@ impl App {
                         "Your password never leaves this device · Argon2id",
                     ))
                     .size(12.5)
-                    .color(MUTED),
+                    .color(muted()),
                 );
                 ui.add_space(18.0);
 
@@ -392,7 +600,9 @@ impl App {
                     let width = ui.available_width() - 96.0;
                     ui.add_sized(
                         [width, 34.0],
-                        egui::TextEdit::singleline(&mut self.vault_path).hint_text("vault.spv"),
+                        egui::TextEdit::singleline(&mut self.vault_path)
+                            .hint_text("vault.spv")
+                            .background_color(input_bg()),
                     );
                     if ui
                         .add(
@@ -418,7 +628,7 @@ impl App {
                         "Any file: .spv, .bin, .mp3 — inside it is still an SPV1 container.",
                     ))
                     .size(11.0)
-                    .color(MUTED),
+                    .color(muted()),
                 );
 
                 if self.creating {
@@ -427,7 +637,7 @@ impl App {
                         ui.label(
                             RichText::new(lang.t("Оболочка:", "Shell:"))
                                 .size(11.0)
-                                .color(MUTED),
+                                .color(muted()),
                         );
                         for ext in ["spv", "bin", "mp3", "jpg"] {
                             let active = self
@@ -437,10 +647,10 @@ impl App {
                             let button = egui::Button::new(
                                 RichText::new(format!(".{ext}"))
                                     .size(11.0)
-                                    .color(if active { BG } else { MUTED }),
+                                    .color(if active { bg() } else { muted() }),
                             )
-                            .fill(if active { ACCENT } else { PANEL })
-                            .stroke(Stroke::new(1.0_f32, if active { ACCENT } else { BORDER }))
+                            .fill(if active { accent() } else { panel() })
+                            .stroke(Stroke::new(1.0_f32, if active { accent() } else { line() }))
                             .corner_radius(7)
                             .min_size(egui::vec2(52.0, 26.0));
                             if ui.add(button).clicked() {
@@ -457,7 +667,8 @@ impl App {
                     ui.add_sized(
                         [width, 34.0],
                         egui::TextEdit::singleline(&mut self.password)
-                            .password(!self.show_password),
+                            .password(!self.show_password)
+                            .background_color(input_bg()),
                     );
                     let toggle = if self.show_password {
                         lang.t("Скрыть", "Hide")
@@ -466,9 +677,9 @@ impl App {
                     };
                     if ui
                         .add(
-                            egui::Button::new(RichText::new(toggle).size(11.0).color(MUTED))
-                                .fill(PANEL)
-                                .stroke(Stroke::new(1.0_f32, BORDER))
+                            egui::Button::new(RichText::new(toggle).size(11.0).color(muted()))
+                                .fill(panel())
+                                .stroke(Stroke::new(1.0_f32, line()))
                                 .corner_radius(8)
                                 .min_size(egui::vec2(70.0, 34.0)),
                         )
@@ -482,14 +693,17 @@ impl App {
                     ui.add_space(8.0);
                     let score = password_score(&self.password);
                     let (color, label) = match score {
-                        0 => (MUTED, lang.t("Минимум 8 символов", "At least 8 characters")),
-                        1 => (DANGER, lang.t("Слабый пароль", "Weak password")),
+                        0 => (
+                            muted(),
+                            lang.t("Минимум 8 символов", "At least 8 characters"),
+                        ),
+                        1 => (danger(), lang.t("Слабый пароль", "Weak password")),
                         2 => (
                             Color32::from_rgb(251, 191, 36),
                             lang.t("Средний пароль", "Medium password"),
                         ),
-                        3 => (OK, lang.t("Хороший пароль", "Good password")),
-                        _ => (ACCENT, lang.t("Отличный пароль", "Excellent password")),
+                        3 => (good(), lang.t("Хороший пароль", "Good password")),
+                        _ => (accent(), lang.t("Отличный пароль", "Excellent password")),
                     };
                     let (rect, _) = ui.allocate_exact_size(
                         egui::vec2(ui.available_width(), 6.0),
@@ -514,10 +728,13 @@ impl App {
                             let button = egui::Button::new(
                                 RichText::new(choice.label(lang))
                                     .size(12.0)
-                                    .color(if selected { BG } else { TEXT }),
+                                    .color(if selected { bg() } else { ink() }),
                             )
-                            .fill(if selected { ACCENT } else { PANEL })
-                            .stroke(Stroke::new(1.0_f32, if selected { ACCENT } else { BORDER }))
+                            .fill(if selected { accent() } else { panel() })
+                            .stroke(Stroke::new(
+                                1.0_f32,
+                                if selected { accent() } else { line() },
+                            ))
                             .corner_radius(8)
                             .min_size(egui::vec2(126.0, 30.0));
                             if ui.add(button).clicked() {
@@ -526,13 +743,15 @@ impl App {
                         }
                     });
                     ui.add_space(2.0);
-                    ui.label(RichText::new(self.kdf.hint(lang)).size(11.0).color(MUTED));
+                    ui.label(RichText::new(self.kdf.hint(lang)).size(11.0).color(muted()));
 
                     ui.add_space(12.0);
                     field_label(ui, lang.t("Повторите пароль", "Repeat password"));
                     ui.add_sized(
                         [ui.available_width(), 34.0],
-                        egui::TextEdit::singleline(&mut self.confirm).password(!self.show_password),
+                        egui::TextEdit::singleline(&mut self.confirm)
+                            .password(!self.show_password)
+                            .background_color(input_bg()),
                     );
                 }
 
@@ -545,8 +764,8 @@ impl App {
                     lang.t("Открыть", "Unlock")
                 };
                 let button =
-                    egui::Button::new(RichText::new(primary).size(16.0).strong().color(BG))
-                        .fill(ACCENT)
+                    egui::Button::new(RichText::new(primary).size(16.0).strong().color(bg()))
+                        .fill(accent())
                         .corner_radius(10)
                         .min_size(egui::vec2(ui.available_width(), 42.0));
                 if ui.add_enabled(ready, button).clicked() {
@@ -559,7 +778,7 @@ impl App {
                     lang.t("Создать новое хранилище", "Create a new vault")
                 };
                 if ui
-                    .add(egui::Button::new(RichText::new(switch).color(VIOLET)).frame(false))
+                    .add(egui::Button::new(RichText::new(switch).color(violet())).frame(false))
                     .clicked()
                 {
                     self.creating = !self.creating;
@@ -568,7 +787,7 @@ impl App {
 
                 if let Some(error) = &self.error {
                     ui.add_space(12.0);
-                    ui.label(RichText::new(error).size(12.5).color(DANGER));
+                    ui.label(RichText::new(error).size(12.5).color(danger()));
                 }
             });
 
@@ -579,7 +798,7 @@ impl App {
                 "Tip: drop a .spv file onto the window to open it.",
             ))
             .size(11.0)
-            .color(MUTED),
+            .color(muted()),
         );
     }
 }
@@ -597,6 +816,28 @@ struct Browser {
     status: Option<Status>,
     new_folder: Option<String>,
     pending_delete: Option<String>,
+    pending_add: Option<PendingAdd>,
+    preview: Option<Preview>,
+    shred_on_delete: bool,
+}
+
+/// A file read from the container, waiting for overwrite confirmation.
+struct PendingAdd {
+    remote: String,
+    data: Vec<u8>,
+}
+
+/// Decrypted bytes kept only in RAM for the preview window.
+struct Preview {
+    path: String,
+    data: Vec<u8>,
+    hex: bool,
+}
+
+impl Drop for Preview {
+    fn drop(&mut self) {
+        self.data.fill(0);
+    }
 }
 
 impl Browser {
@@ -609,6 +850,9 @@ impl Browser {
             status: None,
             new_folder: None,
             pending_delete: None,
+            pending_add: None,
+            preview: None,
+            shred_on_delete: true,
         };
         browser.refresh();
         browser
@@ -640,8 +884,8 @@ impl Browser {
 
         let height = ui.available_height() - 46.0;
         Frame::new()
-            .fill(PANEL)
-            .stroke(Stroke::new(1.0_f32, BORDER))
+            .fill(panel())
+            .stroke(Stroke::new(1.0_f32, line()))
             .corner_radius(14)
             .inner_margin(Margin::same(10))
             .show(ui, |ui| {
@@ -655,7 +899,7 @@ impl Browser {
                                 ui.label(
                                     RichText::new(lang.t("Здесь пока пусто", "Nothing here yet"))
                                         .size(16.0)
-                                        .color(MUTED),
+                                        .color(muted()),
                                 );
                                 ui.add_space(4.0);
                                 ui.label(
@@ -664,31 +908,39 @@ impl Browser {
                                         "Add a file or create a folder.",
                                     ))
                                     .size(12.0)
-                                    .color(MUTED),
+                                    .color(muted()),
                                 );
                             });
                             ui.add_space(30.0);
                         }
                         let mut enter: Option<String> = None;
+                        let mut preview: Option<String> = None;
                         for entry in &self.entries {
                             let selected = self.selected.as_deref() == Some(entry.path.as_str());
-                            if row(ui, lang, entry, selected) {
+                            let click = row(ui, lang, entry, selected);
+                            if click.selected {
+                                self.selected = Some(entry.path.clone());
+                            }
+                            if click.open {
                                 enter = Some(entry.path.clone());
                             }
-                            if ui.ctx().input(|input| input.pointer.any_click()) {
-                                self.selected = Some(entry.path.clone());
+                            if click.preview {
+                                preview = Some(entry.path.clone());
                             }
                         }
                         if let Some(path) = enter {
                             self.cwd = path;
                             self.refresh();
                         }
+                        if let Some(path) = preview {
+                            self.open_preview(&path, lang);
+                        }
                     });
             });
 
         ui.add_space(10.0);
         if let Some(status) = &self.status {
-            let color = if status.error { DANGER } else { OK };
+            let color = if status.error { danger() } else { good() };
             ui.label(RichText::new(&status.text).color(color));
         }
 
@@ -702,9 +954,9 @@ impl Browser {
                     egui::Button::new(
                         RichText::new(lang.t("Добавить файл", "Add file"))
                             .strong()
-                            .color(BG),
+                            .color(bg()),
                     )
-                    .fill(ACCENT)
+                    .fill(accent())
                     .corner_radius(9),
                 )
                 .clicked()
@@ -717,21 +969,33 @@ impl Browser {
                 self.new_folder = Some(String::new());
             }
             let selected = self.selected.clone();
+            let selected_file = self.selected_file().map(ToOwned::to_owned);
             if ui
                 .add_enabled(
-                    selected.is_some(),
+                    selected_file.is_some(),
+                    egui::Button::new(lang.t("Просмотр", "Preview")),
+                )
+                .clicked()
+            {
+                if let Some(path) = selected_file.clone() {
+                    self.open_preview(&path, lang);
+                }
+            }
+            if ui
+                .add_enabled(
+                    selected_file.is_some(),
                     egui::Button::new(lang.t("Извлечь", "Extract")),
                 )
                 .clicked()
             {
-                if let Some(path) = selected.clone() {
+                if let Some(path) = selected_file.clone() {
                     self.extract(&path, lang);
                 }
             }
             if ui
                 .add_enabled(
                     selected.is_some(),
-                    egui::Button::new(RichText::new(lang.t("Удалить", "Delete")).color(DANGER)),
+                    egui::Button::new(RichText::new(lang.t("Удалить", "Delete")).color(danger())),
                 )
                 .clicked()
             {
@@ -775,20 +1039,25 @@ impl Browser {
                 ui,
                 lang.t("файл", "file"),
                 &human_size(info.file_size),
-                ACCENT,
+                accent(),
             );
             chip(
                 ui,
                 lang.t("данные", "payload"),
                 &human_size(info.payload_bytes),
-                VIOLET,
+                violet(),
             );
-            chip(ui, lang.t("файлов", "files"), &info.files.to_string(), OK);
+            chip(
+                ui,
+                lang.t("файлов", "files"),
+                &info.files.to_string(),
+                good(),
+            );
             chip(
                 ui,
                 lang.t("поколение", "generation"),
                 &info.generation.to_string(),
-                MUTED,
+                muted(),
             );
         });
     }
@@ -798,7 +1067,7 @@ impl Browser {
             let mut target: Option<String> = None;
             if ui
                 .add(
-                    egui::Button::new(RichText::new(lang.t("Хранилище", "Vault")).color(ACCENT))
+                    egui::Button::new(RichText::new(lang.t("Хранилище", "Vault")).color(accent()))
                         .frame(false),
                 )
                 .clicked()
@@ -811,9 +1080,9 @@ impl Browser {
                     accumulated.push('/');
                 }
                 accumulated.push_str(part);
-                ui.label(RichText::new("/").color(MUTED));
+                ui.label(RichText::new("/").color(muted()));
                 if ui
-                    .add(egui::Button::new(RichText::new(part).color(TEXT)).frame(false))
+                    .add(egui::Button::new(RichText::new(part).color(ink())).frame(false))
                     .clicked()
                 {
                     target = Some(accumulated.clone());
@@ -826,6 +1095,14 @@ impl Browser {
         });
     }
 
+    fn selected_file(&self) -> Option<&str> {
+        let path = self.selected.as_deref()?;
+        self.entries
+            .iter()
+            .find(|entry| entry.path == path && entry.kind == EntryKind::File)
+            .map(|entry| entry.path.as_str())
+    }
+
     fn add_file(&mut self, path: &Path, lang: Lang) {
         let name = path.file_name().map_or_else(
             || "file".to_owned(),
@@ -834,24 +1111,14 @@ impl Browser {
         let remote = self.join(&name);
         match std::fs::read(path) {
             Ok(data) => {
-                let size = data.len() as u64;
-                match self.vault.put(&remote, &data) {
-                    Ok(()) => {
-                        self.refresh();
-                        self.status = Some(Status {
-                            text: match lang {
-                                Lang::Ru => format!("Добавлено: {remote} ({})", human_size(size)),
-                                Lang::En => format!("Added: {remote} ({})", human_size(size)),
-                            },
-                            error: false,
-                        });
-                    }
-                    Err(error) => {
-                        self.status = Some(Status {
-                            text: describe(lang, &error),
-                            error: true,
-                        });
-                    }
+                let exists = self
+                    .entries
+                    .iter()
+                    .any(|entry| entry.path == remote && entry.kind == EntryKind::File);
+                if exists {
+                    self.pending_add = Some(PendingAdd { remote, data });
+                } else {
+                    self.commit_add(&remote, &data, false, lang);
                 }
             }
             Err(_) => {
@@ -859,6 +1126,52 @@ impl Browser {
                     text: lang
                         .t("Не удалось прочитать файл.", "Cannot read the file.")
                         .to_owned(),
+                    error: true,
+                });
+            }
+        }
+    }
+
+    fn commit_add(&mut self, remote: &str, data: &[u8], overwrite: bool, lang: Lang) {
+        let size = data.len() as u64;
+        match self.vault.put(remote, data) {
+            Ok(()) => {
+                self.refresh();
+                self.status = Some(Status {
+                    text: match (lang, overwrite) {
+                        (Lang::Ru, true) => {
+                            format!("Перезаписано: {remote} ({})", human_size(size))
+                        }
+                        (Lang::En, true) => {
+                            format!("Overwritten: {remote} ({})", human_size(size))
+                        }
+                        (Lang::Ru, false) => format!("Добавлено: {remote} ({})", human_size(size)),
+                        (Lang::En, false) => format!("Added: {remote} ({})", human_size(size)),
+                    },
+                    error: false,
+                });
+            }
+            Err(error) => {
+                self.status = Some(Status {
+                    text: describe(lang, &error),
+                    error: true,
+                });
+            }
+        }
+    }
+
+    fn open_preview(&mut self, path: &str, lang: Lang) {
+        match self.vault.get(path) {
+            Ok(data) => {
+                self.preview = Some(Preview {
+                    path: path.to_owned(),
+                    data,
+                    hex: false,
+                });
+            }
+            Err(error) => {
+                self.status = Some(Status {
+                    text: describe(lang, &error),
                     error: true,
                 });
             }
@@ -897,6 +1210,7 @@ impl Browser {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn dialogs(&mut self, ui: &mut egui::Ui, lang: Lang) {
         if let Some(name) = self.new_folder.clone() {
             let mut value = name;
@@ -907,7 +1221,8 @@ impl Browser {
                 .resizable(false)
                 .show(ui.ctx(), |ui| {
                     ui.label(lang.t("Имя папки", "Folder name"));
-                    let response = ui.add(egui::TextEdit::singleline(&mut value));
+                    let response =
+                        ui.add(egui::TextEdit::singleline(&mut value).background_color(input_bg()));
                     response.request_focus();
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
@@ -943,9 +1258,66 @@ impl Browser {
             self.new_folder = if create || cancel { None } else { Some(value) };
         }
 
+        if let Some(pending) = self.pending_add.as_ref() {
+            let mut overwrite = false;
+            let mut cancel = false;
+            egui::Window::new(lang.t("Файл уже есть", "File already exists"))
+                .collapsible(false)
+                .resizable(false)
+                .show(ui.ctx(), |ui| {
+                    ui.label(match lang {
+                        Lang::Ru => format!(
+                            "`{}` уже лежит в этой папке сейфа.\nПерезаписать его новыми данными?",
+                            pending.remote
+                        ),
+                        Lang::En => format!(
+                            "`{}` already exists in this vault folder.\nOverwrite it with the new data?",
+                            pending.remote
+                        ),
+                    });
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(lang.t(
+                            "Старая версия исчезнет из индекса сразу.",
+                            "The old version disappears from the index immediately.",
+                        ))
+                        .size(11.5)
+                        .color(muted()),
+                    );
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    RichText::new(lang.t("Перезаписать", "Overwrite"))
+                                        .strong()
+                                        .color(bg()),
+                                )
+                                .fill(accent())
+                                .corner_radius(8),
+                            )
+                            .clicked()
+                        {
+                            overwrite = true;
+                        }
+                        if ui.button(lang.t("Отмена", "Cancel")).clicked() {
+                            cancel = true;
+                        }
+                    });
+                });
+            if overwrite {
+                if let Some(pending) = self.pending_add.take() {
+                    self.commit_add(&pending.remote, &pending.data, true, lang);
+                }
+            } else if cancel {
+                self.pending_add = None;
+            }
+        }
+
         if let Some(target) = self.pending_delete.clone() {
             let mut confirmed = false;
             let mut cancel = false;
+            let mut shred = self.shred_on_delete;
             egui::Window::new(lang.t("Удалить?", "Delete?"))
                 .collapsible(false)
                 .resizable(false)
@@ -955,13 +1327,29 @@ impl Browser {
                         Lang::En => format!("Delete `{target}`? This cannot be undone."),
                     });
                     ui.add_space(8.0);
+                    ui.checkbox(
+                        &mut shred,
+                        lang.t(
+                            "Затереть данные — восстановить нельзя",
+                            "Shred the data — unrecoverable",
+                        ),
+                    );
+                    ui.label(
+                        RichText::new(lang.t(
+                            "Перезаписывает куски случайными байтами. На флешках лучший результат даёт полное шифрование диска.",
+                            "Overwrites chunks with random bytes. Full-disk encryption is still the strongest option on flash.",
+                        ))
+                        .size(10.5)
+                        .color(muted()),
+                    );
+                    ui.add_space(10.0);
                     ui.horizontal(|ui| {
                         if ui
                             .add(
                                 egui::Button::new(
-                                    RichText::new(lang.t("Удалить", "Delete")).color(DANGER),
+                                    RichText::new(lang.t("Удалить", "Delete")).color(danger()),
                                 )
-                                .fill(CARD),
+                                .fill(card_bg()),
                             )
                             .clicked()
                         {
@@ -972,14 +1360,26 @@ impl Browser {
                         }
                     });
                 });
+            self.shred_on_delete = shred;
             if confirmed {
-                match self.vault.remove(&target) {
+                let result = if shred {
+                    self.vault.shred(&target)
+                } else {
+                    self.vault.remove(&target)
+                };
+                match result {
                     Ok(()) => {
                         self.refresh();
                         self.status = Some(Status {
-                            text: match lang {
-                                Lang::Ru => format!("Удалено: {target}"),
-                                Lang::En => format!("Removed: {target}"),
+                            text: match (lang, shred) {
+                                (Lang::Ru, true) => {
+                                    format!("Затёрто безвозвратно: {target}")
+                                }
+                                (Lang::En, true) => {
+                                    format!("Shredded permanently: {target}")
+                                }
+                                (Lang::Ru, false) => format!("Удалено: {target}"),
+                                (Lang::En, false) => format!("Removed: {target}"),
                             },
                             error: false,
                         });
@@ -996,14 +1396,107 @@ impl Browser {
                 self.pending_delete = None;
             }
         }
+
+        if let Some(preview) = self.preview.as_mut() {
+            let mut open = true;
+            egui::Window::new(lang.t("Просмотр из контейнера", "Preview from vault"))
+                .open(&mut open)
+                .collapsible(false)
+                .resizable(true)
+                .default_size([760.0, 520.0])
+                .show(ui.ctx(), |ui| {
+                    let text = preview_text(&preview.data);
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(&preview.path).strong().color(ink()));
+                        ui.label(
+                            RichText::new(human_size(preview.data.len() as u64))
+                                .size(12.0)
+                                .color(muted()),
+                        );
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if text.is_some() {
+                                let label = if preview.hex {
+                                    lang.t("Текст", "Text")
+                                } else {
+                                    lang.t("Hex", "Hex")
+                                };
+                                if ui.button(label).clicked() {
+                                    preview.hex = !preview.hex;
+                                }
+                            }
+                            ui.label(
+                                RichText::new(lang.t(
+                                    "данные только в RAM, окно закроется — буфер затрётся",
+                                    "RAM only; closing the window wipes the buffer",
+                                ))
+                                .size(10.5)
+                                .color(muted()),
+                            );
+                        });
+                    });
+                    ui.separator();
+                    egui::ScrollArea::both()
+                        .auto_shrink([false, false])
+                        .show(ui, |ui| {
+                            let hex = preview.hex || text.is_none();
+                            if hex {
+                                ui.add(
+                                    egui::Label::new(
+                                        RichText::new(hex_dump(&preview.data, 16 * 1024))
+                                            .monospace()
+                                            .size(12.0)
+                                            .color(ink()),
+                                    )
+                                    .selectable(true),
+                                );
+                                if preview.data.len() > 16 * 1024 {
+                                    ui.label(
+                                        RichText::new(lang.t(
+                                            "Показаны первые 16 КиБ.",
+                                            "Showing the first 16 KiB.",
+                                        ))
+                                        .size(11.0)
+                                        .color(muted()),
+                                    );
+                                }
+                            } else if let Some(text) = text {
+                                let shown = clip(text, 200_000);
+                                ui.add(
+                                    egui::Label::new(
+                                        RichText::new(shown).monospace().size(12.5).color(ink()),
+                                    )
+                                    .selectable(true),
+                                );
+                                if shown.len() < text.len() {
+                                    ui.label(
+                                        RichText::new(lang.t(
+                                            "Показаны первые 200 КБ текста.",
+                                            "Showing the first 200 KB of text.",
+                                        ))
+                                        .size(11.0)
+                                        .color(muted()),
+                                    );
+                                }
+                            }
+                        });
+                });
+            if !open {
+                self.preview = None;
+            }
+        }
     }
 }
 
-fn row(ui: &mut egui::Ui, lang: Lang, entry: &ListEntry, selected: bool) -> bool {
-    let mut open = false;
+struct RowClick {
+    selected: bool,
+    open: bool,
+    preview: bool,
+}
+
+fn row(ui: &mut egui::Ui, lang: Lang, entry: &ListEntry, selected: bool) -> RowClick {
     let frame = if selected {
         Frame::new()
-            .fill(Color32::from_rgb(26, 37, 52))
+            .fill(selected_bg())
             .corner_radius(9)
             .inner_margin(Margin::symmetric(8, 6))
     } else {
@@ -1012,136 +1505,121 @@ fn row(ui: &mut egui::Ui, lang: Lang, entry: &ListEntry, selected: bool) -> bool
             .corner_radius(9)
             .inner_margin(Margin::symmetric(8, 6))
     };
-    frame.show(ui, |ui| {
+    let inner = frame.show(ui, |ui| {
         ui.horizontal(|ui| {
             let (mark, color) = match entry.kind {
-                EntryKind::Dir => (lang.t("ПАПКА", "FOLDER"), VIOLET),
-                EntryKind::File => (lang.t("ФАЙЛ", "FILE"), ACCENT),
+                EntryKind::Dir => (lang.t("ПАПКА", "FOLDER"), violet()),
+                EntryKind::File => (lang.t("ФАЙЛ", "FILE"), accent()),
             };
             ui.label(RichText::new(mark).size(10.0).strong().color(color));
             ui.add_space(6.0);
             let name = entry.path.rsplit('/').next().unwrap_or(&entry.path);
-            if ui
-                .add(egui::Button::new(RichText::new(name).size(15.0).color(TEXT)).frame(false))
-                .clicked()
-                && entry.kind == EntryKind::Dir
-            {
-                open = true;
-            }
+            ui.label(RichText::new(name).size(15.0).color(ink()));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let size = match entry.kind {
                     EntryKind::Dir => "—".to_owned(),
                     EntryKind::File => human_size(entry.size),
                 };
-                ui.label(RichText::new(size).size(12.0).color(MUTED));
+                ui.label(RichText::new(size).size(12.0).color(muted()));
                 if entry.kind == EntryKind::Dir {
-                    ui.label(RichText::new("›").size(16.0).color(MUTED));
+                    ui.label(RichText::new("›").size(16.0).color(muted()));
+                } else {
+                    ui.label(
+                        RichText::new(lang.t("двойной клик — просмотр", "double-click to preview"))
+                            .size(10.0)
+                            .color(muted()),
+                    );
                 }
             });
         });
     });
-    open
+    let response = inner.response.interact(egui::Sense::click());
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    let double = response.double_clicked();
+    RowClick {
+        selected: response.clicked(),
+        open: double && entry.kind == EntryKind::Dir,
+        preview: double && entry.kind == EntryKind::File,
+    }
+}
+
+fn theme_chip(ui: &mut egui::Ui, theme: Theme, active: bool, lang: Lang) -> bool {
+    let text = if active && theme.is_light() {
+        Color32::WHITE
+    } else if active {
+        bg()
+    } else {
+        muted()
+    };
+    ui.add(
+        egui::Button::new(RichText::new(theme.label(lang)).size(11.5).color(text))
+            .fill(if active { accent() } else { card_bg() })
+            .stroke(Stroke::new(1.0_f32, if active { accent() } else { line() }))
+            .corner_radius(8)
+            .min_size(egui::vec2(52.0, 28.0)),
+    )
+    .clicked()
 }
 
 fn chip(ui: &mut egui::Ui, label: &str, value: &str, accent: Color32) {
     Frame::new()
-        .fill(CARD)
-        .stroke(Stroke::new(1.0_f32, BORDER))
+        .fill(card_bg())
+        .stroke(Stroke::new(1.0_f32, line()))
         .corner_radius(9)
         .inner_margin(Margin::symmetric(12, 6))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new(label).size(11.0).color(MUTED));
+                ui.label(RichText::new(label).size(11.0).color(muted()));
                 ui.label(RichText::new(value).size(13.0).strong().color(accent));
             });
         });
 }
 
-fn hero_panel(ui: &mut egui::Ui, lang: Lang) {
-    ui.allocate_ui_with_layout(
-        egui::vec2(300.0, 520.0),
-        Layout::top_down(Align::Min),
-        |ui| {
-            let (tile, _) = ui.allocate_exact_size(egui::vec2(58.0, 58.0), egui::Sense::hover());
-            ui.painter().rect_filled(tile, 16.0, PANEL);
-            let bar = egui::Rect::from_min_size(tile.min, egui::vec2(58.0, 3.0));
-            gradient(ui.painter(), bar, ACCENT, VIOLET, 58);
-            ui.painter().text(
-                tile.center(),
-                egui::Align2::CENTER_CENTER,
-                "SP",
-                FontId::new(21.0, FontFamily::Proportional),
-                ACCENT,
-            );
-
-            ui.add_space(18.0);
-            ui.label(RichText::new("SecretPiece").size(26.0).strong().color(TEXT));
-            ui.add_space(4.0);
-            ui.label(
-                RichText::new(lang.t("Ваш секрет — в кусочках.", "Your secret, in pieces."))
-                    .size(13.0)
-                    .color(MUTED),
-            );
-            ui.add_space(22.0);
-            bullet(
-                ui,
-                lang.t(
-                    "Один обычный файл, без разметки диска",
-                    "One ordinary file, no disk layout",
-                ),
-                ACCENT,
-            );
-            bullet(
-                ui,
-                lang.t(
-                    "Argon2id · XChaCha20-Poly1305 · BLAKE3",
-                    "Argon2id · XChaCha20-Poly1305 · BLAKE3",
-                ),
-                VIOLET,
-            );
-            bullet(
-                ui,
-                lang.t(
-                    "Флешка, HDD/SSD, сетевая папка",
-                    "USB drive, HDD/SSD, network folder",
-                ),
-                ACCENT,
-            );
-            bullet(
-                ui,
-                lang.t(
-                    "Windows · macOS · Linux · Android",
-                    "Windows · macOS · Linux · Android",
-                ),
-                VIOLET,
-            );
-            ui.add_space(24.0);
-            Frame::new()
-                .fill(PANEL)
-                .stroke(Stroke::new(1.0_f32, BORDER))
-                .corner_radius(9)
-                .inner_margin(Margin::symmetric(12, 6))
-                .show(ui, |ui| {
-                    ui.label(
-                        RichText::new(format!(
-                            "v{} · SPV{}",
-                            env!("CARGO_PKG_VERSION"),
-                            sp_core::FORMAT_VERSION
-                        ))
-                        .size(11.0)
-                        .color(ACCENT),
-                    );
-                });
-        },
-    );
+/// Returns the payload as UTF-8 text when it looks like text.
+fn preview_text(data: &[u8]) -> Option<&str> {
+    let text = std::str::from_utf8(data).ok()?;
+    if text.contains('\0') {
+        return None;
+    }
+    Some(text)
 }
 
-fn bullet(ui: &mut egui::Ui, text: &str, color: Color32) {
-    ui.horizontal(|ui| {
-        ui.label(RichText::new("•").size(14.0).color(color));
-        ui.label(RichText::new(text).size(12.5).color(MUTED));
-    });
-    ui.add_space(6.0);
+/// Cuts `text` to at most `max` bytes on a char boundary.
+fn clip(text: &str, max: usize) -> &str {
+    if text.len() <= max {
+        return text;
+    }
+    let mut end = max;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
+/// Classic hex + ASCII dump, limited to `max` bytes.
+fn hex_dump(data: &[u8], max: usize) -> String {
+    use std::fmt::Write as _;
+
+    let slice = &data[..data.len().min(max)];
+    let mut out = String::with_capacity(slice.len() * 4);
+    for (index, chunk) in slice.chunks(16).enumerate() {
+        let _ = write!(out, "{:08x}  ", index * 16);
+        for byte in chunk {
+            let _ = write!(out, "{byte:02x} ");
+        }
+        for _ in chunk.len()..16 {
+            out.push_str("   ");
+        }
+        out.push(' ');
+        for byte in chunk {
+            let printable = byte.is_ascii_graphic() || *byte == b' ';
+            out.push(if printable { *byte as char } else { '.' });
+        }
+        out.push('\n');
+    }
+    out
 }
 
 /// Rough password strength from 0 (empty) to 4 (excellent).
@@ -1191,7 +1669,7 @@ fn swap_extension(path: &str, ext: &str) -> String {
 }
 
 fn field_label(ui: &mut egui::Ui, text: &str) {
-    ui.label(RichText::new(text).size(12.0).color(MUTED));
+    ui.label(RichText::new(text).size(12.0).color(muted()));
     ui.add_space(4.0);
 }
 

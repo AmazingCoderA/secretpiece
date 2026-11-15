@@ -349,6 +349,55 @@ impl Vault {
         self.save()
     }
 
+    /// Overwrites every chunk of a file with random bytes, then removes it.
+    ///
+    /// The index entry disappears immediately, so the data cannot be reached
+    /// through the vault API. On flash storage the overwrite is best-effort
+    /// (wear levelling may keep old blocks), but on a plain file it removes
+    /// the previous ciphertext from the container.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErrorCode::NotFound`] when the path does not exist, or an I/O
+    /// error when a chunk cannot be overwritten.
+    pub fn shred(&mut self, path: &str) -> Result<(), SpError> {
+        let path = normalize(path)?;
+        if path.is_empty() {
+            return Err(invalid_path());
+        }
+        let entry = self
+            .index
+            .entries
+            .get(&path)
+            .cloned()
+            .ok_or_else(not_found)?;
+        let mut targets = Vec::new();
+        if entry.kind == EntryKind::Dir {
+            let prefix = format!("{path}/");
+            for (key, value) in &self.index.entries {
+                if key.starts_with(&prefix) && value.kind == EntryKind::File {
+                    targets.push(value.chunks.clone());
+                }
+            }
+        } else {
+            targets.push(entry.chunks);
+        }
+        for chunks in &targets {
+            for chunk in chunks {
+                let mut junk = vec![0_u8; chunk.len as usize];
+                sp_crypto::random_into(&mut junk)?;
+                self.file
+                    .seek(SeekFrom::Start(chunk.offset))
+                    .map_err(|error| io_error(&error))?;
+                self.file
+                    .write_all(&junk)
+                    .map_err(|error| io_error(&error))?;
+            }
+        }
+        self.file.sync_all().map_err(|error| io_error(&error))?;
+        self.remove(&path)
+    }
+
     /// Reads and authenticates a file.
     ///
     /// # Errors
@@ -798,5 +847,47 @@ mod tests {
         assert_eq!(info.dirs, 1);
         assert_eq!(info.payload_bytes, 5);
         assert!(info.file_size >= DATA_START);
+    }
+
+    #[test]
+    fn shred_removes_the_file_and_overwrites_its_chunks() {
+        let temp = TempVault::new("shred");
+        let mut vault = create(&temp);
+        let secret = b"top-secret-payload".repeat(400);
+        vault.put("secret.bin", &secret).unwrap();
+        vault.mkdir("docs").unwrap();
+        vault.put("docs/inside.txt", b"inner").unwrap();
+        let chunks: Vec<ChunkRef> = vault.index.entries["secret.bin"].chunks.clone();
+
+        vault.shred("secret.bin").unwrap();
+        assert!(vault.get("secret.bin").is_err());
+        assert!(
+            vault
+                .list(None)
+                .iter()
+                .all(|entry| entry.path != "secret.bin")
+        );
+
+        for chunk in &chunks {
+            vault.file.seek(SeekFrom::Start(chunk.offset)).unwrap();
+            let mut record = vec![0_u8; chunk.len as usize];
+            vault.file.read_exact(&mut record).unwrap();
+            assert!(
+                !record.windows(6).any(|window| window == b"secret"),
+                "the chunk still contains plaintext-like bytes"
+            );
+        }
+
+        vault.shred("docs").unwrap();
+        assert!(vault.list(None).iter().all(|entry| entry.path != "docs"));
+        assert!(vault.verify().unwrap().files == 0);
+    }
+
+    #[test]
+    fn shred_reports_a_missing_path() {
+        let temp = TempVault::new("shred-missing");
+        let mut vault = create(&temp);
+        let error = vault.shred("nope.bin").unwrap_err();
+        assert_eq!(error.code(), ErrorCode::NotFound);
     }
 }

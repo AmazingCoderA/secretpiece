@@ -48,6 +48,7 @@
 | 🤖 **Android** | APK: USB drive over OTG, SAF + JNI, on-device vault creation, RU/EN, disguise, snow/rain/sun. |
 | 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, BIP39 recovery, Shamir secret sharing, snapshots. |
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
+| 🎨 **Live interface** | Three themes (Midnight / Neon / Light), gradient accents, responsive layout, in-vault text and hex preview. |
 | 🌍 **RU / EN** | Interface and hints in Russian and English, auto-detection, `--lang`. |
 
 ## 📦 Installation
@@ -115,6 +116,11 @@ sun. Details: [`docs/ANDROID.md`](docs/ANDROID.md), and on the format itself:
 hardness (16 / 64 / 256 MiB). The container is written immediately; the format
 inside is SPV1.
 
+The top bar switches themes (Midnight / Neon / Light) and language; the choice
+is remembered. Double-click a file to preview it (text or hex) straight from the
+container, "Verify integrity" decrypts and authenticates every file, and deleting
+can optionally overwrite each chunk with random bytes first.
+
 **On a phone:** "Create new vault" → password and confirmation → "Save as" to
 the USB drive or phone storage.
 
@@ -123,7 +129,7 @@ SPV1 container. The GUI file dialog lists **all** files, not just `*.spv`, so a
 disguised vault opens through "Browse…" like any other.
 
 <p align="center">
-  <img src="docs/assets/desktop.svg" alt="SecretPiece on the desktop: creating a vault, choosing Argon2id and disguising it as .mp3" width="100%">
+  <img src="docs/assets/desktop.svg" alt="SecretPiece on the desktop: Midnight/Neon/Light themes, unlock screen and in-vault preview" width="100%">
 </p>
 
 ### Linux
@@ -253,11 +259,17 @@ sp-cli df personal.spv
 sp-cli verify personal.spv
 
 # GUI: a separate application
-sp            # or secretpiece — dark UI, RU/EN
+sp                              # Midnight / Neon / Light themes, RU/EN
+sp D:\vaults\personal.spv       # open a vault straight from a file manager
 ```
 
 The password is never stored: the key is derived with Argon2id and lives only in
 memory. The container is a regular `.spv` file and can be renamed to `report.pdf`.
+
+Theme and language live in the top bar and are remembered between launches. A
+file can be previewed (text or hex) straight from the container — the data stays
+in RAM. When deleting, enable "Shred data" to overwrite every chunk with random
+bytes before the file is removed.
 
 ## 🌍 Languages
 
@@ -349,12 +361,12 @@ The byte-level specification lives in [`docs/SPV.md`](docs/SPV.md); a separate `
 | **v1.2** | ✅ | visuals, RU/EN CLI, pacman/AUR, Android skeleton, Windows ARM64, Linux ARM64, BSD |
 | **v1.3** | ✅ | Android: app disguise, `docs/SPV.md`, polish |
 | **v1.4** | ✅ | SPV1 crypto core (Argon2id, XChaCha20-Poly1305, BLAKE3), CLI, egui GUI, Android read + on-device create, Alpine |
-| **v1.5** | ✅ | Android: create-vault dialog, settings, ambience; GUI: redesigned create screen, Argon2id choice, file disguise; ARMv7/RISC-V CLI |
+| **v1.5** | ✅ | Android: create-vault dialog, settings, ambience; GUI: Midnight/Neon/Light themes, workspace redesign, in-vault preview, overwrite confirmation, secure file delete; ARMv7/RISC-V CLI |
 | **v1.6** | ⏳ | extents, FAT32 split, format migration |
 | **v1.7** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
 | **v1.8** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |
-| **v1.9** | ⏳ | shred, free-space wipe, destroy, Reed-Solomon sharding |
-| **v2.0** | ⏳ | GUI: creation wizard, file manager, themes; hardening, fuzzing, Miri, audit, SBOM |
+| **v1.9** | ⏳ | free-space wipe, destroy, Reed-Solomon sharding |
+| **v2.0** | ⏳ | GUI: creation wizard, file manager; hardening, fuzzing, Miri, audit, SBOM |
 
 ## 🤝 Contributing
 

@@ -7,14 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.0] - 2026-11-14
+## [1.5.0] - 2026-11-17
 
-Desktop and Android polish: a redesigned create screen on both, a dedicated
-container-creation flow on the phone, more Linux architectures, and hardened
-releases. The vault format is unchanged — SPV1 files from v1.4 open as before.
+Desktop and Android polish: a redesigned desktop workspace and create screen on
+both platforms, a dedicated container-creation flow on the phone, more Linux
+architectures, and hardened releases. The vault format is unchanged — SPV1 files
+from v1.4 open as before.
 
 ### Added
 
+- **Desktop workspace redesign**: a settings bar at the top with three live
+  theme swatches (Midnight, Neon, Light), an RU/EN segmented switch, a gradient
+  accent line, soft radial glows, a responsive unlock card, and a styled vault
+  browser. The chosen theme and language are remembered between launches.
+- **In-container preview**: text and hex views read straight from the encrypted
+  vault into RAM — nothing is written to disk, and the buffer is wiped when the
+  dialog closes. Double-click a file to preview it.
+- **Overwrite confirmation**: adding a path that already exists asks before the
+  old data is replaced instead of overwriting silently.
+- **Secure delete**: the delete dialog offers a "shred" option that overwrites
+  every chunk with random bytes, flushes them, and only then removes the file
+  (best effort on flash media).
+- **Open a vault from the command line**: `sp path/to/vault.spv` prefills the
+  file field, so the desktop app can be used from a file manager.
 - **Redesigned desktop create screen**: a hero panel with the product summary,
   password visibility toggle, a strength meter, and a choice of three Argon2id
   profiles (light 16 MiB / default 64 MiB / paranoid 256 MiB) written into the
@@ -35,6 +50,9 @@ releases. The vault format is unchanged — SPV1 files from v1.4 open as before.
 
 ### Changed
 
+- **Desktop browser toolbar**: Preview and Extract are enabled only for files,
+  integrity check sits on the right, rows highlight on selection, and results
+  appear as coloured status banners.
 - **Android password field**: lock icon, eye toggle, and IME "Done" that submits
   the form; the unlock card is ordered picker → password → primary action →
   create.
@@ -43,8 +61,9 @@ releases. The vault format is unchanged — SPV1 files from v1.4 open as before.
   container and the typed state survive a turn.
 - **Releases cannot silently ship a stale APK**: the publish job fails when the
   Android artifact is missing instead of uploading the previous build.
-- **Docs**: refreshed Android mockup (unlock + create dialog), README RU/EN and
-  `docs/ANDROID.md` describe on-device creation, settings and ambience.
+- **Docs**: refreshed desktop and Android mockups, README RU/EN and
+  `docs/ANDROID.md` describe the new desktop workspace, on-device creation,
+  settings and ambience.
 - Workspace version bumped to 1.5.0; MSRV stays at Rust 1.85 (edition 2024).
 
 ## [1.4.0] - 2026-11-11

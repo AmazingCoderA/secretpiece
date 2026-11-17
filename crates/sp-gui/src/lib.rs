@@ -197,6 +197,11 @@ fn set_theme(theme: Theme) {
 fn apply_theme(ctx: &egui::Context) {
     let p = pal();
     let light = p.bg.r() > 128;
+    ctx.set_theme(if light {
+        egui::Theme::Light
+    } else {
+        egui::Theme::Dark
+    });
     let mut style = (*ctx.style()).clone();
     style.visuals = if light {
         egui::Visuals::light()
@@ -209,15 +214,25 @@ fn apply_theme(ctx: &egui::Context) {
     style.visuals.faint_bg_color = p.card;
     style.visuals.override_text_color = Some(p.ink);
     style.visuals.selection.bg_fill = p.accent;
-    style.visuals.selection.stroke = Stroke::new(1.0_f32, p.ink);
+    style.visuals.selection.stroke = Stroke::new(1.0_f32, p.accent);
+    let soft_line = Color32::from_rgba_unmultiplied(p.muted.r(), p.muted.g(), p.muted.b(), 84);
+    style.visuals.widgets.noninteractive.bg_fill = p.panel;
+    style.visuals.widgets.noninteractive.weak_bg_fill = p.panel;
+    style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, p.muted);
     style.visuals.widgets.inactive.bg_fill = p.card;
     style.visuals.widgets.inactive.weak_bg_fill = p.card;
     style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, p.ink);
+    style.visuals.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, soft_line);
     style.visuals.widgets.hovered.bg_fill = p.selected;
     style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, p.ink);
+    style.visuals.widgets.hovered.bg_stroke = Stroke::new(1.0_f32, p.accent);
     style.visuals.widgets.active.bg_fill = p.selected;
     style.visuals.widgets.active.fg_stroke = Stroke::new(1.5_f32, p.accent);
+    style.visuals.widgets.active.bg_stroke = Stroke::new(1.0_f32, p.accent);
     style.visuals.widgets.open.bg_fill = p.selected;
+    style.visuals.widgets.open.weak_bg_fill = p.selected;
+    style.visuals.widgets.open.bg_stroke = Stroke::new(1.0_f32, p.line);
+    style.visuals.widgets.open.fg_stroke = Stroke::new(1.0_f32, p.ink);
     style.visuals.window_stroke = Stroke::new(1.0_f32, p.line);
     style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, p.line);
     for widget in [
@@ -229,7 +244,7 @@ fn apply_theme(ctx: &egui::Context) {
     ] {
         widget.corner_radius = egui::CornerRadius::same(9);
     }
-    style.spacing.item_spacing = egui::vec2(8.0, 8.0);
+    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
     style.spacing.button_padding = egui::vec2(11.0, 7.0);
     style.spacing.interact_size.y = 30.0;
     style.text_styles = [
@@ -252,7 +267,9 @@ fn apply_theme(ctx: &egui::Context) {
         ),
     ]
     .into();
-    ctx.set_style(style);
+    ctx.set_style(style.clone());
+    ctx.set_style_of(egui::Theme::Dark, style.clone());
+    ctx.set_style_of(egui::Theme::Light, style);
 }
 
 /// Interface language of the desktop app.
@@ -373,10 +390,14 @@ impl App {
             .map_or(Lang::Ru, |key| Lang::from_key(&key));
         set_theme(theme);
         apply_theme(&cc.egui_ctx);
+        let vault_path = std::env::args()
+            .skip(1)
+            .find(|argument| !argument.starts_with('-'))
+            .unwrap_or_default();
         Self {
             lang,
             theme,
-            vault_path: String::new(),
+            vault_path,
             password: String::new(),
             confirm: String::new(),
             creating: false,
@@ -497,13 +518,13 @@ impl App {
                         if self.browser.is_some() {
                             let lock = egui::Button::new(
                                 RichText::new(self.lang.t("Заблокировать", "Lock"))
-                                    .size(12.0)
+                                    .size(11.5)
                                     .color(ink()),
                             )
                             .fill(card_bg())
                             .stroke(Stroke::new(1.0_f32, line()))
                             .corner_radius(9)
-                            .min_size(egui::vec2(96.0, 30.0));
+                            .min_size(egui::vec2(128.0, 30.0));
                             if ui.add(lock).clicked() {
                                 self.browser = None;
                                 self.password.clear();
@@ -511,13 +532,7 @@ impl App {
                             ui.add_space(12.0);
                         }
                         language_switch(ui, &mut self.lang);
-                        ui.add_space(12.0);
-                        ui.label(
-                            RichText::new(self.lang.t("Тема", "Theme"))
-                                .size(11.0)
-                                .color(muted()),
-                        );
-                        ui.add_space(6.0);
+                        ui.add_space(14.0);
                         let mut picked = None;
                         for theme in [Theme::Light, Theme::Neon, Theme::Midnight] {
                             if theme_swatch(ui, theme, self.theme == theme, self.lang) {
@@ -525,6 +540,12 @@ impl App {
                             }
                             ui.add_space(5.0);
                         }
+                        ui.add_space(2.0);
+                        ui.label(
+                            RichText::new(self.lang.t("Тема", "Theme"))
+                                .size(11.0)
+                                .color(muted()),
+                        );
                         if let Some(theme) = picked {
                             self.theme = theme;
                             set_theme(theme);
@@ -569,56 +590,60 @@ impl eframe::App for App {
 impl App {
     fn unlock_ui(&mut self, ui: &mut egui::Ui) {
         let card_width = (ui.available_width() - 24.0).clamp(330.0, 470.0);
-        ui.add_space(6.0);
-        ui.vertical_centered(|ui| {
-            logo_tile(ui, 56.0);
-            ui.add_space(12.0);
-            ui.label(
-                RichText::new("SecretPiece")
-                    .size(30.0)
-                    .strong()
-                    .color(ink()),
-            );
-            ui.label(
-                RichText::new(self.lang.t(
-                    "Ваш секрет — в кусочках. Один файл, ноль следов на диске.",
-                    "Your secret, in pieces. One file, no disk layout.",
-                ))
-                .size(13.0)
-                .color(muted()),
-            );
-            ui.add_space(18.0);
-            self.form_card(ui, card_width);
-            ui.add_space(18.0);
-            ui.horizontal(|ui| {
-                let total = 3.0 * 150.0 + 2.0 * 8.0;
-                ui.add_space((ui.available_width() - total).max(0.0) / 2.0);
-                for (label, color) in [
-                    ("Argon2id", accent()),
-                    ("XChaCha20-Poly1305", violet()),
-                    ("BLAKE3", good()),
-                ] {
-                    Frame::new()
-                        .fill(card_bg())
-                        .stroke(Stroke::new(1.0_f32, line()))
-                        .corner_radius(8)
-                        .inner_margin(Margin::symmetric(10, 5))
-                        .show(ui, |ui| {
-                            ui.label(RichText::new(label).size(10.5).color(color));
-                        });
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                ui.add_space(2.0);
+                ui.vertical_centered(|ui| {
+                    logo_tile(ui, 48.0);
                     ui.add_space(8.0);
-                }
+                    ui.label(
+                        RichText::new("SecretPiece")
+                            .size(28.0)
+                            .strong()
+                            .color(ink()),
+                    );
+                    ui.label(
+                        RichText::new(self.lang.t(
+                            "Ваш секрет — в кусочках. Один файл, ноль следов на диске.",
+                            "Your secret, in pieces. One file, no disk layout.",
+                        ))
+                        .size(12.5)
+                        .color(muted()),
+                    );
+                    ui.add_space(14.0);
+                    self.form_card(ui, card_width);
+                    ui.add_space(14.0);
+                    ui.horizontal(|ui| {
+                        let total = 3.0 * 150.0 + 2.0 * 8.0;
+                        ui.add_space((ui.available_width() - total).max(0.0) / 2.0);
+                        for (label, color) in [
+                            ("Argon2id", accent()),
+                            ("XChaCha20-Poly1305", violet()),
+                            ("BLAKE3", good()),
+                        ] {
+                            Frame::new()
+                                .fill(card_bg())
+                                .stroke(Stroke::new(1.0_f32, line()))
+                                .corner_radius(8)
+                                .inner_margin(Margin::symmetric(10, 5))
+                                .show(ui, |ui| {
+                                    ui.label(RichText::new(label).size(10.5).color(color));
+                                });
+                            ui.add_space(8.0);
+                        }
+                    });
+                    ui.add_space(10.0);
+                    ui.label(
+                        RichText::new(self.lang.t(
+                            "Перетащите сейф в окно, чтобы открыть его.",
+                            "Drop a vault onto the window to open it.",
+                        ))
+                        .size(11.0)
+                        .color(muted()),
+                    );
+                });
             });
-            ui.add_space(10.0);
-            ui.label(
-                RichText::new(self.lang.t(
-                    "Перетащите сейф в окно, чтобы открыть его.",
-                    "Drop a vault onto the window to open it.",
-                ))
-                .size(11.0)
-                .color(muted()),
-            );
-        });
 
         let dropped = ui.ctx().input(|input| input.raw.dropped_files.clone());
         if let Some(file) = dropped.first() {
@@ -632,20 +657,26 @@ impl App {
     #[allow(clippy::too_many_lines)]
     fn form_card(&mut self, ui: &mut egui::Ui, width: f32) {
         let lang = self.lang;
-        let inner = width - 48.0;
+        let inner = width - 40.0;
         Frame::new()
             .fill(card_bg())
             .stroke(Stroke::new(1.0_f32, line()))
             .corner_radius(22)
-            .inner_margin(Margin::same(24))
+            .inner_margin(Margin::same(20))
             .shadow(egui::epaint::Shadow {
-                offset: [0, 14],
-                blur: 36,
+                offset: [0, 12],
+                blur: 30,
                 spread: 0,
                 color: Color32::from_black_alpha(if self.theme.is_light() { 26 } else { 90 }),
             })
             .show(ui, |ui| {
                 ui.set_width(inner);
+                let (bar, _) = ui.allocate_exact_size(
+                    egui::vec2(ui.available_width(), 3.0),
+                    egui::Sense::hover(),
+                );
+                gradient(ui.painter(), bar, accent(), violet(), 120);
+                ui.add_space(8.0);
                 ui.label(
                     RichText::new(if self.creating {
                         lang.t("СОЗДАНИЕ", "CREATE")
@@ -1342,6 +1373,7 @@ impl Browser {
             let mut cancel = false;
             egui::Window::new(lang.t("Новая папка", "New folder"))
                 .collapsible(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
                 .resizable(false)
                 .show(ui.ctx(), |ui| {
                     ui.label(lang.t("Имя папки", "Folder name"));
@@ -1387,6 +1419,7 @@ impl Browser {
             let mut cancel = false;
             egui::Window::new(lang.t("Файл уже есть", "File already exists"))
                 .collapsible(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
                 .resizable(false)
                 .show(ui.ctx(), |ui| {
                     ui.label(match lang {
@@ -1444,6 +1477,7 @@ impl Browser {
             let mut shred = self.shred_on_delete;
             egui::Window::new(lang.t("Удалить?", "Delete?"))
                 .collapsible(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
                 .resizable(false)
                 .show(ui.ctx(), |ui| {
                     ui.label(match lang {
@@ -1526,6 +1560,7 @@ impl Browser {
             egui::Window::new(lang.t("Просмотр из контейнера", "Preview from vault"))
                 .open(&mut open)
                 .collapsible(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
                 .resizable(true)
                 .default_size([760.0, 520.0])
                 .show(ui.ctx(), |ui| {
@@ -1647,12 +1682,6 @@ fn row(ui: &mut egui::Ui, lang: Lang, entry: &ListEntry, selected: bool) -> RowC
                 ui.label(RichText::new(size).size(12.0).color(muted()));
                 if entry.kind == EntryKind::Dir {
                     ui.label(RichText::new("›").size(16.0).color(muted()));
-                } else {
-                    ui.label(
-                        RichText::new(lang.t("двойной клик — просмотр", "double-click to preview"))
-                            .size(10.0)
-                            .color(muted()),
-                    );
                 }
             });
         });
@@ -1673,11 +1702,6 @@ fn logo_tile(ui: &mut egui::Ui, size: f32) {
     let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
     let painter = ui.painter();
     painter.rect_filled(rect, size * 0.3, accent());
-    let lower = egui::Rect::from_min_max(
-        egui::pos2(rect.left() + size * 0.16, rect.center().y + size * 0.02),
-        egui::pos2(rect.right() - size * 0.16, rect.bottom() - size * 0.16),
-    );
-    painter.rect_filled(lower, size * 0.2, violet());
     painter.text(
         rect.center(),
         egui::Align2::CENTER_CENTER,
@@ -1688,21 +1712,41 @@ fn logo_tile(ui: &mut egui::Ui, size: f32) {
 }
 
 fn theme_swatch(ui: &mut egui::Ui, theme: Theme, active: bool, lang: Lang) -> bool {
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(26.0, 26.0), egui::Sense::click());
-    let center = rect.center();
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
     let palette = theme.palette();
     let painter = ui.painter();
-    if active {
-        painter.circle_stroke(center, 12.0, Stroke::new(2.0_f32, palette.accent));
-    } else if response.hovered() {
-        painter.circle_stroke(center, 11.0, Stroke::new(1.0_f32, line()));
-    }
-    painter.circle_filled(center, 8.5, palette.accent);
+    painter.rect_filled(rect, 6.0, palette.bg);
     painter.circle_filled(
-        egui::pos2(center.x + 3.0, center.y + 3.0),
-        4.5,
+        egui::pos2(rect.left() + 8.0, rect.top() + 8.0),
+        4.0,
+        palette.accent,
+    );
+    painter.circle_filled(
+        egui::pos2(rect.right() - 8.0, rect.bottom() - 8.0),
+        4.0,
         palette.violet,
     );
+    painter.rect_stroke(
+        rect,
+        6.0,
+        Stroke::new(1.0_f32, palette.line),
+        egui::StrokeKind::Inside,
+    );
+    if active {
+        painter.rect_stroke(
+            rect.expand(2.0),
+            8.0,
+            Stroke::new(2.0_f32, palette.accent),
+            egui::StrokeKind::Outside,
+        );
+    } else if response.hovered() {
+        painter.rect_stroke(
+            rect.expand(1.0),
+            7.0,
+            Stroke::new(1.0_f32, line()),
+            egui::StrokeKind::Outside,
+        );
+    }
     if response.hovered() {
         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
     }
@@ -1752,26 +1796,54 @@ fn secondary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
     )
 }
 
+/// Soft radial glow built as a triangle fan, so there are no visible rings.
+fn radial_glow(
+    painter: &egui::Painter,
+    center: egui::Pos2,
+    radius: f32,
+    color: Color32,
+    max_alpha: u8,
+) {
+    const SEGMENTS: u8 = 64;
+    let mut mesh = egui::Mesh::default();
+    mesh.colored_vertex(
+        center,
+        Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), max_alpha),
+    );
+    for index in 0..=SEGMENTS {
+        let angle = std::f32::consts::TAU * f32::from(index) / f32::from(SEGMENTS);
+        let position = center + egui::vec2(angle.cos(), angle.sin()) * radius;
+        mesh.colored_vertex(position, Color32::TRANSPARENT);
+    }
+    for index in 0..SEGMENTS {
+        mesh.add_triangle(0, u32::from(index) + 1, u32::from(index) + 2);
+    }
+    painter.add(egui::Shape::mesh(mesh));
+}
+
 /// Soft corner glows that sit behind the content.
 fn paint_glow(ui: &egui::Ui) {
     let rect = ui.max_rect();
     let painter = ui.painter();
-    let a = accent();
-    let v = violet();
-    for step in 0_u8..7 {
-        let radius = 360.0 - f32::from(step) * 44.0;
-        let alpha = 4 + step * 2;
-        painter.circle_filled(
-            egui::pos2(rect.left() + 120.0, rect.top() + 20.0),
-            radius,
-            Color32::from_rgba_unmultiplied(a.r(), a.g(), a.b(), alpha),
-        );
-        painter.circle_filled(
-            egui::pos2(rect.right() - 80.0, rect.bottom() - 40.0),
-            radius,
-            Color32::from_rgba_unmultiplied(v.r(), v.g(), v.b(), alpha),
-        );
-    }
+    let light = pal().bg.r() > 128;
+    let accent_alpha = if light { 10 } else { 34 };
+    let violet_alpha = if light { 8 } else { 28 };
+    let accent_color = accent();
+    let violet_color = violet();
+    radial_glow(
+        painter,
+        egui::pos2(rect.left() + 40.0, rect.top() - 60.0),
+        rect.width().max(560.0) * 0.7,
+        accent_color,
+        accent_alpha,
+    );
+    radial_glow(
+        painter,
+        egui::pos2(rect.right() - 30.0, rect.bottom() + 70.0),
+        rect.width().max(560.0) * 0.65,
+        violet_color,
+        violet_alpha,
+    );
 }
 
 fn chip(ui: &mut egui::Ui, label: &str, value: &str, accent: Color32) {

@@ -132,6 +132,25 @@ disguised vault opens through "Browse…" like any other.
   <img src="docs/assets/desktop.svg" alt="SecretPiece on the desktop: Midnight/Neon/Light themes, unlock screen and in-vault preview" width="100%">
 </p>
 
+### Demo
+
+A short recording of the real app: unlocking a vault, switching themes,
+previewing `readme.md` straight from the container, and verifying integrity.
+
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="SecretPiece demo: unlock, Midnight/Neon/Light themes, in-vault preview, integrity check" width="100%">
+</p>
+
+<p align="center">
+  <a href="docs/assets/demo.mp4">▶ Open the MP4 demo (no sound, ~30 s)</a>
+</p>
+
+| Unlock | Vault |
+| --- | --- |
+| ![Unlock](docs/assets/screens/unlock.png) | ![Vault](docs/assets/screens/browser.png) |
+| **In-vault preview** | **Light theme** |
+| ![Preview](docs/assets/screens/preview.png) | ![Light theme](docs/assets/screens/light.png) |
+
 ### Linux
 
 ```bash

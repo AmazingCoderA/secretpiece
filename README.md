@@ -131,6 +131,25 @@ Argon2id (16 / 64 / 256 МиБ). Контейнер создаётся сраз�
   <img src="docs/assets/desktop.svg" alt="SecretPiece на ПК: темы Midnight/Neon/Light, экран входа и просмотр файла из контейнера" width="100%">
 </p>
 
+### Демо
+
+Короткая запись настоящего приложения: вход в сейф, смена темы, просмотр
+`readme.md` прямо из контейнера и проверка целостности.
+
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="Демо SecretPiece: вход, темы Midnight/Neon/Light, просмотр из контейнера, проверка целостности" width="100%">
+</p>
+
+<p align="center">
+  <a href="docs/assets/demo.mp4">▶ Открыть демо в MP4 (звука нет, ~30 с)</a>
+</p>
+
+| Экран входа | Хранилище |
+| --- | --- |
+| ![Вход](docs/assets/screens/unlock.png) | ![Хранилище](docs/assets/screens/browser.png) |
+| **Просмотр из контейнера** | **Светлая тема** |
+| ![Просмотр](docs/assets/screens/preview.png) | ![Светлая тема](docs/assets/screens/light.png) |
+
 ### Linux
 
 ```bash

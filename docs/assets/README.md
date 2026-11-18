@@ -7,6 +7,9 @@
 | `architecture.svg` | architecture and SPV1 on-disk layout |
 | `android.svg` | Android app mockup (OTG read + on-device create) |
 | `desktop.svg` | Desktop GUI mockup (theme bar, unlock card, in-vault preview) |
+| `demo.gif` | README demo: unlock → themes → preview → integrity check |
+| `demo.mp4` | Full-quality demo recording linked from both READMEs |
+| `screens/` | Real screenshots: unlock, vault, preview, light theme |
 | `social-preview.png` | GitHub **Social preview** (Settings → General → Social preview) |
 | `banner.svg` | legacy banner, kept for old links |
 

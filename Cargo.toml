@@ -35,7 +35,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 zeroize = "1"
 rpassword = "7"
-eframe = "0.31"
+eframe = "0.32"
 rfd = "0.15"
 sp-core = { path = "crates/sp-core" }
 sp-crypto = { path = "crates/sp-crypto" }

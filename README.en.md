@@ -48,7 +48,8 @@
 | 🤖 **Android** | APK: USB drive over OTG, SAF + JNI, on-device vault creation, RU/EN, disguise, snow/rain/sun. |
 | 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, BIP39 recovery, Shamir secret sharing, snapshots. |
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
-| 🎨 **Live interface** | Three themes (Midnight / Neon / Light), gradient accents, responsive layout, in-vault text and hex preview. |
+| 🎨 **Live interface** | Three themes (Midnight / Neon / Light), gradient accents, responsive layout, in-vault text and hex preview, drag & drop into the window. |
+| ⚡ **Speed and size** | 1 MiB chunks instead of 64 KiB, index up to 256 MiB: fewer AEAD calls, faster on large files, older vaults still open. |
 | 🌍 **RU / EN** | Interface and hints in Russian and English, auto-detection, `--lang`. |
 
 ## 📦 Installation

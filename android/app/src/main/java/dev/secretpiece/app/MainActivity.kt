@@ -285,14 +285,25 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         syncDisguise(this)
-        incomingUri.value = intent?.data
+        incomingUri.value = sharedUri(intent)
         setContent { SecretPieceApp(incomingUri.value) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        incomingUri.value = intent.data
+        incomingUri.value = sharedUri(intent)
+    }
+
+    /**
+     * `VIEW` delivers the file in `data`; `SEND` (share sheet) puts it into
+     * `EXTRA_STREAM`. Both land on the unlock screen with the path prefilled.
+     */
+    @Suppress("DEPRECATION")
+    private fun sharedUri(intent: Intent?): Uri? {
+        if (intent == null) return null
+        intent.data?.let { return it }
+        return intent.getParcelableExtra(Intent.EXTRA_STREAM)
     }
 }
 

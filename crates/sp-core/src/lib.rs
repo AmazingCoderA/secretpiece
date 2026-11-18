@@ -14,8 +14,9 @@ pub const PRODUCT_NAME: &str = "SecretPiece";
 /// Version of the container format implemented by this build.
 pub const FORMAT_VERSION: u32 = 1;
 
-/// Open-plaintext chunk size (64 KiB), as fixed by the SPV1 format.
-pub const CHUNK_SIZE: usize = 64 * 1024;
+/// Open-plaintext chunk size (1 MiB). Older 64 KiB containers stay readable:
+/// every chunk records its own length, so the size is not part of the format.
+pub const CHUNK_SIZE: usize = 1024 * 1024;
 
 /// Size of the AEAD tag appended to every on-disk chunk.
 pub const AEAD_TAG_SIZE: usize = 16;
@@ -26,8 +27,8 @@ pub const ENCRYPTED_CHUNK_SIZE: usize = CHUNK_SIZE + AEAD_TAG_SIZE;
 /// Fixed header area size (64 KiB).
 pub const HEADER_SIZE: usize = 64 * 1024;
 
-/// Maximum metadata size in v1 (256 MiB).
-pub const MAX_METADATA_SIZE: u64 = 256 * 1024 * 1024;
+/// Maximum metadata size in v1 (1 GiB).
+pub const MAX_METADATA_SIZE: u64 = 1024 * 1024 * 1024;
 
 /// Category of an error, used to decide whether to go read-only or lock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -184,7 +185,8 @@ mod tests {
 
     #[test]
     fn chunk_layout_is_consistent() {
-        assert_eq!(ENCRYPTED_CHUNK_SIZE, 65_552);
+        assert_eq!(ENCRYPTED_CHUNK_SIZE, CHUNK_SIZE + AEAD_TAG_SIZE);
+        assert_eq!(CHUNK_SIZE, 1024 * 1024);
     }
 
     #[test]

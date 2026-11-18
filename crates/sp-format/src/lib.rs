@@ -32,8 +32,8 @@ pub const HEADER_SLOTS: u64 = 2;
 pub const DATA_START: u64 = HEADER_SIZE as u64 * HEADER_SLOTS;
 /// Container format version written into headers.
 pub const FORMAT_VERSION: u32 = 1;
-/// Maximum serialized index size in bytes.
-pub const MAX_INDEX_SIZE: u32 = 64 * 1024 * 1024;
+/// Maximum serialized index size in bytes (256 MiB).
+pub const MAX_INDEX_SIZE: u32 = 256 * 1024 * 1024;
 /// Number of bytes covered by the header checksum.
 const CHECKSUM_OFFSET: usize = HEADER_SIZE - 32;
 /// Offset of the wrapped master key.

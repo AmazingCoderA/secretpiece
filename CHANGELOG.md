@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-18
+
+Faster and roomier vaults, drag-and-drop on the desktop, more disguise shells,
+and an Android build that installs over 1.5. The container format is unchanged:
+old vaults open as before, and new chunks are simply larger.
+
+### Added
+
+- **Drag & drop on the desktop**: drop files onto an open vault to add them,
+  with the same overwrite confirmation as the "Add file" button; dropping a
+  vault onto the unlock screen still fills the path.
+- **More disguise shells**: `.spv`, `.bin`, `.mp3`, `.jpg`, `.pdf`, `.zip`,
+  `.iso` and `.dat` chips on the create screen (any extension still works).
+- **Android `versionCode 17` / `versionName 1.7`**, so the new APK upgrades an
+  installed 1.5 build instead of being rejected as a downgrade.
+
+### Changed
+
+- **Chunk size 64 KiB → 1 MiB**: far fewer AEAD calls, seeks and allocations per
+  file, which makes adding and extracting large files noticeably faster. Each
+  chunk stores its own length, so 64 KiB containers stay readable.
+- **Index limit 64 MiB → 256 MiB** and **metadata limit 256 MiB → 1 GiB**: room
+  for hundreds of thousands of entries in a single vault.
+- Workspace version bumped to 1.7.0.
+
 ## [1.5.0] - 2026-11-17
 
 Desktop and Android polish: a redesigned desktop workspace and create screen on

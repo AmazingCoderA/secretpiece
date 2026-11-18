@@ -565,6 +565,14 @@ impl App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.header(ctx);
+        if let Some(browser) = self.browser.as_mut() {
+            let dropped = ctx.input(|input| input.raw.dropped_files.clone());
+            if let Some(path) = dropped.iter().find_map(|file| file.path.clone()) {
+                if path.is_file() {
+                    browser.add_file(&path, self.lang);
+                }
+            }
+        }
         egui::CentralPanel::default()
             .frame(
                 Frame::new()
@@ -733,8 +741,8 @@ impl App {
                 ui.add_space(3.0);
                 ui.label(
                     RichText::new(lang.t(
-                        "Любой файл: .spv, .bin, .mp3 — внутри всё равно контейнер SPV1.",
-                        "Any file: .spv, .bin, .mp3 — inside it is still an SPV1 container.",
+                        "Любой файл: .spv, .bin, .mp3, .pdf — внутри всё равно контейнер SPV1.",
+                        "Any file: .spv, .bin, .mp3, .pdf — inside it is still an SPV1 container.",
                     ))
                     .size(10.5)
                     .color(muted()),
@@ -742,13 +750,14 @@ impl App {
 
                 if self.creating {
                     ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            RichText::new(lang.t("Оболочка:", "Shell:"))
-                                .size(11.0)
-                                .color(muted()),
-                        );
-                        for ext in ["spv", "bin", "mp3", "jpg"] {
+                    ui.label(
+                        RichText::new(lang.t("Оболочка:", "Shell:"))
+                            .size(11.0)
+                            .color(muted()),
+                    );
+                    ui.add_space(4.0);
+                    ui.horizontal_wrapped(|ui| {
+                        for ext in ["spv", "bin", "mp3", "jpg", "pdf", "zip", "iso", "dat"] {
                             let active = self
                                 .vault_path
                                 .to_ascii_lowercase()
@@ -1247,6 +1256,16 @@ impl Browser {
                 self.cwd = target;
                 self.refresh();
             }
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.label(
+                    RichText::new(lang.t(
+                        "или перетащите файлы в окно",
+                        "or drop files onto the window",
+                    ))
+                    .size(10.5)
+                    .color(muted()),
+                );
+            });
         });
     }
 

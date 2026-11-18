@@ -44,7 +44,7 @@
 | 🕵️ **Скрытый том** | Область внутри контейнера выглядит как свободное место. Открывается отдельным паролем (план v1.8). |
 | 🔐 **Шифрование** | XChaCha20-Poly1305 уже в v1.4; ChaCha20-Poly1305 и AES-256-GCM — позже, параметры в заголовке. |
 | 🗂️ **Разные форматы** | Один файл, набор частей для FAT32, папка-хранилище, nested-контейнер, k/n shards. |
-| 🚀 **Любые платформы** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux. |
+| 🚀 **Любые платформы** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux, `.deb`/`.rpm`, Flatpak. |
 | 🤖 **Android** | APK: флешка через OTG, SAF + JNI, создание сейфа на телефоне, RU/EN, маскировка, снег/дождь/солнце. |
 | 🛟 **Восстанавливаемость** | Два заголовка, два суперблока, `doctor`, recovery BIP39, схема Шамира, снапшоты. |
 | 🧹 **Безопасное удаление** | Shred файлов и свободного места, crypto-erase контейнера — с честным отчётом. |
@@ -59,6 +59,7 @@
   <a href="#android"><img alt="Android" src="https://img.shields.io/badge/Android-APK-3DDC84?style=for-the-badge&logo=android&logoColor=white"></a>
   <a href="#linux"><img alt="Linux" src="https://img.shields.io/badge/Linux-x64_/_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black"></a>
   <a href="#arch-linux"><img alt="Arch Linux" src="https://img.shields.io/badge/Arch_Linux-pkg-1793D1?style=for-the-badge&logo=archlinux&logoColor=white"></a>
+  <a href="#flatpak"><img alt="Flatpak" src="https://img.shields.io/badge/Flatpak-bundle-4A90D9?style=for-the-badge&logo=flatpak&logoColor=white"></a>
   <a href="#bsd"><img alt="BSD" src="https://img.shields.io/badge/BSD-FreeBSD_/_OpenBSD_/_NetBSD-AB2B28?style=for-the-badge&logo=freebsd&logoColor=white"></a>
 </p>
 
@@ -186,6 +187,39 @@ makepkg -si
 [`packaging/aur/secretpiece-bin`](packaging/aur/secretpiece-bin/PKGBUILD) и
 [`packaging/aur/secretpiece`](packaging/aur/secretpiece/PKGBUILD). В релизах есть
 `arch-x64` архив и настоящий `.pkg.tar.zst`.
+
+### Debian, Ubuntu, Fedora
+
+```bash
+# Debian / Ubuntu / Mint
+sudo apt install ./secretpiece-1.5-linux-x64.deb
+
+# Fedora / RHEL / openSUSE
+sudo dnf install ./secretpiece-1.5-linux-x64.rpm
+```
+
+Пакеты ставят `sp`, `secretpiece`, пункт меню и иконку; зависимости —
+`libx11`, `libxkbcommon`, `libgl`, `libegl`, `libwayland-client`.
+
+### Flatpak
+
+```bash
+# готовый bundle из Releases
+flatpak install --user ./secretpiece-1.5-x86_64.flatpak
+flatpak run dev.secretpiece.SecretPiece
+```
+
+Песочница получает доступ к домашнему каталогу и съёмным носителям, поэтому
+сейф на флешке открывается через «Обзор…» как обычно. Собрать bundle самому:
+
+```bash
+git archive --prefix=src/ -o packaging/flatpak/secretpiece-src.tar.gz HEAD
+flatpak-builder --user --force-clean --repo=flatpak-repo \
+  --default-branch=stable build-flatpak packaging/flatpak/dev.secretpiece.SecretPiece.yml
+flatpak build-bundle flatpak-repo secretpiece.flatpak dev.secretpiece.SecretPiece stable
+```
+
+Манифест и метаданные — в [`packaging/flatpak`](packaging/flatpak).
 
 ### BSD
 
@@ -332,13 +366,15 @@ SecretPiece проверяет свободное место **до** запис
 | macOS 13+ | universal (Intel + Apple Silicon) GUI + CLI | v1.4 |
 | Android 8+ | APK (SAF + JNI), ARM64/ARMv7 | v1.5 (чтение + создание) |
 | Linux | x64 GUI (glibc), x64/ARM64/ARMv7/RISC-V CLI | v1.5 |
+| Debian / Ubuntu / Fedora | `.deb` и `.rpm` с GUI, меню и иконкой | v1.5 |
+| Flatpak | x64 bundle, песочница, доступ к флешкам | v1.5 |
 | Alpine Linux | x64 CLI (musl) | v1.4 |
 | Arch Linux | x64 CLI, pacman-пакет, PKGBUILD, AUR (yay/paru) | v1.5 |
 | FreeBSD | x64 (VM build) | экспериментально |
 | OpenBSD | x64 (VM build) | экспериментально |
 | NetBSD | x64 (VM build) | экспериментально |
 | Linux ARMv7 / RISC-V | готовые CLI-сборки (`linux-armv7-cli`, `linux-riscv64-cli`) | v1.5 |
-| Flatpak / AppImage | песочница и переносимый образ | план v1.9 |
+| AppImage | переносимый образ | план v1.9 |
 
 ## 🛠️ Сборка и релизы
 

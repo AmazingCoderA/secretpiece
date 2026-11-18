@@ -1,0 +1,43 @@
+name: secretpiece
+arch: amd64
+platform: linux
+version: ${VERSION}
+section: utils
+priority: optional
+maintainer: SecretPiece contributors <noreply@github.com>
+vendor: SecretPiece
+homepage: https://github.com/AmazingCoderA/secretpiece
+license: GPL-3.0-only
+description: |
+  Encrypted vault in a single file.
+
+  SecretPiece stores files in one portable container that looks like an
+  ordinary file. Argon2id derives the key, XChaCha20-Poly1305 encrypts every
+  chunk and BLAKE3 verifies integrity. This package ships the desktop app
+  (sp, secretpiece) with desktop entry and icon.
+depends:
+  - libc6
+  - libx11-6
+  - libxkbcommon0
+  - libgl1
+  - libegl1
+  - libwayland-client0
+contents:
+  - src: pkgroot/usr/bin/sp
+    dst: /usr/bin/sp
+    file_info:
+      mode: 0755
+  - src: pkgroot/usr/bin/secretpiece
+    dst: /usr/bin/secretpiece
+    file_info:
+      mode: 0755
+  - src: pkgroot/usr/share/applications/dev.secretpiece.SecretPiece.desktop
+    dst: /usr/share/applications/dev.secretpiece.SecretPiece.desktop
+  - src: pkgroot/usr/share/icons/hicolor/512x512/apps/dev.secretpiece.SecretPiece.png
+    dst: /usr/share/icons/hicolor/512x512/apps/dev.secretpiece.SecretPiece.png
+  - src: pkgroot/usr/share/metainfo/dev.secretpiece.SecretPiece.metainfo.xml
+    dst: /usr/share/metainfo/dev.secretpiece.SecretPiece.metainfo.xml
+  - src: pkgroot/usr/share/doc/secretpiece/README.md
+    dst: /usr/share/doc/secretpiece/README.md
+  - src: pkgroot/usr/share/licenses/secretpiece/LICENSE
+    dst: /usr/share/licenses/secretpiece/LICENSE

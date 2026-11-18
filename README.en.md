@@ -44,7 +44,7 @@
 | 🕵️ **Hidden volume** | The area inside the container looks like free space. It opens with a separate password (planned for v1.8). |
 | 🔐 **Ciphers** | XChaCha20-Poly1305 ships in v1.4; ChaCha20-Poly1305 and AES-256-GCM come later, parameters recorded in the header. |
 | 🗂️ **Multiple formats** | Single file, split parts for FAT32, vault folder, nested container, k-of-n shards. |
-| 🚀 **Every platform** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux. |
+| 🚀 **Every platform** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux, `.deb`/`.rpm`, Flatpak. |
 | 🤖 **Android** | APK: USB drive over OTG, SAF + JNI, on-device vault creation, RU/EN, disguise, snow/rain/sun. |
 | 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, BIP39 recovery, Shamir secret sharing, snapshots. |
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
@@ -59,6 +59,7 @@
   <a href="#android"><img alt="Android" src="https://img.shields.io/badge/Android-APK-3DDC84?style=for-the-badge&logo=android&logoColor=white"></a>
   <a href="#linux"><img alt="Linux" src="https://img.shields.io/badge/Linux-x64_/_ARM64-FCC624?style=for-the-badge&logo=linux&logoColor=black"></a>
   <a href="#arch-linux"><img alt="Arch Linux" src="https://img.shields.io/badge/Arch_Linux-pkg-1793D1?style=for-the-badge&logo=archlinux&logoColor=white"></a>
+  <a href="#flatpak"><img alt="Flatpak" src="https://img.shields.io/badge/Flatpak-bundle-4A90D9?style=for-the-badge&logo=flatpak&logoColor=white"></a>
   <a href="#bsd"><img alt="BSD" src="https://img.shields.io/badge/BSD-FreeBSD_/_OpenBSD_/_NetBSD-AB2B28?style=for-the-badge&logo=freebsd&logoColor=white"></a>
 </p>
 
@@ -187,6 +188,39 @@ Recipes: [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD),
 [`packaging/aur/secretpiece-bin`](packaging/aur/secretpiece-bin/PKGBUILD) and
 [`packaging/aur/secretpiece`](packaging/aur/secretpiece/PKGBUILD). Releases ship
 both an `arch-x64` archive and a real `.pkg.tar.zst`.
+
+### Debian, Ubuntu, Fedora
+
+```bash
+# Debian / Ubuntu / Mint
+sudo apt install ./secretpiece-1.5-linux-x64.deb
+
+# Fedora / RHEL / openSUSE
+sudo dnf install ./secretpiece-1.5-linux-x64.rpm
+```
+
+The packages install `sp`, `secretpiece`, a menu entry and an icon; dependencies
+are `libx11`, `libxkbcommon`, `libgl`, `libegl` and `libwayland-client`.
+
+### Flatpak
+
+```bash
+# ready-made bundle from Releases
+flatpak install --user ./secretpiece-1.5-x86_64.flatpak
+flatpak run dev.secretpiece.SecretPiece
+```
+
+The sandbox can reach the home directory and removable drives, so a vault on a
+USB stick opens through "Browse…" as usual. Build the bundle yourself:
+
+```bash
+git archive --prefix=src/ -o packaging/flatpak/secretpiece-src.tar.gz HEAD
+flatpak-builder --user --force-clean --repo=flatpak-repo \
+  --default-branch=stable build-flatpak packaging/flatpak/dev.secretpiece.SecretPiece.yml
+flatpak build-bundle flatpak-repo secretpiece.flatpak dev.secretpiece.SecretPiece stable
+```
+
+The manifest and metadata live in [`packaging/flatpak`](packaging/flatpak).
 
 ### BSD
 
@@ -333,13 +367,15 @@ Hints are everywhere: in `sp-cli` errors, in `sp-cli df`, in the GUI banner, and
 | macOS 13+ | universal (Intel + Apple Silicon) GUI + CLI | v1.4 |
 | Android 8+ | APK (SAF + JNI), ARM64/ARMv7 | v1.5 (read + create) |
 | Linux | x64 GUI (glibc), x64/ARM64/ARMv7/RISC-V CLI | v1.5 |
+| Debian / Ubuntu / Fedora | `.deb` and `.rpm` with GUI, menu entry and icon | v1.5 |
+| Flatpak | x64 bundle, sandbox with USB access | v1.5 |
 | Alpine Linux | x64 CLI (musl) | v1.4 |
 | Arch Linux | x64 CLI, pacman package, PKGBUILD, AUR (yay/paru) | v1.5 |
 | FreeBSD | x64 (VM build) | experimental |
 | OpenBSD | x64 (VM build) | experimental |
 | NetBSD | x64 (VM build) | experimental |
 | Linux ARMv7 / RISC-V | prebuilt CLI (`linux-armv7-cli`, `linux-riscv64-cli`) | v1.5 |
-| Flatpak / AppImage | sandbox and portable image | planned v1.9 |
+| AppImage | portable image | planned v1.9 |
 
 ## 🛠️ Build and releases
 

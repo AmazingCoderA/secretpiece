@@ -44,5 +44,11 @@ android/.cxx/
 *.aab
 !docs/assets/*.apk
 
+# Packaging build output
+packaging/flatpak/secretpiece-src.tar.gz
+build-flatpak/
+flatpak-repo/
+pkgroot/
+
 # Local-only design document (kept out of the public repo)
 docs/TZ.ru.md

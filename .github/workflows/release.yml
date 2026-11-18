@@ -497,9 +497,105 @@ jobs:
           path: package/*.apk
           if-no-files-found: error
 
+  # Flatpak bundle for immutable distros (Silverblue, Kinoite, Endless, ...).
+  flatpak:
+    name: flatpak-x64
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install flatpak-builder
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y --user --noninteractive flathub \
+            org.freedesktop.Platform//24.08 \
+            org.freedesktop.Sdk//24.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//24.08
+
+      - name: Build bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="dev-${GITHUB_SHA::7}"
+          fi
+          git archive --prefix=src/ -o packaging/flatpak/secretpiece-src.tar.gz HEAD
+          flatpak-builder --user --force-clean --disable-rofiles-fuse \
+            --repo=flatpak-repo --default-branch=stable \
+            build-flatpak packaging/flatpak/dev.secretpiece.SecretPiece.yml
+          mkdir -p package
+          flatpak build-bundle flatpak-repo \
+            "package/secretpiece-${version}-x86_64.flatpak" \
+            dev.secretpiece.SecretPiece stable
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secretpiece-flatpak
+          path: package/*.flatpak
+          if-no-files-found: error
+
+  # Native .deb and .rpm built from the Linux GUI archive with nfpm.
+  packages:
+    name: linux-packages-x64
+    needs: gui
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          name: secretpiece-gui-linux-x64
+          path: artifacts
+
+      - name: Build .deb and .rpm
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="dev-${GITHUB_SHA::7}"
+          fi
+          version="${version//-/.}"
+          tar -xzf artifacts/*.tar.gz -C artifacts
+          src=$(find artifacts -maxdepth 1 -mindepth 1 -type d -name 'secretpiece-*-gui' | head -n 1)
+          mkdir -p pkgroot/usr/bin pkgroot/usr/share/applications \
+            pkgroot/usr/share/icons/hicolor/512x512/apps pkgroot/usr/share/metainfo \
+            pkgroot/usr/share/doc/secretpiece pkgroot/usr/share/licenses/secretpiece package
+          install -m755 "$src/sp" pkgroot/usr/bin/sp
+          install -m755 "$src/secretpiece" pkgroot/usr/bin/secretpiece
+          install -m644 packaging/flatpak/dev.secretpiece.SecretPiece.desktop pkgroot/usr/share/applications/
+          install -m644 packaging/icons/dev.secretpiece.SecretPiece.png pkgroot/usr/share/icons/hicolor/512x512/apps/
+          install -m644 packaging/flatpak/dev.secretpiece.SecretPiece.metainfo.xml pkgroot/usr/share/metainfo/
+          install -m644 README.md pkgroot/usr/share/doc/secretpiece/README.md
+          install -m644 LICENSE pkgroot/usr/share/licenses/secretpiece/LICENSE
+
+          curl -fsSL -o /tmp/nfpm.tar.gz \
+            https://github.com/goreleaser/nfpm/releases/download/v2.49.0/nfpm_2.49.0_Linux_x86_64.tar.gz
+          tar -xzf /tmp/nfpm.tar.gz -C /tmp nfpm
+          export VERSION="$version"
+          /tmp/nfpm package --config packaging/nfpm.yaml --packager deb \
+            --target "package/secretpiece-${version}-linux-x64.deb"
+          /tmp/nfpm package --config packaging/nfpm.yaml --packager rpm \
+            --target "package/secretpiece-${version}-linux-x64.rpm"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secretpiece-linux-packages
+          path: |
+            package/*.deb
+            package/*.rpm
+          if-no-files-found: error
+
   release:
     name: publish release
-    needs: [cli, gui, windows-arm64, arch, alpine, android]
+    needs: [cli, gui, windows-arm64, arch, alpine, android, flatpak, packages]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
@@ -514,7 +610,8 @@ jobs:
           set -euo pipefail
           cd dist
           mapfile -t files < <(find . -maxdepth 1 -type f \
-            \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.pkg.tar.zst' -o -name '*.apk' \) \
+            \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.pkg.tar.zst' \
+               -o -name '*.apk' -o -name '*.flatpak' -o -name '*.deb' -o -name '*.rpm' \) \
             -printf '%f\n' | sort)
           if [ "${#files[@]}" -eq 0 ]; then
             echo "no release archives were produced" >&2

@@ -45,6 +45,12 @@ from v1.4 open as before.
   `root / folder / sub`, and text previews can be copied to the clipboard.
 - **Linux ARMv7 and RISC-V 64 CLI builds** (`linux-armv7-cli`,
   `linux-riscv64-cli`) in the release matrix.
+- **`.deb` and `.rpm` packages**: the Linux GUI with a desktop entry, icon and
+  AppStream metadata, built from the release archive with `nfpm`.
+- **Flatpak bundle** (`dev.secretpiece.SecretPiece`): a manifest in
+  `packaging/flatpak`, a bundle in Releases, and USB/home access in the sandbox.
+- **Demo video and real screenshots**: `docs/assets/demo.mp4`, `demo.gif` and
+  `docs/assets/screens/*` are embedded in both READMEs.
 - **`sp-ffi` tests** for the exact creation path used by JNI: create + reopen a
   container, and reject an empty password.
 

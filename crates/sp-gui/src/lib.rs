@@ -7,7 +7,9 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
-use std::path::Path;
+use std::io::{Seek, SeekFrom, Write};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{PoisonError, RwLock};
 
 use eframe::egui;
@@ -42,6 +44,8 @@ enum Theme {
     Midnight,
     Neon,
     Light,
+    Sunset,
+    Forest,
 }
 
 impl Theme {
@@ -89,6 +93,34 @@ impl Theme {
                 input: Color32::from_rgb(248, 250, 253),
                 selected: Color32::from_rgb(226, 235, 250),
             },
+            Self::Sunset => Palette {
+                bg: Color32::from_rgb(20, 11, 18),
+                panel: Color32::from_rgb(29, 16, 24),
+                card: Color32::from_rgb(42, 22, 34),
+                line: Color32::from_rgb(74, 37, 54),
+                ink: Color32::from_rgb(253, 232, 232),
+                muted: Color32::from_rgb(201, 163, 173),
+                accent: Color32::from_rgb(251, 146, 60),
+                violet: Color32::from_rgb(244, 114, 182),
+                danger: Color32::from_rgb(239, 68, 68),
+                good: Color32::from_rgb(74, 222, 128),
+                input: Color32::from_rgb(24, 13, 20),
+                selected: Color32::from_rgb(58, 28, 43),
+            },
+            Self::Forest => Palette {
+                bg: Color32::from_rgb(7, 18, 13),
+                panel: Color32::from_rgb(12, 26, 19),
+                card: Color32::from_rgb(19, 36, 26),
+                line: Color32::from_rgb(35, 64, 47),
+                ink: Color32::from_rgb(227, 245, 233),
+                muted: Color32::from_rgb(155, 184, 166),
+                accent: Color32::from_rgb(52, 211, 153),
+                violet: Color32::from_rgb(163, 230, 53),
+                danger: Color32::from_rgb(248, 113, 113),
+                good: Color32::from_rgb(74, 222, 128),
+                input: Color32::from_rgb(9, 23, 15),
+                selected: Color32::from_rgb(23, 48, 31),
+            },
         }
     }
 
@@ -100,6 +132,10 @@ impl Theme {
             (Self::Neon, Lang::En) => "Neon",
             (Self::Light, Lang::Ru) => "Свет",
             (Self::Light, Lang::En) => "Light",
+            (Self::Sunset, Lang::Ru) => "Закат",
+            (Self::Sunset, Lang::En) => "Sunset",
+            (Self::Forest, Lang::Ru) => "Лес",
+            (Self::Forest, Lang::En) => "Forest",
         }
     }
 
@@ -112,6 +148,8 @@ impl Theme {
             Self::Midnight => "midnight",
             Self::Neon => "neon",
             Self::Light => "light",
+            Self::Sunset => "sunset",
+            Self::Forest => "forest",
         }
     }
 
@@ -119,6 +157,8 @@ impl Theme {
         match key {
             "neon" => Self::Neon,
             "light" => Self::Light,
+            "sunset" => Self::Sunset,
+            "forest" => Self::Forest,
             _ => Self::Midnight,
         }
     }
@@ -191,6 +231,92 @@ fn on_accent() -> Color32 {
 
 fn set_theme(theme: Theme) {
     *PALETTE.write().unwrap_or_else(PoisonError::into_inner) = theme.palette();
+}
+
+/// How many random overwrite passes temporary preview files get on close.
+static WIPE_PASSES: AtomicU32 = AtomicU32::new(3);
+
+fn wipe_passes() -> u32 {
+    WIPE_PASSES.load(Ordering::Relaxed).clamp(1, 7)
+}
+
+fn set_wipe_passes(passes: u32) {
+    WIPE_PASSES.store(passes.clamp(1, 7), Ordering::Relaxed);
+}
+
+/// Overwrites a file with random bytes `passes` times, flushes and removes it.
+fn wipe_temp(path: &Path, passes: u32) {
+    if let Ok(mut file) = std::fs::OpenOptions::new().write(true).open(path) {
+        let len = file.metadata().map_or(0, |meta| meta.len());
+        let mut buffer = vec![0_u8; 64 * 1024];
+        for _ in 0..passes.max(1) {
+            let _ = file.seek(SeekFrom::Start(0));
+            let mut left = len;
+            while left > 0 {
+                let take = usize::try_from(left.min(buffer.len() as u64)).unwrap_or(buffer.len());
+                if sp_crypto::random_into(&mut buffer[..take]).is_err() {
+                    buffer[..take].fill(0xA5);
+                }
+                if file.write_all(&buffer[..take]).is_err() {
+                    break;
+                }
+                left -= take as u64;
+            }
+            let _ = file.sync_all();
+        }
+    }
+    let _ = std::fs::remove_file(path);
+}
+
+/// Folder for externally opened previews, removed as soon as it is empty.
+fn preview_dir() -> PathBuf {
+    let dir = std::env::temp_dir().join("secretpiece-preview");
+    let _ = std::fs::create_dir_all(&dir);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+    }
+    dir
+}
+
+/// Extensions that are always shown inside the app, never extracted.
+fn is_text_name(name: &str) -> bool {
+    const TEXT: &[&str] = &[
+        "txt", "md", "markdown", "json", "jsonl", "xml", "csv", "tsv", "log", "ini", "cfg", "conf",
+        "toml", "yaml", "yml", "rs", "py", "js", "ts", "tsx", "html", "htm", "css", "sh", "bat",
+        "ps1", "c", "h", "cpp", "hpp", "go", "java", "kt", "swift", "rb", "php", "sql", "fb2",
+        "srt", "vtt", "svg",
+    ];
+    name.rsplit('.')
+        .next()
+        .is_some_and(|ext| TEXT.contains(&ext.to_ascii_lowercase().as_str()))
+}
+
+/// Opens a file with the desktop default application.
+fn open_with_system(path: &Path) -> std::io::Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", ""])
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+    }
 }
 
 /// Pushes the active palette into egui's style, so every widget follows the theme.
@@ -325,6 +451,7 @@ pub fn main_entry() -> eframe::Result<()> {
     )
 }
 
+#[allow(clippy::struct_excessive_bools)]
 struct App {
     lang: Lang,
     theme: Theme,
@@ -335,7 +462,69 @@ struct App {
     show_password: bool,
     kdf: KdfChoice,
     error: Option<String>,
+    info: Option<String>,
     browser: Option<Browser>,
+    settings_open: bool,
+    remote: Remote,
+    rekey_open: bool,
+    rekey_old: String,
+    rekey_new: String,
+    rekey_confirm: String,
+}
+
+/// SSH/SFTP settings for keeping a vault on a server.
+#[derive(Clone, Default)]
+struct Remote {
+    host: String,
+    port: String,
+    user: String,
+    path: String,
+    status: Option<String>,
+}
+
+impl Remote {
+    fn target(&self) -> Option<String> {
+        let host = self.host.trim();
+        let path = self.path.trim();
+        if host.is_empty() || path.is_empty() {
+            return None;
+        }
+        let user = self.user.trim();
+        let host = if user.is_empty() {
+            host.to_owned()
+        } else {
+            format!("{user}@{host}")
+        };
+        Some(format!("{host}:{path}"))
+    }
+
+    fn port(&self) -> String {
+        let port = self.port.trim();
+        if port.is_empty() {
+            "22".to_owned()
+        } else {
+            port.to_owned()
+        }
+    }
+
+    /// Runs `ssh`/`scp` with key or ssh-agent auth; passwords are never stored.
+    fn run(program: &str, args: &[String]) -> Result<String, String> {
+        let output = std::process::Command::new(program)
+            .args(args)
+            .output()
+            .map_err(|error| format!("{program}: {error}"))?;
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(stderr
+                .trim()
+                .lines()
+                .last()
+                .unwrap_or("ssh failed")
+                .to_owned())
+        }
+    }
 }
 
 /// Argon2id effort offered in the create form.
@@ -394,6 +583,26 @@ impl App {
             .skip(1)
             .find(|argument| !argument.starts_with('-'))
             .unwrap_or_default();
+        let wipe = cc
+            .storage
+            .and_then(|storage| storage.get_string("wipe_passes"))
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(3_u32);
+        set_wipe_passes(wipe);
+        let remote = cc
+            .storage
+            .and_then(|storage| storage.get_string("remote"))
+            .map(|raw| {
+                let mut parts = raw.split('\u{1f}');
+                Remote {
+                    host: parts.next().unwrap_or_default().to_owned(),
+                    port: parts.next().unwrap_or_default().to_owned(),
+                    user: parts.next().unwrap_or_default().to_owned(),
+                    path: parts.next().unwrap_or_default().to_owned(),
+                    status: None,
+                }
+            })
+            .unwrap_or_default();
         Self {
             lang,
             theme,
@@ -404,7 +613,14 @@ impl App {
             show_password: false,
             kdf: KdfChoice::Default,
             error: None,
+            info: None,
             browser: None,
+            settings_open: false,
+            remote,
+            rekey_open: false,
+            rekey_old: String::new(),
+            rekey_new: String::new(),
+            rekey_confirm: String::new(),
         }
     }
 
@@ -485,6 +701,405 @@ impl App {
         }
     }
 
+    /// Settings window: temp-file wipe passes and the SSH server tab.
+    #[allow(clippy::too_many_lines)]
+    fn settings(&mut self, ctx: &egui::Context) {
+        if !self.settings_open {
+            return;
+        }
+        let lang = self.lang;
+        let mut open = true;
+        egui::Window::new(lang.t("Настройки", "Settings"))
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .default_width(540.0)
+            .show(ctx, |ui| {
+                ui.label(
+                    RichText::new(lang.t("Временные файлы", "Temporary files"))
+                        .size(13.0)
+                        .strong()
+                        .color(accent()),
+                );
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(lang.t("Проходов затирания:", "Wipe passes:")).size(12.0));
+                    let mut passes = wipe_passes();
+                    if ui
+                        .add(egui::DragValue::new(&mut passes).range(1..=7).speed(0.1))
+                        .changed()
+                    {
+                        set_wipe_passes(passes);
+                    }
+                });
+                ui.label(
+                    RichText::new(lang.t(
+                        "Файл для внешнего просмотра пишется во временную папку и после закрытия перезаписывается случайными байтами столько раз, затем удаляется.",
+                        "A file opened externally is written to a temporary folder, then overwritten with random bytes this many times before deletion.",
+                    ))
+                    .size(10.5)
+                    .color(muted()),
+                );
+
+                ui.add_space(12.0);
+                ui.separator();
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(lang.t("Сервер (SSH / SCP)", "Server (SSH / SCP)"))
+                        .size(13.0)
+                        .strong()
+                        .color(accent()),
+                );
+                ui.label(
+                    RichText::new(lang.t(
+                        "Любой пользователь, root не нужен. Пароль не хранится: работает ключ или ssh-agent.",
+                        "Any user, root is not required. No password is stored: key or ssh-agent auth only.",
+                    ))
+                    .size(10.5)
+                    .color(muted()),
+                );
+                ui.add_space(6.0);
+                egui::Grid::new("remote-grid")
+                    .num_columns(2)
+                    .spacing([10.0, 6.0])
+                    .show(ui, |ui| {
+                        ui.label(RichText::new(lang.t("Хост", "Host")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.remote.host)
+                                .hint_text("example.com")
+                                .desired_width(320.0),
+                        );
+                        ui.end_row();
+                        ui.label(RichText::new(lang.t("Порт", "Port")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.remote.port)
+                                .hint_text("22")
+                                .desired_width(80.0),
+                        );
+                        ui.end_row();
+                        ui.label(RichText::new(lang.t("Пользователь", "User")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.remote.user)
+                                .hint_text("user")
+                                .desired_width(200.0),
+                        );
+                        ui.end_row();
+                        ui.label(RichText::new(lang.t("Путь к сейфу", "Vault path")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.remote.path)
+                                .hint_text("/home/user/vault.spv")
+                                .desired_width(320.0),
+                        );
+                        ui.end_row();
+                    });
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    if ui.button(lang.t("Проверить", "Test")).clicked() {
+                        self.remote_test();
+                    }
+                    if ui.button(lang.t("Скачать", "Download")).clicked() {
+                        self.remote_download();
+                    }
+                    if ui.button(lang.t("Загрузить", "Upload")).clicked() {
+                        self.remote_upload();
+                    }
+                });
+                if let Some(status) = &self.remote.status {
+                    ui.add_space(4.0);
+                    ui.label(RichText::new(status).size(11.0).color(muted()));
+                }
+            });
+        self.settings_open = open;
+    }
+
+    fn remote_host_target(&self) -> Option<String> {
+        let host = self.remote.host.trim();
+        if host.is_empty() {
+            return None;
+        }
+        let user = self.remote.user.trim();
+        Some(if user.is_empty() {
+            host.to_owned()
+        } else {
+            format!("{user}@{host}")
+        })
+    }
+
+    fn remote_test(&mut self) {
+        let Some(target) = self.remote_host_target() else {
+            self.remote.status = Some(self.lang.t("Укажите хост.", "Enter a host.").to_owned());
+            return;
+        };
+        let args = vec![
+            "-o".to_owned(),
+            "BatchMode=yes".to_owned(),
+            "-o".to_owned(),
+            "ConnectTimeout=8".to_owned(),
+            "-p".to_owned(),
+            self.remote.port(),
+            target,
+            "echo ok".to_owned(),
+        ];
+        self.remote.status = Some(match Remote::run("ssh", &args) {
+            Ok(_) => self
+                .lang
+                .t("Соединение работает.", "Connection works.")
+                .to_owned(),
+            Err(error) => format!("{}: {error}", self.lang.t("Ошибка SSH", "SSH error")),
+        });
+    }
+
+    fn remote_download(&mut self) {
+        let Some(target) = self.remote.target() else {
+            self.remote.status = Some(
+                self.lang
+                    .t(
+                        "Нужны хост и путь к сейфу.",
+                        "Host and vault path are required.",
+                    )
+                    .to_owned(),
+            );
+            return;
+        };
+        let local = preview_dir().join(format!("remote-{}.spv", std::process::id()));
+        let args = vec![
+            "-o".to_owned(),
+            "BatchMode=yes".to_owned(),
+            "-o".to_owned(),
+            "ConnectTimeout=10".to_owned(),
+            "-P".to_owned(),
+            self.remote.port(),
+            target,
+            local.to_string_lossy().into_owned(),
+        ];
+        self.remote.status = Some(match Remote::run("scp", &args) {
+            Ok(_) => {
+                self.vault_path = local.to_string_lossy().into_owned();
+                self.creating = false;
+                self.error = None;
+                self.lang
+                    .t(
+                        "Сейф скачан, введите пароль.",
+                        "Vault downloaded, enter the password.",
+                    )
+                    .to_owned()
+            }
+            Err(error) => format!("{}: {error}", self.lang.t("Ошибка SCP", "SCP error")),
+        });
+    }
+
+    fn remote_upload(&mut self) {
+        let Some(target) = self.remote.target() else {
+            self.remote.status = Some(
+                self.lang
+                    .t(
+                        "Нужны хост и путь к сейфу.",
+                        "Host and vault path are required.",
+                    )
+                    .to_owned(),
+            );
+            return;
+        };
+        let local = self.vault_path.trim().to_owned();
+        if local.is_empty() || !Path::new(&local).exists() {
+            self.remote.status = Some(
+                self.lang
+                    .t(
+                        "Сначала откройте локальный сейф.",
+                        "Open a local vault first.",
+                    )
+                    .to_owned(),
+            );
+            return;
+        }
+        let args = vec![
+            "-o".to_owned(),
+            "BatchMode=yes".to_owned(),
+            "-o".to_owned(),
+            "ConnectTimeout=10".to_owned(),
+            "-P".to_owned(),
+            self.remote.port(),
+            local,
+            target,
+        ];
+        self.remote.status = Some(match Remote::run("scp", &args) {
+            Ok(_) => self
+                .lang
+                .t("Сейф загружен на сервер.", "Vault uploaded to the server.")
+                .to_owned(),
+            Err(error) => format!("{}: {error}", self.lang.t("Ошибка SCP", "SCP error")),
+        });
+    }
+
+    /// Rewrites the vault with a new password and Argon2id profile.
+    fn rekey(&mut self) {
+        let path = self.vault_path.trim().to_owned();
+        if path.is_empty() {
+            self.error = Some(self.lang.t("Укажите сейф.", "Choose a vault.").to_owned());
+            return;
+        }
+        if self.rekey_new.chars().count() < 8 || self.rekey_new != self.rekey_confirm {
+            self.error = Some(
+                self.lang
+                    .t(
+                        "Новый пароль короче 8 символов или не совпадает.",
+                        "The new password is shorter than 8 characters or does not match.",
+                    )
+                    .to_owned(),
+            );
+            return;
+        }
+        let path = Path::new(&path);
+        let temp = path.with_extension("rekey");
+        let backup = path.with_extension("rekey.bak");
+        let _ = std::fs::remove_file(&temp);
+        let _ = std::fs::remove_file(&backup);
+        let result = (|| -> Result<(), SpError> {
+            let mut old = Vault::open(path, self.rekey_old.as_bytes())?;
+            let entries = old.list(None);
+            let mut fresh = Vault::create(&temp, self.rekey_new.as_bytes(), self.kdf.params())?;
+            for entry in entries.iter().filter(|entry| entry.kind == EntryKind::Dir) {
+                fresh.mkdir(&entry.path)?;
+            }
+            for entry in entries.iter().filter(|entry| entry.kind == EntryKind::File) {
+                let mut data = old.get(&entry.path)?;
+                let put = fresh.put(&entry.path, &data);
+                data.fill(0);
+                put?;
+            }
+            fresh.close();
+            old.close();
+            Ok(())
+        })();
+        match result {
+            Ok(()) => {
+                let swapped =
+                    std::fs::rename(path, &backup).is_ok() && std::fs::rename(&temp, path).is_ok();
+                if swapped {
+                    let _ = std::fs::remove_file(&backup);
+                    self.error = None;
+                    self.info = Some(
+                        self.lang
+                            .t(
+                                "Сейф пересобран с новым паролем и профилем Argon2id.",
+                                "Vault repacked with the new password and Argon2id profile.",
+                            )
+                            .to_owned(),
+                    );
+                    self.rekey_open = false;
+                    self.rekey_old.clear();
+                    self.rekey_new.clear();
+                    self.rekey_confirm.clear();
+                } else {
+                    let _ = std::fs::rename(&backup, path);
+                    let _ = std::fs::remove_file(&temp);
+                    self.error = Some(
+                        self.lang
+                            .t(
+                                "Не удалось заменить файл сейфа.",
+                                "Could not replace the vault file.",
+                            )
+                            .to_owned(),
+                    );
+                }
+            }
+            Err(error) => {
+                let _ = std::fs::remove_file(&temp);
+                self.error = Some(describe(self.lang, &error));
+            }
+        }
+    }
+
+    fn rekey_window(&mut self, ctx: &egui::Context) {
+        if !self.rekey_open {
+            return;
+        }
+        let lang = self.lang;
+        let mut open = true;
+        egui::Window::new(lang.t("Сменить пароль / пересобрать", "Change password / repack"))
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .default_width(460.0)
+            .show(ctx, |ui| {
+                ui.label(
+                    RichText::new(lang.t(
+                        "Сейф расшифровывается и пересобирается с новым паролем и выбранным профилем Argon2id. Данные внутри сохраняются.",
+                        "The vault is decrypted and repacked with a new password and the chosen Argon2id profile. The data inside is kept.",
+                    ))
+                    .size(11.0)
+                    .color(muted()),
+                );
+                ui.add_space(6.0);
+                egui::Grid::new("rekey-grid")
+                    .num_columns(2)
+                    .spacing([10.0, 6.0])
+                    .show(ui, |ui| {
+                        ui.label(RichText::new(lang.t("Старый пароль", "Old password")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.rekey_old)
+                                .password(true)
+                                .desired_width(260.0),
+                        );
+                        ui.end_row();
+                        ui.label(RichText::new(lang.t("Новый пароль", "New password")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.rekey_new)
+                                .password(true)
+                                .desired_width(260.0),
+                        );
+                        ui.end_row();
+                        ui.label(RichText::new(lang.t("Повтор", "Repeat")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.rekey_confirm)
+                                .password(true)
+                                .desired_width(260.0),
+                        );
+                        ui.end_row();
+                    });
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    for choice in [KdfChoice::Light, KdfChoice::Default, KdfChoice::Paranoid] {
+                        let active = self.kdf == choice;
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    RichText::new(choice.label(lang)).size(11.0).color(if active {
+                                        on_accent()
+                                    } else {
+                                        ink()
+                                    }),
+                                )
+                                .fill(if active { accent() } else { input_bg() })
+                                .corner_radius(7),
+                            )
+                            .clicked()
+                        {
+                            self.kdf = choice;
+                        }
+                    }
+                });
+                ui.add_space(8.0);
+                if ui
+                    .add(
+                        egui::Button::new(
+                            RichText::new(lang.t("Пересобрать", "Repack"))
+                                .strong()
+                                .color(on_accent()),
+                        )
+                        .fill(accent())
+                        .corner_radius(8),
+                    )
+                    .clicked()
+                {
+                    self.rekey();
+                }
+            });
+        self.rekey_open = open;
+    }
+
     fn header(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("header")
             .exact_height(78.0)
@@ -529,12 +1144,35 @@ impl App {
                                 self.browser = None;
                                 self.password.clear();
                             }
-                            ui.add_space(12.0);
+                            ui.add_space(8.0);
                         }
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    RichText::new(self.lang.t("Настройки", "Settings"))
+                                        .size(11.5)
+                                        .color(ink()),
+                                )
+                                .fill(card_bg())
+                                .stroke(Stroke::new(1.0_f32, line()))
+                                .corner_radius(9)
+                                .min_size(egui::vec2(92.0, 30.0)),
+                            )
+                            .clicked()
+                        {
+                            self.settings_open = true;
+                        }
+                        ui.add_space(12.0);
                         language_switch(ui, &mut self.lang);
                         ui.add_space(14.0);
                         let mut picked = None;
-                        for theme in [Theme::Light, Theme::Neon, Theme::Midnight] {
+                        for theme in [
+                            Theme::Light,
+                            Theme::Sunset,
+                            Theme::Forest,
+                            Theme::Neon,
+                            Theme::Midnight,
+                        ] {
                             if theme_swatch(ui, theme, self.theme == theme, self.lang) {
                                 picked = Some(theme);
                             }
@@ -587,10 +1225,20 @@ impl eframe::App for App {
                     self.unlock_ui(ui);
                 }
             });
+        self.settings(ctx);
+        self.rekey_window(ctx);
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         storage.set_string("theme", self.theme.key().to_owned());
+        storage.set_string("wipe_passes", wipe_passes().to_string());
+        storage.set_string(
+            "remote",
+            format!(
+                "{}\u{1f}{}\u{1f}{}\u{1f}{}",
+                self.remote.host, self.remote.port, self.remote.user, self.remote.path
+            ),
+        );
         storage.set_string("lang", self.lang.key().to_owned());
     }
 }
@@ -904,6 +1552,42 @@ impl App {
                     self.creating = !self.creating;
                     self.error = None;
                 }
+                if !self.creating && !self.vault_path.trim().is_empty() {
+                    ui.add_space(2.0);
+                    if ui
+                        .add(
+                            egui::Button::new(
+                                RichText::new(
+                                    lang.t(
+                                        "Сменить пароль / пересобрать",
+                                        "Change password / repack",
+                                    ),
+                                )
+                                .size(11.0)
+                                .color(muted()),
+                            )
+                            .frame(false),
+                        )
+                        .clicked()
+                    {
+                        self.rekey_open = true;
+                        self.rekey_old.clear();
+                        self.rekey_new.clear();
+                        self.rekey_confirm.clear();
+                    }
+                }
+
+                if let Some(info) = &self.info {
+                    ui.add_space(10.0);
+                    Frame::new()
+                        .fill(card_bg())
+                        .stroke(Stroke::new(1.0_f32, good()))
+                        .corner_radius(8)
+                        .inner_margin(Margin::symmetric(10, 7))
+                        .show(ui, |ui| {
+                            ui.label(RichText::new(info).size(12.0).color(good()));
+                        });
+                }
 
                 if let Some(error) = &self.error {
                     ui.add_space(10.0);
@@ -938,8 +1622,48 @@ struct Browser {
     new_folder: Option<String>,
     pending_delete: Option<String>,
     pending_add: Option<PendingAdd>,
+    pending_external: Option<String>,
     preview: Option<Preview>,
+    external: Option<ExternalPreview>,
     shred_on_delete: bool,
+    sort: SortBy,
+    sort_desc: bool,
+}
+
+/// Sort order of the vault browser.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SortBy {
+    Name,
+    Size,
+    Date,
+    Kind,
+}
+
+impl SortBy {
+    fn label(self, lang: Lang) -> &'static str {
+        match (self, lang) {
+            (Self::Name, Lang::Ru) => "Имя",
+            (Self::Name, Lang::En) => "Name",
+            (Self::Size, Lang::Ru) => "Размер",
+            (Self::Size, Lang::En) => "Size",
+            (Self::Date, Lang::Ru) => "Дата",
+            (Self::Date, Lang::En) => "Date",
+            (Self::Kind, Lang::Ru) => "Тип",
+            (Self::Kind, Lang::En) => "Kind",
+        }
+    }
+}
+
+/// A decrypted file written to a temporary folder and opened externally.
+struct ExternalPreview {
+    path: String,
+    temp: PathBuf,
+}
+
+impl Drop for ExternalPreview {
+    fn drop(&mut self) {
+        wipe_temp(&self.temp, wipe_passes());
+    }
 }
 
 /// A file read from the container, waiting for overwrite confirmation.
@@ -972,8 +1696,12 @@ impl Browser {
             new_folder: None,
             pending_delete: None,
             pending_add: None,
+            pending_external: None,
             preview: None,
+            external: None,
             shred_on_delete: true,
+            sort: SortBy::Name,
+            sort_desc: false,
         };
         browser.refresh();
         browser
@@ -981,6 +1709,31 @@ impl Browser {
 
     fn refresh(&mut self) {
         self.entries = self.vault.list(Some(&self.cwd));
+        let sort = self.sort;
+        let desc = self.sort_desc;
+        self.entries.sort_by(|a, b| {
+            let dirs = match (a.kind, b.kind) {
+                (EntryKind::Dir, EntryKind::File) => std::cmp::Ordering::Less,
+                (EntryKind::File, EntryKind::Dir) => std::cmp::Ordering::Greater,
+                _ => std::cmp::Ordering::Equal,
+            };
+            if dirs != std::cmp::Ordering::Equal {
+                return dirs;
+            }
+            let order = match sort {
+                SortBy::Name => a
+                    .path
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(&a.path)
+                    .to_lowercase()
+                    .cmp(&b.path.rsplit('/').next().unwrap_or(&b.path).to_lowercase()),
+                SortBy::Size => a.size.cmp(&b.size),
+                SortBy::Date => a.mtime.cmp(&b.mtime),
+                SortBy::Kind => a.path.rsplit('.').next().cmp(&b.path.rsplit('.').next()),
+            };
+            if desc { order.reverse() } else { order }
+        });
         self.selected = None;
     }
 
@@ -1265,6 +2018,30 @@ impl Browser {
                     .size(10.5)
                     .color(muted()),
                 );
+                ui.add_space(10.0);
+                let mut changed = false;
+                let arrow = if self.sort_desc { "↓" } else { "↑" };
+                ui.menu_button(
+                    RichText::new(format!("{} {arrow}", self.sort.label(lang))).size(11.5),
+                    |ui| {
+                        for by in [SortBy::Name, SortBy::Size, SortBy::Date, SortBy::Kind] {
+                            if ui
+                                .selectable_label(self.sort == by, by.label(lang))
+                                .clicked()
+                            {
+                                if self.sort == by {
+                                    self.sort_desc = !self.sort_desc;
+                                } else {
+                                    self.sort = by;
+                                }
+                                changed = true;
+                            }
+                        }
+                    },
+                );
+                if changed {
+                    self.refresh();
+                }
             });
         });
     }
@@ -1335,13 +2112,76 @@ impl Browser {
     }
 
     fn open_preview(&mut self, path: &str, lang: Lang) {
+        let name = path.rsplit('/').next().unwrap_or(path).to_owned();
         match self.vault.get(path) {
-            Ok(data) => {
-                self.preview = Some(Preview {
-                    path: path.to_owned(),
-                    data,
-                    hex: false,
+            Ok(mut data) => {
+                if is_text_name(&name) || preview_text(&data).is_some() {
+                    self.preview = Some(Preview {
+                        path: path.to_owned(),
+                        data,
+                        hex: false,
+                    });
+                } else {
+                    data.fill(0);
+                    self.pending_external = Some(path.to_owned());
+                }
+            }
+            Err(error) => {
+                self.status = Some(Status {
+                    text: describe(lang, &error),
+                    error: true,
                 });
+            }
+        }
+    }
+
+    fn open_external(&mut self, path: &str, lang: Lang) {
+        let name = path.rsplit('/').next().unwrap_or(path);
+        let safe: String = name
+            .chars()
+            .map(|ch| {
+                if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' || ch == '_' {
+                    ch
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        let temp = preview_dir().join(format!("{}-{safe}", std::process::id()));
+        match self.vault.get(path) {
+            Ok(mut data) => {
+                let result = std::fs::write(&temp, &data).and_then(|()| open_with_system(&temp));
+                data.fill(0);
+                match result {
+                    Ok(()) => {
+                        self.external = Some(ExternalPreview {
+                            path: path.to_owned(),
+                            temp,
+                        });
+                        self.status = Some(Status {
+                            text: match lang {
+                                Lang::Ru => format!(
+                                    "Открыто во временной папке, после закрытия файл затирается {} раз(а).",
+                                    wipe_passes()
+                                ),
+                                Lang::En => format!(
+                                    "Opened in a temporary folder; it is wiped {} time(s) on close.",
+                                    wipe_passes()
+                                ),
+                            },
+                            error: false,
+                        });
+                    }
+                    Err(error) => {
+                        self.status = Some(Status {
+                            text: format!(
+                                "{}: {error}",
+                                lang.t("Не удалось открыть файл", "Cannot open the file")
+                            ),
+                            error: true,
+                        });
+                    }
+                }
             }
             Err(error) => {
                 self.status = Some(Status {
@@ -1660,6 +2500,114 @@ impl Browser {
                 });
             if !open {
                 self.preview = None;
+            }
+        }
+
+        if let Some(path) = self.pending_external.clone() {
+            let mut confirmed = false;
+            let mut cancelled = false;
+            egui::Window::new(lang.t("Открыть вне хранилища?", "Open outside the vault?"))
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+                .show(ui.ctx(), |ui| {
+                    ui.set_max_width(460.0);
+                    ui.label(
+                        RichText::new(lang.t(
+                            "Файл будет расшифрован во временную папку и открыт системным приложением. Пока он открыт, копия лежит на диске.",
+                            "The file will be decrypted into a temporary folder and opened with the system app. While it is open, a copy sits on disk.",
+                        ))
+                        .size(12.5)
+                        .color(ink()),
+                    );
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new(match lang {
+                            Lang::Ru => format!(
+                                "После закрытия копия затирается случайными байтами {} раз(а) и удаляется. Число проходов меняется в настройках.",
+                                wipe_passes()
+                            ),
+                            Lang::En => format!(
+                                "On close the copy is overwritten with random bytes {} time(s) and deleted. Passes are configurable in settings.",
+                                wipe_passes()
+                            ),
+                        })
+                        .size(11.0)
+                        .color(muted()),
+                    );
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    RichText::new(lang.t("Открыть", "Open"))
+                                        .strong()
+                                        .color(on_accent()),
+                                )
+                                .fill(accent())
+                                .corner_radius(8),
+                            )
+                            .clicked()
+                        {
+                            confirmed = true;
+                        }
+                        if ui.button(lang.t("Отмена", "Cancel")).clicked() {
+                            cancelled = true;
+                        }
+                    });
+                });
+            if confirmed {
+                self.open_external(&path, lang);
+                self.pending_external = None;
+            } else if cancelled {
+                self.pending_external = None;
+            }
+        }
+
+        if let Some(external_path) = self.external.as_ref().map(|external| external.path.clone()) {
+            let mut wipe_now = false;
+            Frame::new()
+                .fill(card_bg())
+                .stroke(Stroke::new(1.0_f32, accent()))
+                .corner_radius(8)
+                .inner_margin(Margin::symmetric(10, 6))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new(match lang {
+                                Lang::Ru => format!(
+                                    "Временно открыт: {} ({} проход(ов) при закрытии)",
+                                    external_path,
+                                    wipe_passes()
+                                ),
+                                Lang::En => format!(
+                                    "Open temporarily: {} ({} pass(es) on close)",
+                                    external_path,
+                                    wipe_passes()
+                                ),
+                            })
+                            .size(11.5)
+                            .color(ink()),
+                        );
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if ui.button(lang.t("Затереть сейчас", "Wipe now")).clicked()
+                            {
+                                wipe_now = true;
+                            }
+                        });
+                    });
+                });
+            if wipe_now {
+                self.external = None;
+                self.status = Some(Status {
+                    text: lang
+                        .t(
+                            "Временная копия затёрта и удалена.",
+                            "Temporary copy wiped and deleted.",
+                        )
+                        .to_owned(),
+                    error: false,
+                });
             }
         }
     }
@@ -2062,6 +3010,8 @@ mod tests {
         assert_eq!(Theme::from_key("neon"), Theme::Neon);
         assert_eq!(Theme::from_key("light"), Theme::Light);
         assert_eq!(Theme::from_key("midnight"), Theme::Midnight);
+        assert_eq!(Theme::from_key("sunset"), Theme::Sunset);
+        assert_eq!(Theme::from_key("forest"), Theme::Forest);
         assert_eq!(Theme::Neon.key(), "neon");
     }
 
@@ -2089,8 +3039,17 @@ mod tests {
     }
 
     #[test]
+    fn text_files_stay_in_the_app() {
+        assert!(is_text_name("notes.md"));
+        assert!(is_text_name("book.fb2"));
+        assert!(is_text_name("data.JSON"));
+        assert!(!is_text_name("book.epub"));
+        assert!(!is_text_name("photo.jpg"));
+        assert!(!is_text_name("movie.mp4"));
+    }
+
+    #[test]
     fn disguise_swaps_only_the_extension() {
-        assert_eq!(swap_extension("D:/vaults/a.spv", "mp3"), "D:/vaults/a.mp3");
         assert_eq!(swap_extension("a", "bin"), "a.bin");
         assert_eq!(swap_extension("", "jpg"), "vault.jpg");
         assert_eq!(

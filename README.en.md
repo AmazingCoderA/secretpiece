@@ -50,6 +50,9 @@
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
 | 🎨 **Live interface** | Three themes (Midnight / Neon / Light), gradient accents, responsive layout, in-vault text and hex preview, drag & drop into the window. |
 | ⚡ **Speed and size** | 1 MiB chunks instead of 64 KiB, index up to 256 MiB: fewer AEAD calls, faster on large files, older vaults still open. |
+| 🎛️ **Tunable** | Five themes (Midnight, Neon, Light, Sunset, Forest), sort by name/size/date/kind, 1–7 wipe passes. |
+| 🎬 **Any format** | Text, JSON, FB2 and code stay in the app; video, images, EPUB and archives open from a temp folder after a warning and are wiped on close. |
+| 🖥️ **SSH server** | Host, port, user and path with download/upload; any user, no root required. |
 | 🌍 **RU / EN** | Interface and hints in Russian and English, auto-detection, `--lang`. |
 
 ## 📦 Installation

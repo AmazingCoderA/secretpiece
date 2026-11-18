@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-18
+
+Five themes, sorting, external preview with a configurable wipe, password
+repack and an SSH server tab. The vault format is unchanged.
+
+### Added
+
+- **Sorting in the vault browser**: by name, size, date or kind, ascending or
+  descending, chosen from a menu in the breadcrumb bar; folders stay on top.
+- **Two more themes**: Sunset (orange/pink) and Forest (green), joining
+  Midnight, Neon and Light; the choice is remembered.
+- **Any file can be viewed**: text-like formats (including `json`, `fb2`, `xml`,
+  `csv`, code) still open in the in-app viewer, while everything else — video,
+  images, `epub`, archives — is decrypted into a temporary folder and opened
+  with the system application after a warning.
+- **Configurable wipe**: temporary preview copies are overwritten with random
+  bytes N times (1–7, default 3) and deleted on close or via "Wipe now"; the
+  count lives in the new Settings window.
+- **Change password / repack**: decrypts the vault and rewrites it with a new
+  password and Argon2id profile, keeping the data and replacing the file
+  atomically with a backup.
+- **Server tab (SSH/SCP)**: host, port, user and remote path, with Test,
+  Download and Upload buttons. Any user works (root is not required); keys or
+  ssh-agent are used, passwords are never stored.
+
 ## [1.7.0] - 2026-11-18
 
 Faster and roomier vaults, drag-and-drop on the desktop, more disguise shells,

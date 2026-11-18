@@ -15,7 +15,7 @@ sp-core.workspace = true
 sp-crypto.workspace = true
 sp-format.workspace = true
 sp-vault.workspace = true
-jni = "0.21"
+jni = "0.22"
 serde_json.workspace = true
 
 [lints.rust]

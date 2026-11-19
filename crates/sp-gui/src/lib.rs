@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
+use std::collections::BTreeSet;
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -348,6 +349,13 @@ fn is_text_name(name: &str) -> bool {
         .is_some_and(|ext| TEXT.contains(&ext.to_ascii_lowercase().as_str()))
 }
 
+/// Tabular files that get a grid view in the preview window.
+fn is_table_name(name: &str) -> bool {
+    name.rsplit('.')
+        .next()
+        .is_some_and(|ext| matches!(ext.to_ascii_lowercase().as_str(), "csv" | "tsv"))
+}
+
 /// Opens a file with the desktop default application.
 fn open_with_system(path: &Path) -> std::io::Result<()> {
     #[cfg(target_os = "windows")]
@@ -522,6 +530,7 @@ struct App {
     browser: Option<Browser>,
     settings_open: bool,
     server_open: bool,
+    help_open: bool,
     presets: Vec<Preset>,
     preset_name: String,
     show_presets: bool,
@@ -1100,6 +1109,7 @@ impl App {
             browser: None,
             settings_open: false,
             server_open: false,
+            help_open: false,
             presets,
             preset_name: String::new(),
             show_presets,
@@ -1125,8 +1135,8 @@ impl App {
             );
             return;
         }
-        if self.creating && !path.to_ascii_lowercase().ends_with(".spv") {
-            path.push_str(".spv");
+        if self.creating && Path::new(&path).extension().is_none() {
+            path.push_str(".mp4");
             self.vault_path.clone_from(&path);
         }
         if self.password.is_empty() {
@@ -1473,6 +1483,90 @@ impl App {
         });
     }
 
+    /// Built-in quick help in both languages.
+    fn help_window(&mut self, ctx: &egui::Context) {
+        if !self.help_open {
+            return;
+        }
+        let lang = self.lang;
+        let mut open = true;
+        egui::Window::new(lang.t("Справка", "Help"))
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(true)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .default_width(560.0)
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(520.0)
+                    .auto_shrink([false, true])
+                    .show(ui, |ui| {
+                        let sections = [
+                            (
+                                lang.t("Создание сейфа", "Creating a vault"),
+                                lang.t(
+                                    "«Создать новое хранилище» → имя и оболочка (.mp4, .png, .docx, .md…) → пароль от 8 символов. Внутри всё равно контейнер SPV1, расширение — маскировка.",
+                                    "Create a new vault → name and shell (.mp4, .png, .docx, .md…) → password of 8+ characters. Inside it is always an SPV1 container; the extension is disguise.",
+                                ),
+                            ),
+                            (
+                                lang.t("Сервер SSH / FTP", "SSH / FTP server"),
+                                lang.t(
+                                    "Кнопка «Сервер» или плашка под входом. SSH использует ключ или ssh-agent автоматически; FTP — логин и пароль. Пресеты сохраняются, пароль — только если разрешено в настройках.",
+                                    "The Server button or the plaque under the form. SSH uses a key or ssh-agent automatically; FTP uses login and password. Presets are saved; the password only when allowed in Settings.",
+                                ),
+                            ),
+                            (
+                                lang.t("Папки и перемещение", "Folders and moving"),
+                                lang.t(
+                                    "Дерево контейнера показывает все папки. Отметьте несколько файлов галочками и нажмите «Переместить», затем выберите папку. Двойной клик открывает папку или файл.",
+                                    "The vault tree lists every folder. Tick several files, press Move and pick a folder. Double-click opens a folder or a file.",
+                                ),
+                            ),
+                            (
+                                lang.t("Просмотр файлов", "Viewing files"),
+                                lang.t(
+                                    "Текст и таблицы (CSV/TSV) открываются в окне: перенос строк, вид таблицы, копирование, hex. Бинарные файлы можно открыть снаружи; папка распаковки и затирание задаются в настройках контейнера.",
+                                    "Text and tables (CSV/TSV) open in a window with wrap, a table view, copy and hex. Binary files can open externally; the extraction folder and wiping are set in vault settings.",
+                                ),
+                            ),
+                            (
+                                lang.t("Синхронизация", "Sync"),
+                                lang.t(
+                                    "При блокировке сейф выгружается на сервер, если включено. Для контейнера можно задать свой путь на сервере.",
+                                    "On lock the vault is uploaded when enabled. Each vault can override the server path.",
+                                ),
+                            ),
+                            (
+                                lang.t("Приватность", "Privacy"),
+                                lang.t(
+                                    "Пароль в пресете хранится открыто в конфиге приложения — не включайте на чужом компьютере. Временные файлы затираются случайными байтами.",
+                                    "A preset password is stored in plain text in the app config — do not enable it on a shared computer. Temporary files are overwritten with random bytes.",
+                                ),
+                            ),
+                            (
+                                lang.t("Форматы", "Formats"),
+                                lang.t(
+                                    "Хранить можно что угодно: видео, аудио, изображения, docx/pptx, markdown, архивы. Ограничение — свободное место и лимиты индекса, а не тип файла.",
+                                    "Store anything: video, audio, images, docx/pptx, markdown, archives. The only limits are free space and index limits, not the file type.",
+                                ),
+                            ),
+                        ];
+                        for (title, body) in sections {
+                            ui.label(RichText::new(title).size(13.0).strong().color(accent()));
+                            ui.label(RichText::new(body).size(11.5).color(muted()));
+                            ui.add_space(10.0);
+                        }
+                        ui.label(
+                            RichText::new("SecretPiece · GPL-3.0 · github.com/AmazingCoderA/secretpiece")
+                                .size(10.5)
+                                .color(muted()),
+                        );
+                    });
+            });
+        self.help_open = open;
+    }
+
     /// Server dialog reachable straight from the sign-in screen.
     #[allow(clippy::too_many_lines)]
     fn server_window(&mut self, ctx: &egui::Context) {
@@ -1600,7 +1694,7 @@ impl App {
                         self.creating = true;
                         self.publish = true;
                         if self.vault_path.trim().is_empty() {
-                            "vault.spv".clone_into(&mut self.vault_path);
+                            "vault.mp4".clone_into(&mut self.vault_path);
                         }
                         self.server_open = false;
                     }
@@ -2002,6 +2096,23 @@ impl App {
                         {
                             self.server_open = true;
                         }
+                        ui.add_space(8.0);
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    RichText::new(self.lang.t("Справка", "Help"))
+                                        .size(11.5)
+                                        .color(ink()),
+                                )
+                                .fill(card_bg())
+                                .stroke(Stroke::new(1.0_f32, line()))
+                                .corner_radius(9)
+                                .min_size(egui::vec2(84.0, 30.0)),
+                            )
+                            .clicked()
+                        {
+                            self.help_open = true;
+                        }
                         if let Some(browser) = self.browser.as_mut() {
                             ui.add_space(8.0);
                             if ui
@@ -2110,6 +2221,7 @@ impl eframe::App for App {
             });
         self.settings(ctx);
         self.server_window(ctx);
+        self.help_window(ctx);
         self.rekey_window(ctx);
     }
 
@@ -2293,14 +2405,14 @@ impl App {
                     ui.add_sized(
                         [width, 38.0],
                         egui::TextEdit::singleline(&mut self.vault_path)
-                            .hint_text("vault.spv")
+                            .hint_text("vault.mp4")
                             .margin(egui::vec2(10.0, 9.0))
                             .background_color(input_bg()),
                     );
                     if secondary_button(ui, lang.t("Обзор…", "Browse…")).clicked() {
                         let dialog = rfd::FileDialog::new();
                         let picked = if self.creating {
-                            dialog.set_file_name("vault.spv").save_file()
+                            dialog.set_file_name("vault.mp4").save_file()
                         } else {
                             dialog.pick_file()
                         };
@@ -2312,8 +2424,8 @@ impl App {
                 ui.add_space(3.0);
                 ui.label(
                     RichText::new(lang.t(
-                        "Любой файл: .spv, .bin, .mp3, .pdf — внутри всё равно контейнер SPV1.",
-                        "Any file: .spv, .bin, .mp3, .pdf — inside it is still an SPV1 container.",
+                        "Любой файл: .mp4, .mp3, .png, .docx, .md — внутри всё равно контейнер SPV1.",
+                        "Any file: .mp4, .mp3, .png, .docx, .md — inside it is still an SPV1 container.",
                     ))
                     .size(10.5)
                     .color(muted()),
@@ -2328,7 +2440,10 @@ impl App {
                     );
                     ui.add_space(4.0);
                     ui.horizontal_wrapped(|ui| {
-                        for ext in ["spv", "bin", "mp3", "jpg", "pdf", "zip", "iso", "dat"] {
+                        for ext in [
+                            "mp4", "mp3", "opus", "avi", "png", "jpg", "jpeg", "gif", "docx",
+                            "pptx", "md", "sh", "pdf", "zip",
+                        ] {
                             let active = self
                                 .vault_path
                                 .to_ascii_lowercase()
@@ -2437,8 +2552,8 @@ impl App {
                     } else {
                         ui.label(
                             RichText::new(lang.t(
-                                "Можно указать сетевую папку: \\\\server\\share\\vault.spv.",
-                                "A network folder works too: \\\\server\\share\\vault.spv.",
+                                "Можно указать сетевую папку: \\\\server\\share\\vault.mp4.",
+                                "A network folder works too: \\\\server\\share\\vault.mp4.",
                             ))
                             .size(10.0)
                             .color(muted()),
@@ -2571,6 +2686,9 @@ impl App {
                 {
                     self.creating = !self.creating;
                     self.error = None;
+                    if self.creating && self.vault_path.trim().is_empty() {
+                        "vault.mp4".clone_into(&mut self.vault_path);
+                    }
                 }
                 if !self.creating && !self.vault_path.trim().is_empty() {
                     ui.add_space(2.0);
@@ -2633,6 +2751,7 @@ struct Status {
     error: bool,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 struct Browser {
     vault: Vault,
     cwd: String,
@@ -2650,6 +2769,9 @@ struct Browser {
     sort_desc: bool,
     settings: ContainerSettings,
     container_open: bool,
+    checked: BTreeSet<String>,
+    move_open: bool,
+    move_target: String,
 }
 
 /// Per-container options stored inside the vault at `.secretpiece/settings`.
@@ -2745,6 +2867,7 @@ struct Preview {
     data: Vec<u8>,
     hex: bool,
     wrap: bool,
+    table: bool,
 }
 
 impl Drop for Preview {
@@ -2778,6 +2901,9 @@ impl Browser {
             sort_desc: false,
             settings,
             container_open: false,
+            checked: BTreeSet::new(),
+            move_open: false,
+            move_target: String::new(),
         };
         browser.refresh();
         browser
@@ -2823,9 +2949,121 @@ impl Browser {
         }
     }
 
+    fn all_dirs(&self) -> Vec<String> {
+        let mut dirs: Vec<String> = self
+            .vault
+            .list(None)
+            .into_iter()
+            .filter(|entry| entry.kind == EntryKind::Dir && !entry.path.starts_with(".secretpiece"))
+            .map(|entry| entry.path)
+            .collect();
+        dirs.sort();
+        dirs
+    }
+
+    /// Moves every checked file or folder into `target` (empty means root).
+    fn move_checked(&mut self, target: &str, lang: Lang) -> Result<usize, String> {
+        let target = target.trim().trim_matches('/').to_owned();
+        let sources: Vec<String> = self.checked.iter().cloned().collect();
+        let all: Vec<(String, EntryKind)> = self
+            .vault
+            .list(None)
+            .into_iter()
+            .map(|entry| (entry.path, entry.kind))
+            .collect();
+        let mut moved = 0_usize;
+        for source in sources {
+            let base = source.rsplit('/').next().unwrap_or(&source).to_owned();
+            let dest = if target.is_empty() {
+                base
+            } else {
+                format!("{target}/{base}")
+            };
+            if dest == source || dest.starts_with(&format!("{source}/")) {
+                continue;
+            }
+            let kind = all
+                .iter()
+                .find(|(path, _)| path == &source)
+                .map(|(_, kind)| *kind);
+            match kind {
+                Some(EntryKind::File) => {
+                    let mut data = self.vault.get(&source).map_err(|e| describe(lang, &e))?;
+                    let put = self.vault.put(&dest, &data);
+                    data.fill(0);
+                    put.map_err(|e| describe(lang, &e))?;
+                    self.vault.shred(&source).map_err(|e| describe(lang, &e))?;
+                    moved += 1;
+                }
+                Some(EntryKind::Dir) => {
+                    self.vault.mkdir(&dest).map_err(|e| describe(lang, &e))?;
+                    let prefix = format!("{source}/");
+                    let children: Vec<(String, EntryKind)> = all
+                        .iter()
+                        .filter(|(path, _)| path.starts_with(prefix.as_str()))
+                        .cloned()
+                        .collect();
+                    for (path, child_kind) in children {
+                        let new_path = format!("{dest}{}", &path[source.len()..]);
+                        if child_kind == EntryKind::Dir {
+                            self.vault
+                                .mkdir(&new_path)
+                                .map_err(|e| describe(lang, &e))?;
+                        } else {
+                            let mut data = self.vault.get(&path).map_err(|e| describe(lang, &e))?;
+                            let put = self.vault.put(&new_path, &data);
+                            data.fill(0);
+                            put.map_err(|e| describe(lang, &e))?;
+                        }
+                    }
+                    self.vault.remove(&source).map_err(|e| describe(lang, &e))?;
+                    moved += 1;
+                }
+                None => {}
+            }
+        }
+        self.checked.clear();
+        self.refresh();
+        Ok(moved)
+    }
+
+    #[allow(clippy::too_many_lines)]
     fn ui(&mut self, ui: &mut egui::Ui, lang: Lang) {
         let info = self.vault.info();
         self.actions(ui, lang);
+        let dirs = self.all_dirs();
+        if !dirs.is_empty() {
+            ui.add_space(4.0);
+            egui::CollapsingHeader::new(format!(
+                "{} ({})",
+                lang.t("Дерево контейнера", "Vault tree"),
+                dirs.len()
+            ))
+            .id_salt("vault-tree")
+            .show(ui, |ui| {
+                if ui
+                    .selectable_label(self.cwd.is_empty(), "/  ·  root")
+                    .clicked()
+                {
+                    self.cwd.clear();
+                    self.refresh();
+                }
+                for dir in &dirs {
+                    let depth = dir.matches('/').count();
+                    let name = dir.rsplit('/').next().unwrap_or(dir);
+                    ui.horizontal(|ui| {
+                        ui.add_space(f32::from(u8::try_from(depth.min(20)).unwrap_or(0)) * 14.0);
+                        if ui
+                            .selectable_label(self.cwd == *dir, format!("📁 {name}"))
+                            .clicked()
+                        {
+                            self.cwd.clone_from(dir);
+                            self.refresh();
+                        }
+                    });
+                }
+            });
+        }
         ui.add_space(10.0);
         if let Ok(info) = &info {
             Self::info_bar(ui, lang, info);
@@ -2869,7 +3107,20 @@ impl Browser {
                         let mut preview: Option<String> = None;
                         for entry in &self.entries {
                             let selected = self.selected.as_deref() == Some(entry.path.as_str());
-                            let click = row(ui, lang, entry, selected);
+                            let click = row(
+                                ui,
+                                lang,
+                                entry,
+                                selected,
+                                self.checked.contains(&entry.path),
+                            );
+                            if click.toggle {
+                                if self.checked.contains(&entry.path) {
+                                    self.checked.remove(&entry.path);
+                                } else {
+                                    self.checked.insert(entry.path.clone());
+                                }
+                            }
                             if click.selected {
                                 self.selected = Some(entry.path.clone());
                             }
@@ -2929,6 +3180,35 @@ impl Browser {
             }
             if secondary_button(ui, lang.t("Новая папка", "New folder")).clicked() {
                 self.new_folder = Some(String::new());
+            }
+            if secondary_button(ui, lang.t("Выбрать всё", "Select all")).clicked() {
+                if self.checked.len() == self.entries.len() {
+                    self.checked.clear();
+                } else {
+                    self.checked = self
+                        .entries
+                        .iter()
+                        .map(|entry| entry.path.clone())
+                        .collect();
+                }
+            }
+            let checked = self.checked.len();
+            if ui
+                .add_enabled(
+                    checked > 0,
+                    egui::Button::new(
+                        RichText::new(format!("{} ({checked})", lang.t("Переместить", "Move")))
+                            .size(13.0),
+                    )
+                    .fill(card_bg())
+                    .stroke(Stroke::new(1.0_f32, line()))
+                    .corner_radius(9)
+                    .min_size(egui::vec2(0.0, 32.0)),
+                )
+                .clicked()
+            {
+                self.move_target.clone_from(&self.cwd);
+                self.move_open = true;
             }
             let selected = self.selected.clone();
             let selected_file = self.selected_file().map(ToOwned::to_owned);
@@ -3199,6 +3479,7 @@ impl Browser {
                         data,
                         hex: false,
                         wrap: true,
+                        table: is_table_name(path),
                     });
                 } else if self.settings.external_preview {
                     data.fill(0);
@@ -3209,6 +3490,7 @@ impl Browser {
                         data,
                         hex: true,
                         wrap: true,
+                        table: false,
                     });
                 }
             }
@@ -3545,6 +3827,12 @@ impl Browser {
                                     &mut preview.wrap,
                                     RichText::new(lang.t("Перенос", "Wrap")).size(11.5),
                                 );
+                                if is_table_name(&preview.path) {
+                                    ui.checkbox(
+                                        &mut preview.table,
+                                        RichText::new(lang.t("Таблица", "Table")).size(11.5),
+                                    );
+                                }
                             }
                             if ui.button(lang.t("Копировать", "Copy")).clicked() {
                                 if let Some(text) = text {
@@ -3564,7 +3852,7 @@ impl Browser {
                         });
                     });
                     ui.separator();
-                    let scroll = if preview.wrap && !hex {
+                    let scroll = if preview.wrap && !hex && !preview.table {
                         egui::ScrollArea::vertical()
                     } else {
                         egui::ScrollArea::both()
@@ -3592,6 +3880,44 @@ impl Browser {
                                     .color(muted()),
                                 );
                             }
+                        } else if preview.table {
+                            if let Some(text) = text {
+                                let delimiter =
+                                    if preview.path.to_ascii_lowercase().ends_with(".tsv") {
+                                        '\t'
+                                    } else {
+                                        ','
+                                    };
+                                egui::Grid::new("preview-table")
+                                    .striped(true)
+                                    .min_col_width(48.0)
+                                    .show(ui, |ui| {
+                                        for (index, line) in text.lines().take(500).enumerate() {
+                                            for cell in line.split(delimiter).take(24) {
+                                                let rich = RichText::new(cell)
+                                                    .monospace()
+                                                    .size(12.0)
+                                                    .color(ink());
+                                                ui.label(if index == 0 {
+                                                    rich.strong()
+                                                } else {
+                                                    rich
+                                                });
+                                            }
+                                            ui.end_row();
+                                        }
+                                    });
+                                if text.lines().count() > 500 {
+                                    ui.label(
+                                        RichText::new(lang.t(
+                                            "Показаны первые 500 строк.",
+                                            "Showing the first 500 rows.",
+                                        ))
+                                        .size(11.0)
+                                        .color(muted()),
+                                    );
+                                }
+                            }
                         } else if let Some(text) = text {
                             let shown = clip(text, 200_000);
                             let label = egui::Label::new(
@@ -3618,6 +3944,98 @@ impl Browser {
                 });
             if !open {
                 self.preview = None;
+            }
+        }
+
+        if self.move_open {
+            let mut open = true;
+            let mut close = false;
+            egui::Window::new(lang.t("Переместить в папку", "Move to folder"))
+                .open(&mut open)
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+                .default_width(460.0)
+                .show(ui.ctx(), |ui| {
+                    ui.label(
+                        RichText::new(format!(
+                            "{}: {}",
+                            lang.t("Выбрано", "Selected"),
+                            self.checked.len()
+                        ))
+                        .size(12.0)
+                        .color(muted()),
+                    );
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(lang.t(
+                            "Целевая папка (пусто — корень):",
+                            "Target folder (empty — root):",
+                        ))
+                        .size(11.5),
+                    );
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.move_target)
+                            .hint_text("docs/2026")
+                            .desired_width(330.0),
+                    );
+                    ui.add_space(6.0);
+                    let dirs = self.all_dirs();
+                    egui::ScrollArea::vertical()
+                        .max_height(180.0)
+                        .auto_shrink([false, true])
+                        .show(ui, |ui| {
+                            if ui
+                                .selectable_label(self.move_target.is_empty(), "/  ·  root")
+                                .clicked()
+                            {
+                                self.move_target.clear();
+                            }
+                            for dir in &dirs {
+                                if ui.selectable_label(self.move_target == *dir, dir).clicked() {
+                                    self.move_target.clone_from(dir);
+                                }
+                            }
+                        });
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    RichText::new(lang.t("Переместить", "Move")).color(on_accent()),
+                                )
+                                .fill(accent())
+                                .corner_radius(8),
+                            )
+                            .clicked()
+                        {
+                            let target = self.move_target.clone();
+                            match self.move_checked(&target, lang) {
+                                Ok(count) => {
+                                    self.status = Some(Status {
+                                        text: match lang {
+                                            Lang::Ru => format!("Перемещено: {count}."),
+                                            Lang::En => format!("Moved: {count}."),
+                                        },
+                                        error: false,
+                                    });
+                                }
+                                Err(error) => {
+                                    self.status = Some(Status {
+                                        text: error,
+                                        error: true,
+                                    });
+                                }
+                            }
+                            close = true;
+                        }
+                        if ui.button(lang.t("Отмена", "Cancel")).clicked() {
+                            close = true;
+                        }
+                    });
+                });
+            if close || !open {
+                self.move_open = false;
             }
         }
 
@@ -3848,13 +4266,23 @@ impl Browser {
     }
 }
 
+#[allow(clippy::struct_excessive_bools)]
 struct RowClick {
     selected: bool,
     open: bool,
     preview: bool,
+    toggle: bool,
 }
 
-fn row(ui: &mut egui::Ui, lang: Lang, entry: &ListEntry, selected: bool) -> RowClick {
+fn row(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    entry: &ListEntry,
+    selected: bool,
+    checked: bool,
+) -> RowClick {
+    let mut checked = checked;
+    let mut toggle = false;
     let frame = if selected {
         Frame::new()
             .fill(selected_bg())
@@ -3868,6 +4296,7 @@ fn row(ui: &mut egui::Ui, lang: Lang, entry: &ListEntry, selected: bool) -> RowC
     };
     let inner = frame.show(ui, |ui| {
         ui.horizontal(|ui| {
+            toggle = ui.checkbox(&mut checked, "").changed();
             let (mark, color) = match entry.kind {
                 EntryKind::Dir => (lang.t("ПАПКА", "FOLDER"), violet()),
                 EntryKind::File => (lang.t("ФАЙЛ", "FILE"), accent()),
@@ -3897,6 +4326,7 @@ fn row(ui: &mut egui::Ui, lang: Lang, entry: &ListEntry, selected: bool) -> RowC
         selected: response.clicked(),
         open: double && entry.kind == EntryKind::Dir,
         preview: double && entry.kind == EntryKind::File,
+        toggle,
     }
 }
 
@@ -4171,8 +4601,8 @@ fn describe(lang: Lang, error: &SpError) -> String {
         (Lang::En, ErrorCode::NoSpace) => "Not enough space on the drive.",
         (Lang::Ru, ErrorCode::PermissionDenied) => "Доступ запрещён.",
         (Lang::En, ErrorCode::PermissionDenied) => "Permission denied.",
-        (Lang::Ru, ErrorCode::Corrupted) => "Хранилище повреждено или это не .spv файл.",
-        (Lang::En, ErrorCode::Corrupted) => "The vault is damaged or not a .spv file.",
+        (Lang::Ru, ErrorCode::Corrupted) => "Хранилище повреждено или это не контейнер SPV1.",
+        (Lang::En, ErrorCode::Corrupted) => "The vault is damaged or not an SPV1 container.",
         (Lang::Ru, _) => "Операция не выполнена.",
         (Lang::En, _) => "The operation failed.",
     };

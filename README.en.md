@@ -25,10 +25,10 @@
 
 **SecretPiece** is a cross-platform Rust tool that creates an encrypted vault inside an ordinary file. It works on a USB stick, an external HDD/SSD, an internal disk, or a network folder. No disk partitioning, no formatting, no drivers, no administrator rights. Open source, GPL-3.0.
 
-> 🔐 **Your secret, in pieces.** One file. Inside — an encrypted virtual volume, a hidden volume with its own password, and everything needed to survive the loss of the drive.
+> 🔐 **Your secret, in pieces.** One file. Inside — an encrypted virtual volume with folders and files you can carry on a USB stick and open on any system.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-v1.4%20·%20crypto%20core-9b6bff" alt="status">
+  <img src="https://img.shields.io/badge/status-v1.11%20·%20android-9b6bff" alt="status">
   <img src="https://img.shields.io/badge/Argon2id%20%2B%20XChaCha20%20%2B%20BLAKE3-implemented-2ea043" alt="crypto implemented">
 </p>
 
@@ -41,19 +41,20 @@
 |---|---|
 | 🧩 **Does not break the drive** | Only regular files. MBR/GPT, boot sector and the filesystem stay untouched. |
 | 💾 **Any drive** | USB stick, external HDD/SSD, internal disk, SMB/NFS. Removable media is the primary scenario. |
-| 🕵️ **Hidden volume** | The area inside the container looks like free space. It opens with a separate password (planned for v1.8). |
-| 🔐 **Ciphers** | XChaCha20-Poly1305 ships in v1.4; ChaCha20-Poly1305 and AES-256-GCM come later, parameters recorded in the header. |
-| 🗂️ **Multiple formats** | Single file, split parts for FAT32, vault folder, nested container, k-of-n shards. |
+| 🕵️ **Hidden volume** | Planned: a separate area inside the container. Not implemented yet. |
+| 🔐 **Ciphers** | XChaCha20-Poly1305 + Argon2id + BLAKE3. Parameters live in the header; changing the scheme requires the future `sp migrate`. |
+| 🗂️ **Formats** | One file with any extension: `.mp4`, `.png`, `.docx`, `.md`, `.opus`… Inside it is always an SPV1 container. |
 | 🚀 **Every platform** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux, `.deb`/`.rpm`, Flatpak. |
 | 🤖 **Android** | APK: USB drive over OTG, SAF + JNI, on-device vault creation, RU/EN, disguise, snow/rain/sun. |
-| 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, BIP39 recovery, Shamir secret sharing, snapshots. |
+| 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, full integrity verification. Recovery/Shamir are planned. |
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
-| 🎨 **Live interface** | Three themes (Midnight / Neon / Light), gradient accents, responsive layout, in-vault text and hex preview, drag & drop into the window. |
-| ⚡ **Speed and size** | 1 MiB chunks instead of 64 KiB, index up to 256 MiB: fewer AEAD calls, faster on large files, older vaults still open. |
-| 🎛️ **Tunable** | Five themes (Midnight, Neon, Light, Sunset, Forest), sort by name/size/date/kind, 1–7 wipe passes. |
-| 🎬 **Any format** | Text, JSON, FB2 and code stay in the app; video, images, EPUB and archives open from a temp folder after a warning and are wiped on close. |
-| 🖥️ **SSH server** | Host, port, user and path with download/upload; any user, no root required. |
-| 🌍 **RU / EN** | Interface and hints in Russian and English, auto-detection, `--lang`. |
+| 🎨 **Live interface** | Seven themes (Midnight, Neon, Light, Paper, Mint, Sunset, Forest), gradient accents, responsive layout, in-vault text/hex preview, drag & drop into the window. |
+| ⚡ **Speed and size** | 1 MiB chunks, index up to 256 MiB; the volume is limited only by free disk space. Older vaults still open. |
+| 🎛️ **Tunable** | Sort by name/size/date/kind, 1–7 wipe passes, per-vault settings, server presets. |
+| 🎬 **Any format** | Text, JSON, FB2, CSV/TSV (with a table view) and code stay in the app (wrap, copy, hex); video, images, EPUB and archives open from a temp folder after a warning and are wiped on close. |
+| 🖥️ **SSH / FTP server** | Presets, key or ssh-agent automatically, FTP login and password; download/upload/create a vault on the server. |
+| 📁 **Folders and tree** | Vault tree, nested folders, multi-select and move to any folder. |
+| 🌍 **RU / EN** | Interface, hints and built-in help in Russian and English, auto-detection, `--lang`. |
 
 ## 📦 Installation
 
@@ -98,7 +99,7 @@ adb install -r secretpiece-<version>-android.apk
 ```
 
 Or enable "Install unknown apps" and open the APK on the phone (Android 8+,
-ARM64). Scenario: USB drive over OTG/USB-C → "Choose .spv file" → password →
+ARM64). Scenario: USB drive over OTG/USB-C → "Choose container file" → password →
 work with files. A new empty vault is created right there: "Create new vault" →
 password and confirmation → "Save as" to the drive or phone storage. No root, no
 `INTERNET` permission. Settings hold the language, an optional **calculator
@@ -117,14 +118,15 @@ sun. Details: [`docs/ANDROID.md`](docs/ANDROID.md), and on the format itself:
 ### Create a vault
 
 **On a PC:** launch `sp` → "Create a new vault" → file name (anything:
-`personal.spv`, `backup.bin`, `song.mp3`), password and confirmation, Argon2id
+`personal.mp4`, `backup.bin`, `song.mp3`), password and confirmation, Argon2id
 hardness (16 / 64 / 256 MiB). The container is written immediately; the format
 inside is SPV1.
 
-The top bar switches themes (Midnight / Neon / Light) and language; the choice
-is remembered. Double-click a file to preview it (text or hex) straight from the
-container, "Verify integrity" decrypts and authenticates every file, and deleting
-can optionally overwrite each chunk with random bytes first.
+The top bar switches themes (Midnight / Neon / Light / Paper / Mint / Sunset /
+Forest) and language; the choice is remembered. Double-click a file to preview it
+(text or hex) straight from the container, "Verify integrity" decrypts and
+authenticates every file, and deleting can optionally overwrite each chunk with
+random bytes first.
 
 **On a phone:** "Create new vault" → password and confirmation → "Save as" to
 the USB drive or phone storage.
@@ -247,19 +249,14 @@ BSD builds in CI are marked experimental: a release still ships even if a BSD VM
 
 | Layer | Algorithm | Status |
 |---|---|---|
-| Data and metadata | **XChaCha20-Poly1305** (256-bit key, 192-bit nonce) | ✅ v1.4 |
-| Password KDF | **Argon2id**: light 16 MiB · default 64 MiB · paranoid 256 MiB | ✅ v1.4 |
-| Hashing and MAC | **BLAKE3** (headers and integrity checks) | ✅ v1.4 |
-| Alternative | **ChaCha20-Poly1305** (RFC 8439, 96-bit nonce) | optional, later |
-| Alternative | **AES-256-GCM** (AES-NI / ARMv8 Crypto) | optional, later |
-| Alternative | **AES-256-GCM-SIV** (nonce-misuse resistant) | optional, later |
-| Key exchange | **X25519** for recipient slots | v1.8 |
-| Recovery | **BIP39** (24 words) + **Shamir** k-of-n | v1.8 |
-| Unlock slots | password · keyfile · FIDO2 hmac-secret · recovery · X25519 | v1.4–v1.8 |
-| Manifest signatures | **Ed25519** (releases only, not volumes) | v2.0 |
+| Data and metadata | **XChaCha20-Poly1305** (256-bit key, 192-bit nonce) | ✅ |
+| Password KDF | **Argon2id**: light 16 MiB · default 64 MiB · paranoid 256 MiB | ✅ |
+| Hashing and MAC | **BLAKE3** (headers and integrity checks) | ✅ |
+| Cipher migration | `sp migrate` is not implemented yet; `algorithm_id` is fixed | ⏳ v2.0 |
 
 - `algorithm_id` and all KDF parameters are written into the header; silent changes are forbidden.
-- Changing the algorithm is only possible through `sp migrate`, which creates a new container.
+- Migration between ciphers is manual for now: extract the files, create a new container, put them back.
+  An automatic `sp migrate` is on the roadmap.
 - No custom ciphers, ECB, CBC without MAC, SHA-1/MD5, or "obfuscation instead of encryption".
 - Slots and header payload are indistinguishable from random data without the key.
 
@@ -267,12 +264,12 @@ BSD builds in CI are marked experimental: a release still ships even if a BSD VM
 
 | Format | What is created | Constraints |
 |---|---|---|
-| **SPV1 · single file** | one `*.spv` | up to 4 TiB, best for exFAT/NTFS/APFS/ext4 |
-| **SPV1 · split** | `*.spv.000`, `.001`, … | FAT32, 3.5 GiB parts |
-| **Vault folder (L2)** | folder of blocks + index | convenient for cloud and large volumes |
-| **Nested (L4)** | container inside the outer volume | no free-space overlap |
-| **Sharded (L5)** | k-of-n Reed-Solomon shards | each part < 4 GiB, no FAT32 split |
-| **Archive export** | encrypted copy for backup | requires password/recovery |
+| **SPV1 · single file** | one file with any extension (`.mp4`, `.png`, `.docx`…) | limited by free space; index up to 256 MiB |
+| **SPV1 · split** | `*.000`, `.001`, … | planned, not implemented |
+| **Vault folder (L2)** | folder of blocks + index | planned, not implemented |
+| **Nested (L4)** | container inside the outer volume | planned, not implemented |
+| **Sharded (L5)** | k-of-n Reed-Solomon shards | planned, not implemented |
+| **Archive export** | encrypted copy for backup | planned, not implemented |
 
 ## 🗺️ Architecture
 
@@ -281,26 +278,25 @@ BSD builds in CI are marked experimental: a release still ships even if a BSD VM
 </p>
 
 ```
-0x00000  header A       ← outer volume
+0x00000  header A
 0x10000  header A'      ← backup
-0x20000  header B       ← hidden volume
+0x20000  header B       ← spare slot
 0x30000  header B'      ← backup
 0x40000  superblock A
 0x50000  superblock B
 0x60000  chunks…        ← data and metadata
-N−hidden hidden area    ← overlaps free space (deniable)
 ```
 
 ## 🎛️ Storage modes
 
 | Level | What it is | When to use |
 |---|---|---|
-| **L1 · Sealed file** | a single `*.spv` | backups, cloud, transfer |
-| **L2 · Vault folder** | a folder of blocks + index | large volumes, sync |
-| **L3 · Hidden volume** | outer + hidden volume at the end of the file | the main mode for USB drives |
-| **L4 · Nested vault** | a container inside the outer volume | no free-space overlap |
-| **L5 · Sharded vault** | k-of-n Reed-Solomon shards | disaster recovery, split storage |
-| **L6 · Paranoid** | L3/L5 + snapshots + 2FA + replicas | maximum durability |
+| **L1 · Sealed file** | a single file with any extension | backups, cloud, transfer |
+| **L2 · Vault folder** | a folder of blocks + index | planned, not implemented |
+| **L3 · Hidden volume** | outer + hidden volume at the end of the file | planned, not implemented |
+| **L4 · Nested vault** | a container inside the outer volume | planned, not implemented |
+| **L5 · Sharded vault** | k-of-n Reed-Solomon shards | planned, not implemented |
+| **L6 · Paranoid** | L3/L5 + snapshots + 2FA + replicas | planned, not implemented |
 
 Durability profiles: **Fast** · **Balanced** (default) · **Paranoid** · **Custom**. A profile changes versioning, trash and verification policy — never cryptography or the format.
 
@@ -308,20 +304,20 @@ Durability profiles: **Fast** · **Balanced** (default) · **Paranoid** · **Cus
 
 ```bash
 # CLI: password via prompt, SP_PASSWORD, or --password-stdin
-sp-cli init personal.spv
-sp-cli put personal.spv .\Documents\report.pdf docs/report.pdf
-sp-cli ls personal.spv
-sp-cli get personal.spv docs/report.pdf .\report.pdf
-sp-cli df personal.spv
-sp-cli verify personal.spv
+sp-cli init personal.mp4
+sp-cli put personal.mp4 .\Documents\report.pdf docs/report.pdf
+sp-cli ls personal.mp4
+sp-cli get personal.mp4 docs/report.pdf .\report.pdf
+sp-cli df personal.mp4
+sp-cli verify personal.mp4
 
 # GUI: a separate application
-sp                              # Midnight / Neon / Light themes, RU/EN
-sp D:\vaults\personal.spv       # open a vault straight from a file manager
+sp                              # Midnight / Neon / Light / Paper / Mint / Sunset / Forest, RU/EN
+sp D:\vaults\personal.mp4       # open a vault straight from a file manager
 ```
 
 The password is never stored: the key is derived with Argon2id and lives only in
-memory. The container is a regular `.spv` file and can be renamed to `report.pdf`.
+memory. The container is a regular file with any extension and can be renamed to `report.pdf`.
 
 Theme and language live in the top bar and are remembered between launches. A
 file can be previewed (text or hex) straight from the container — the data stays
@@ -350,8 +346,8 @@ SecretPiece checks free space **before** writing and never leaves partial commit
 | 0 bytes free | refuses **before** writing, code `E_NOSPC` (9), volume → read-only | free space or grow the container |
 | Import larger than free space | preflight refusal, no garbage | import in parts or into the outer volume |
 | Media actually full | `E_NOSPC`, read-only, index stays intact | empty trash/snapshots, export data |
-| FAT32 and a file > 4 GiB | automatic split into 3.5 GiB parts | use exFAT/NTFS |
-| Need more capacity | `sp-cli` resize (planned v1.7) | create a new container and move data |
+| FAT32 and a file > 4 GiB | split is not implemented yet | use exFAT/NTFS |
+| Need more capacity | resize is not implemented yet | create a new container and move data |
 
 Hints are everywhere: in `sp-cli` errors, in `sp-cli df`, in the GUI banner, and in `sp-cli doctor`. A 64 MiB reserve is always kept for metadata and superblocks.
 
@@ -359,7 +355,7 @@ Hints are everywhere: in `sp-cli` errors, in `sp-cli df`, in the GUI banner, and
 
 - The app makes **no network calls** and collects no telemetry.
 - Passwords and keys never appear in argv, logs, or temporary files.
-- The hidden volume is indistinguishable from random data without the password, **but the presence of a container file cannot be hidden**.
+- Container contents are indistinguishable from random data without the password, **but the presence of a container file cannot be hidden**.
 - Overwriting on flash/SSD does not guarantee physical destruction because of wear leveling. The reliable option is **crypto-erase**.
 - Vulnerabilities: privately via [GitHub Security Advisories](https://github.com/AmazingCoderA/secretpiece/security/advisories/new), see [`SECURITY.md`](SECURITY.md).
 
@@ -367,19 +363,19 @@ Hints are everywhere: in `sp-cli` errors, in `sp-cli df`, in the GUI banner, and
 
 | OS | Ready builds | Status |
 |---|---|---|
-| Windows 10/11 | x64 GUI + CLI, ARM64 CLI | v1.4 |
-| macOS 13+ | universal (Intel + Apple Silicon) GUI + CLI | v1.4 |
-| Android 8+ | APK (SAF + JNI), ARM64/ARMv7 | v1.5 (read + create) |
-| Linux | x64 GUI (glibc), x64/ARM64/ARMv7/RISC-V CLI | v1.5 |
-| Debian / Ubuntu / Fedora | `.deb` and `.rpm` with GUI, menu entry and icon | v1.5 |
-| Flatpak | x64 bundle, sandbox with USB access | v1.5 |
-| Alpine Linux | x64 CLI (musl) | v1.4 |
-| Arch Linux | x64 CLI, pacman package, PKGBUILD, AUR (yay/paru) | v1.5 |
+| Windows 10/11 | x64 GUI + CLI, ARM64 CLI | v1.10 |
+| macOS 13+ | universal (Intel + Apple Silicon) GUI + CLI | v1.10 |
+| Android 8+ | APK (SAF + JNI), ARM64/ARMv7 | v1.10 (read + create) |
+| Linux | x64 GUI (glibc), x64/ARM64/ARMv7/RISC-V CLI | v1.10 |
+| Debian / Ubuntu / Fedora | `.deb` and `.rpm` with GUI, menu entry and icon | v1.10 |
+| Flatpak | x64 bundle, sandbox with USB access | v1.10 |
+| Alpine Linux | x64 CLI (musl) | v1.10 |
+| Arch Linux | x64 CLI, pacman package, PKGBUILD, AUR (yay/paru) | v1.10 |
 | FreeBSD | x64 (VM build) | experimental |
 | OpenBSD | x64 (VM build) | experimental |
 | NetBSD | x64 (VM build) | experimental |
-| Linux ARMv7 / RISC-V | prebuilt CLI (`linux-armv7-cli`, `linux-riscv64-cli`) | v1.5 |
-| AppImage | portable image | planned v1.9 |
+| Linux ARMv7 / RISC-V | prebuilt CLI (`linux-armv7-cli`, `linux-riscv64-cli`) | v1.10 |
+| AppImage | portable image | planned |
 
 ## 🛠️ Build and releases
 
@@ -397,13 +393,13 @@ Requires Rust stable (MSRV **1.85**, edition 2024).
 - **Auto-build** — on every push to `main` and every PR: artifacts on the workflow run page.
 - **Release** — on a `v*` tag: archives + `SHA256SUMS.txt` in GitHub Releases.
 - **Release assets:** `*-cli` and `*-gui` for `windows-x64`, `linux-x64`, `macos-universal`; `linux-arm64-cli`, `windows-arm64-cli`, `alpine-x64-cli`, `arch-x64-cli`, `*.pkg.tar.zst`, `android.apk` + `SHA256SUMS.txt`.
-- Versions — `1.1`, `1.2`, `1.3`, `1.4`, `1.5`, `2.0` (no micro-patch tags).
+- Versions — `1.4` … `1.11`, `2.0` (no micro-patch tags).
 
 ## 📚 Documentation
 
 | Document | Contents |
 |---|---|
-| [docs/SPV.md](docs/SPV.md) | what an `.spv` file is, SPV1 layout, file masking |
+| [docs/SPV.md](docs/SPV.md) | what an SPV1 container is, layout, extension masking |
 | [docs/ANDROID.md](docs/ANDROID.md) | Android: OTG, read + create, settings, disguise, ambience |
 | [SECURITY.md](SECURITY.md) | vulnerability disclosure, scope, guarantees |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | development and review rules |
@@ -421,11 +417,13 @@ The byte-level specification lives in [`docs/SPV.md`](docs/SPV.md); a separate `
 | **v1.3** | ✅ | Android: app disguise, `docs/SPV.md`, polish |
 | **v1.4** | ✅ | SPV1 crypto core (Argon2id, XChaCha20-Poly1305, BLAKE3), CLI, egui GUI, Android read + on-device create, Alpine |
 | **v1.5** | ✅ | Android: create-vault dialog, settings, ambience; GUI: Midnight/Neon/Light themes, workspace redesign, in-vault preview, overwrite confirmation, secure file delete; ARMv7/RISC-V CLI |
-| **v1.6** | ⏳ | extents, FAT32 split, format migration |
-| **v1.7** | ⏳ | reliability: COW, snapshots, trash, `doctor`, resize, crash tests |
-| **v1.8** | ⏳ | hidden volume, recovery, Shamir, X25519 recipient slots |
-| **v1.9** | ⏳ | free-space wipe, destroy, Reed-Solomon sharding |
-| **v2.0** | ⏳ | GUI: creation wizard, file manager; hardening, fuzzing, Miri, audit, SBOM |
+| **v1.6** | ✅ | release infrastructure, stability, fixes |
+| **v1.7** | ✅ | 1 MiB chunks, drag & drop, more shells, Android share-in |
+| **v1.8** | ✅ | sorting, Sunset/Forest themes, external preview with wiping, password change, SSH tab |
+| **v1.9** | ✅ | create a vault on the server, FTP client, theme menu, sync on lock |
+| **v1.10** | ✅ | server presets, per-vault settings, Paper/Mint themes, text viewer |
+| **v1.11** | ✅ | folder tree, multi-file move, table view, RU/EN help |
+| **v2.0** | ⏳ | `sp migrate` between ciphers, hidden volume, split/FAT32, recovery, fuzzing and audit |
 
 ## 🤝 Contributing
 
@@ -446,7 +444,7 @@ Dual-use tool. Use it only to protect your own data and within the law. The auth
   <a href="https://github.com/AmazingCoderA/secretpiece/releases/latest"><img alt="BSD" src="https://img.shields.io/badge/BSD-FreeBSD_/_OpenBSD_/_NetBSD-AB2B28?style=for-the-badge&logo=freebsd&logoColor=white"></a>
 </p>
 
-<p align="center"><sub>encrypted USB vault · hidden volume · VeraCrypt alternative · Rust · GPL-3.0 · open source</sub></p>
+<p align="center"><sub>encrypted USB vault · single file · Rust · GPL-3.0 · open source</sub></p>
 
 ---
 

@@ -11,8 +11,8 @@ android {
         applicationId = "dev.secretpiece.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 20
-        versionName = "1.10"
+        versionCode = 21
+        versionName = "1.11"
     }
 
     buildFeatures {

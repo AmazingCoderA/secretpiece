@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-19
+
+Folders, multi-select moves, a table viewer, built-in help and honest docs. The
+vault format is unchanged.
+
+### Added
+
+- **Vault tree**: a collapsible tree of every folder with the current root, so
+  nested folders are one click away.
+- **Multi-select and move**: tick any number of files and folders, press Move and
+  pick a target folder (or root). Folders move together with their contents.
+- **Table view**: CSV and TSV files get a grid with a bold header row, up to 500
+  rows and 24 columns, next to the plain-text and hex views.
+- **Built-in help** in Russian and English: creation, servers, folders, preview,
+  sync, privacy and supported formats.
+- **Default shell is no longer `.spv`**: new vaults use `.mp4`, and the file
+  dialog offers `.mp4`, `.mp3`, `.opus`, `.avi`, `.png`, `.jpg`, `.jpeg`, `.gif`,
+  `.docx`, `.pptx`, `.md`, `.sh`, `.pdf` and `.zip`.
+
+### Changed
+
+- **README (RU/EN) rewritten** to match what actually ships: single-file SPV1
+  only, real encryption stack, migration between ciphers is manual for now, and
+  the roadmap now shows v1.10/v1.11 as done.
+- Container size is limited by free space; the index cap is documented as
+  256 MiB instead of promising split or resize that do not exist yet.
+
 ## [1.10.0] - 2026-11-19
 
 Server presets, per-container options, two more light themes and a proper text

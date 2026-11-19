@@ -1512,6 +1512,16 @@ impl App {
                             .corner_radius(9)
                             .min_size(egui::vec2(128.0, 30.0));
                             if ui.add(lock).clicked() {
+                                if self.remote.ready() && !self.vault_path.trim().is_empty() {
+                                    if let Err(error) =
+                                        self.remote.upload(Path::new(self.vault_path.trim()))
+                                    {
+                                        self.remote.status = Some(format!(
+                                            "{}: {error}",
+                                            self.lang.t("Синхронизация не удалась", "Sync failed",)
+                                        ));
+                                    }
+                                }
                                 self.browser = None;
                                 self.password.clear();
                             }

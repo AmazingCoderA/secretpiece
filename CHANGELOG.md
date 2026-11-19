@@ -30,6 +30,8 @@ picker became a single menu. The vault format is unchanged.
 - Availability checks are faster: `ConnectTimeout=3` for SSH/SCP and short
   socket timeouts for FTP.
 - Server settings now remember the protocol and show a password field.
+- Locking the vault uploads the current file to the configured server, so the
+  remote copy stays in sync.
 
 ## [1.8.0] - 2026-11-18
 

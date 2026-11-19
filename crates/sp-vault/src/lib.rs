@@ -880,7 +880,7 @@ mod tests {
 
         vault.shred("docs").unwrap();
         assert!(vault.list(None).iter().all(|entry| entry.path != "docs"));
-        assert!(vault.verify().unwrap().files == 0);
+        assert_eq!(vault.verify().unwrap().files, 0);
     }
 
     #[test]

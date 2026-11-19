@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-19
+
+Vaults can be created straight on a server, FTP joins SSH, and the theme
+picker became a single menu. The vault format is unchanged.
+
+### Added
+
+- **Destination picker when creating a vault**: local file, network folder
+  (UNC path), SSH/SCP or FTP. The vault is built locally and published to the
+  server in the same step; the local copy stays open for editing.
+- **FTP client** built on `std::net::TcpStream` with 4-8 second timeouts:
+  connection test, upload and download, login plus password (kept in memory
+  only, never written to settings).
+- **SSH key/agent auth** is picked up automatically; the port defaults to 22
+  for SSH and 21 for FTP.
+- **Theme menu in the header**: one button with all five palettes and colour
+  previews, replacing the row of swatches.
+
+### Changed
+
+- Availability checks are faster: `ConnectTimeout=3` for SSH/SCP and short
+  socket timeouts for FTP.
+- Server settings now remember the protocol and show a password field.
+
 ## [1.8.0] - 2026-11-18
 
 Five themes, sorting, external preview with a configurable wipe, password

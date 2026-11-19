@@ -459,6 +459,7 @@ struct App {
     password: String,
     confirm: String,
     creating: bool,
+    publish: bool,
     show_password: bool,
     kdf: KdfChoice,
     error: Option<String>,
@@ -472,12 +473,38 @@ struct App {
     rekey_confirm: String,
 }
 
-/// SSH/SFTP settings for keeping a vault on a server.
+/// Where a vault is published: plain SSH/SCP or an FTP server.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum RemoteKind {
+    #[default]
+    Ssh,
+    Ftp,
+}
+
+impl RemoteKind {
+    const fn key(self) -> &'static str {
+        match self {
+            Self::Ssh => "ssh",
+            Self::Ftp => "ftp",
+        }
+    }
+
+    const fn default_port(self) -> &'static str {
+        match self {
+            Self::Ssh => "22",
+            Self::Ftp => "21",
+        }
+    }
+}
+
+/// Remote destination settings. The password lives only in memory.
 #[derive(Clone, Default)]
 struct Remote {
+    kind: RemoteKind,
     host: String,
     port: String,
     user: String,
+    password: String,
     path: String,
     status: Option<String>,
 }
@@ -501,10 +528,14 @@ impl Remote {
     fn port(&self) -> String {
         let port = self.port.trim();
         if port.is_empty() {
-            "22".to_owned()
+            self.kind.default_port().to_owned()
         } else {
             port.to_owned()
         }
+    }
+
+    fn ready(&self) -> bool {
+        !self.host.trim().is_empty() && !self.path.trim().is_empty()
     }
 
     /// Runs `ssh`/`scp` with key or ssh-agent auth; passwords are never stored.
@@ -524,6 +555,312 @@ impl Remote {
                 .unwrap_or("ssh failed")
                 .to_owned())
         }
+    }
+
+    fn ssh_test(&self) -> Result<String, String> {
+        if self.host.trim().is_empty() {
+            return Err("host is empty".to_owned());
+        }
+        let target = self.host_target();
+        let args = vec![
+            "-o".to_owned(),
+            "BatchMode=yes".to_owned(),
+            "-o".to_owned(),
+            "ConnectTimeout=3".to_owned(),
+            "-p".to_owned(),
+            self.port(),
+            target,
+            "echo ok".to_owned(),
+        ];
+        Self::run("ssh", &args)
+    }
+
+    fn host_target(&self) -> String {
+        let host = self.host.trim();
+        let user = self.user.trim();
+        if user.is_empty() {
+            host.to_owned()
+        } else {
+            format!("{user}@{host}")
+        }
+    }
+
+    fn ssh_upload(&self, local: &Path) -> Result<String, String> {
+        let Some(target) = self.target() else {
+            return Err("host or path is empty".to_owned());
+        };
+        let args = vec![
+            "-o".to_owned(),
+            "BatchMode=yes".to_owned(),
+            "-o".to_owned(),
+            "ConnectTimeout=3".to_owned(),
+            "-P".to_owned(),
+            self.port(),
+            local.to_string_lossy().into_owned(),
+            target,
+        ];
+        Self::run("scp", &args)
+    }
+
+    fn ssh_download(&self, local: &Path) -> Result<String, String> {
+        let Some(target) = self.target() else {
+            return Err("host or path is empty".to_owned());
+        };
+        let args = vec![
+            "-o".to_owned(),
+            "BatchMode=yes".to_owned(),
+            "-o".to_owned(),
+            "ConnectTimeout=3".to_owned(),
+            "-P".to_owned(),
+            self.port(),
+            target,
+            local.to_string_lossy().into_owned(),
+        ];
+        Self::run("scp", &args)
+    }
+
+    fn ftp(&self) -> Result<Ftp, String> {
+        Ftp::connect(
+            self.host.trim(),
+            &self.port(),
+            self.user.trim(),
+            &self.password,
+        )
+    }
+
+    fn test(&self) -> Result<String, String> {
+        match self.kind {
+            RemoteKind::Ssh => self.ssh_test(),
+            RemoteKind::Ftp => {
+                let mut ftp = self.ftp()?;
+                ftp.quit();
+                Ok("ok".to_owned())
+            }
+        }
+    }
+
+    fn upload(&self, local: &Path) -> Result<String, String> {
+        match self.kind {
+            RemoteKind::Ssh => self.ssh_upload(local),
+            RemoteKind::Ftp => {
+                let bytes = std::fs::read(local)
+                    .map_err(|error| format!("{}: {error}", local.display()))?;
+                let mut ftp = self.ftp()?;
+                ftp.stor(self.path.trim(), &bytes)?;
+                ftp.quit();
+                Ok("ok".to_owned())
+            }
+        }
+    }
+
+    fn download(&self, local: &Path) -> Result<String, String> {
+        match self.kind {
+            RemoteKind::Ssh => self.ssh_download(local),
+            RemoteKind::Ftp => {
+                let mut ftp = self.ftp()?;
+                let bytes = ftp.retr(self.path.trim())?;
+                ftp.quit();
+                std::fs::write(local, bytes)
+                    .map_err(|error| format!("{}: {error}", local.display()))?;
+                Ok("ok".to_owned())
+            }
+        }
+    }
+}
+
+/// Minimal blocking FTP client with short timeouts, enough for one file.
+struct Ftp {
+    stream: std::net::TcpStream,
+}
+
+impl Ftp {
+    fn connect(host: &str, port: &str, user: &str, password: &str) -> Result<Self, String> {
+        use std::net::{TcpStream, ToSocketAddrs};
+        use std::time::Duration;
+
+        if host.is_empty() {
+            return Err("host is empty".to_owned());
+        }
+        let address = format!("{host}:{port}");
+        let socket = address
+            .to_socket_addrs()
+            .map_err(|error| format!("{address}: {error}"))?
+            .next()
+            .ok_or_else(|| format!("{address}: no address"))?;
+        let stream = TcpStream::connect_timeout(&socket, Duration::from_secs(4))
+            .map_err(|error| format!("{address}: {error}"))?;
+        stream
+            .set_read_timeout(Some(Duration::from_secs(6)))
+            .map_err(|error| error.to_string())?;
+        stream
+            .set_write_timeout(Some(Duration::from_secs(6)))
+            .map_err(|error| error.to_string())?;
+        let mut ftp = Self { stream };
+        ftp.expect(&[220])?;
+        let user = if user.is_empty() { "anonymous" } else { user };
+        let password = if password.is_empty() {
+            "anonymous@"
+        } else {
+            password
+        };
+        let (code, _) = ftp.command(&format!("USER {user}"))?;
+        if code == 331 {
+            ftp.command(&format!("PASS {password}"))?;
+        }
+        ftp.command("TYPE I")?;
+        Ok(ftp)
+    }
+
+    fn line(&mut self) -> Result<String, String> {
+        use std::io::Read;
+
+        let mut line = Vec::new();
+        let mut byte = [0_u8; 1];
+        loop {
+            let read = self
+                .stream
+                .read(&mut byte)
+                .map_err(|error| format!("FTP: {error}"))?;
+            if read == 0 {
+                return Err("FTP: connection closed".to_owned());
+            }
+            if byte[0] == b'\n' {
+                break;
+            }
+            if byte[0] != b'\r' {
+                line.push(byte[0]);
+            }
+        }
+        Ok(String::from_utf8_lossy(&line).into_owned())
+    }
+
+    fn reply(&mut self) -> Result<(u16, String), String> {
+        let mut text = String::new();
+        loop {
+            let line = self.line()?;
+            let code = line
+                .get(..3)
+                .and_then(|code| code.parse::<u16>().ok())
+                .ok_or_else(|| format!("FTP: {line}"))?;
+            let multiline = line.as_bytes().get(3) == Some(&b'-');
+            if !text.is_empty() {
+                text.push(' ');
+            }
+            text.push_str(line.trim_end());
+            if !multiline {
+                return Ok((code, text));
+            }
+        }
+    }
+
+    fn command(&mut self, command: &str) -> Result<(u16, String), String> {
+        use std::io::Write;
+
+        self.stream
+            .write_all(format!("{command}\r\n").as_bytes())
+            .map_err(|error| format!("FTP: {error}"))?;
+        let (code, text) = self.reply()?;
+        if code >= 400 {
+            return Err(text);
+        }
+        Ok((code, text))
+    }
+
+    fn expect(&mut self, expected: &[u16]) -> Result<(), String> {
+        let (code, text) = self.reply()?;
+        if expected.contains(&code) {
+            Ok(())
+        } else {
+            Err(text)
+        }
+    }
+
+    fn pasv(&mut self) -> Result<std::net::SocketAddr, String> {
+        use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+        let (code, text) = self.command("PASV")?;
+        if code != 227 {
+            return Err(format!("FTP: PASV {code}"));
+        }
+        let start = text.find('(').ok_or_else(|| "FTP: bad PASV".to_owned())?;
+        let end = text[start..]
+            .find(')')
+            .ok_or_else(|| "FTP: bad PASV".to_owned())?;
+        let numbers: Vec<u16> = text[start + 1..start + end]
+            .split(',')
+            .filter_map(|part| part.trim().parse().ok())
+            .collect();
+        if numbers.len() != 6 {
+            return Err("FTP: bad PASV".to_owned());
+        }
+        let octets = [
+            u8::try_from(numbers[0]).map_err(|_| "FTP: bad PASV".to_owned())?,
+            u8::try_from(numbers[1]).map_err(|_| "FTP: bad PASV".to_owned())?,
+            u8::try_from(numbers[2]).map_err(|_| "FTP: bad PASV".to_owned())?,
+            u8::try_from(numbers[3]).map_err(|_| "FTP: bad PASV".to_owned())?,
+        ];
+        let port = numbers[4] * 256 + numbers[5];
+        Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::from(octets)), port))
+    }
+
+    fn data(&mut self) -> Result<std::net::TcpStream, String> {
+        use std::time::Duration;
+
+        let address = self.pasv()?;
+        let stream = std::net::TcpStream::connect_timeout(&address, Duration::from_secs(4))
+            .map_err(|error| format!("FTP data: {error}"))?;
+        stream
+            .set_read_timeout(Some(Duration::from_secs(8)))
+            .map_err(|error| error.to_string())?;
+        stream
+            .set_write_timeout(Some(Duration::from_secs(8)))
+            .map_err(|error| error.to_string())?;
+        Ok(stream)
+    }
+
+    fn stor(&mut self, remote: &str, bytes: &[u8]) -> Result<(), String> {
+        use std::io::Write;
+
+        let mut data = self.data()?;
+        let (code, _) = self.command(&format!("STOR {remote}"))?;
+        if code != 150 && code != 125 {
+            return Err(format!("FTP: STOR {code}"));
+        }
+        data.write_all(bytes)
+            .map_err(|error| format!("FTP: {error}"))?;
+        data.shutdown(std::net::Shutdown::Write)
+            .map_err(|error| format!("FTP: {error}"))?;
+        drop(data);
+        let (code, text) = self.reply()?;
+        if code == 226 || code == 250 {
+            Ok(())
+        } else {
+            Err(text)
+        }
+    }
+
+    fn retr(&mut self, remote: &str) -> Result<Vec<u8>, String> {
+        use std::io::Read;
+
+        let mut data = self.data()?;
+        let (code, _) = self.command(&format!("RETR {remote}"))?;
+        if code != 150 && code != 125 {
+            return Err(format!("FTP: RETR {code}"));
+        }
+        let mut bytes = Vec::new();
+        data.read_to_end(&mut bytes)
+            .map_err(|error| format!("FTP: {error}"))?;
+        drop(data);
+        let (code, text) = self.reply()?;
+        if code == 226 || code == 250 {
+            Ok(bytes)
+        } else {
+            Err(text)
+        }
+    }
+
+    fn quit(&mut self) {
+        let _ = self.command("QUIT");
     }
 }
 
@@ -593,12 +930,19 @@ impl App {
             .storage
             .and_then(|storage| storage.get_string("remote"))
             .map(|raw| {
-                let mut parts = raw.split('\u{1f}');
+                let parts: Vec<&str> = raw.split('\u{1f}').collect();
+                let (kind, rest) = match parts.first().copied() {
+                    Some("ftp") => (RemoteKind::Ftp, &parts[1..]),
+                    Some("ssh") => (RemoteKind::Ssh, &parts[1..]),
+                    _ => (RemoteKind::Ssh, &parts[..]),
+                };
                 Remote {
-                    host: parts.next().unwrap_or_default().to_owned(),
-                    port: parts.next().unwrap_or_default().to_owned(),
-                    user: parts.next().unwrap_or_default().to_owned(),
-                    path: parts.next().unwrap_or_default().to_owned(),
+                    kind,
+                    host: rest.first().copied().unwrap_or_default().to_owned(),
+                    port: rest.get(1).copied().unwrap_or_default().to_owned(),
+                    user: rest.get(2).copied().unwrap_or_default().to_owned(),
+                    password: String::new(),
+                    path: rest.get(3).copied().unwrap_or_default().to_owned(),
                     status: None,
                 }
             })
@@ -610,6 +954,7 @@ impl App {
             password: String::new(),
             confirm: String::new(),
             creating: false,
+            publish: false,
             show_password: false,
             kdf: KdfChoice::Default,
             error: None,
@@ -624,6 +969,7 @@ impl App {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn unlock(&mut self) {
         self.error = None;
         let mut path = self.vault_path.trim().to_owned();
@@ -681,6 +1027,17 @@ impl App {
                 );
                 return;
             }
+            if self.publish && !self.remote.ready() {
+                self.error = Some(
+                    self.lang
+                        .t(
+                            "Для сервера укажите хост и путь к сейфу.",
+                            "Enter the server host and vault path.",
+                        )
+                        .to_owned(),
+                );
+                return;
+            }
         }
         let result = if self.creating {
             Vault::create(
@@ -693,8 +1050,29 @@ impl App {
         };
         match result {
             Ok(vault) => {
+                let mut note = None;
+                if self.creating && self.publish {
+                    note = Some(match self.remote.upload(Path::new(&path)) {
+                        Ok(_) => self
+                            .lang
+                            .t(
+                                "Сейф создан и опубликован на сервере. Локальная копия остаётся рабочей.",
+                                "Vault created and published to the server. The local copy stays active.",
+                            )
+                            .to_owned(),
+                        Err(error) => format!(
+                            "{}: {error}",
+                            self.lang.t(
+                                "Сейф создан локально, но загрузить не удалось",
+                                "Vault created locally, upload failed",
+                            )
+                        ),
+                    });
+                }
                 self.password.clear();
                 self.confirm.clear();
+                self.remote.status.clone_from(&note);
+                self.info = note;
                 self.browser = Some(Browser::new(vault));
             }
             Err(error) => self.error = Some(describe(self.lang, &error)),
@@ -746,20 +1124,44 @@ impl App {
                 ui.separator();
                 ui.add_space(8.0);
                 ui.label(
-                    RichText::new(lang.t("Сервер (SSH / SCP)", "Server (SSH / SCP)"))
+                    RichText::new(lang.t("Сервер (SSH / FTP)", "Server (SSH / FTP)"))
                         .size(13.0)
                         .strong()
                         .color(accent()),
                 );
                 ui.label(
                     RichText::new(lang.t(
-                        "Любой пользователь, root не нужен. Пароль не хранится: работает ключ или ssh-agent.",
-                        "Any user, root is not required. No password is stored: key or ssh-agent auth only.",
+                        "SSH работает по ключу или ssh-agent без пароля. FTP принимает логин и пароль; пароль хранится только в памяти.",
+                        "SSH uses a key or ssh-agent without a password. FTP accepts login and password; the password stays in memory only.",
                     ))
                     .size(10.5)
                     .color(muted()),
                 );
                 ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    for kind in [RemoteKind::Ssh, RemoteKind::Ftp] {
+                        let selected = self.remote.kind == kind;
+                        let label = match kind {
+                            RemoteKind::Ssh => "SSH / SCP",
+                            RemoteKind::Ftp => "FTP",
+                        };
+                        let button = egui::Button::new(
+                            RichText::new(label)
+                                .size(11.5)
+                                .color(if selected { on_accent() } else { ink() }),
+                        )
+                        .fill(if selected { accent() } else { input_bg() })
+                        .stroke(Stroke::new(
+                            1.0_f32,
+                            if selected { accent() } else { line() },
+                        ))
+                        .corner_radius(7);
+                        if ui.add(button).clicked() {
+                            self.remote.kind = kind;
+                        }
+                    }
+                });
+                ui.add_space(4.0);
                 egui::Grid::new("remote-grid")
                     .num_columns(2)
                     .spacing([10.0, 6.0])
@@ -774,7 +1176,7 @@ impl App {
                         ui.label(RichText::new(lang.t("Порт", "Port")).size(12.0));
                         ui.add(
                             egui::TextEdit::singleline(&mut self.remote.port)
-                                .hint_text("22")
+                                .hint_text(self.remote.kind.default_port())
                                 .desired_width(80.0),
                         );
                         ui.end_row();
@@ -782,6 +1184,17 @@ impl App {
                         ui.add(
                             egui::TextEdit::singleline(&mut self.remote.user)
                                 .hint_text("user")
+                                .desired_width(200.0),
+                        );
+                        ui.end_row();
+                        ui.label(RichText::new(lang.t("Пароль", "Password")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.remote.password)
+                                .password(true)
+                                .hint_text(lang.t(
+                                    "для FTP (не сохраняется)",
+                                    "for FTP (not saved)",
+                                ))
                                 .desired_width(200.0),
                         );
                         ui.end_row();
@@ -813,45 +1226,22 @@ impl App {
         self.settings_open = open;
     }
 
-    fn remote_host_target(&self) -> Option<String> {
-        let host = self.remote.host.trim();
-        if host.is_empty() {
-            return None;
-        }
-        let user = self.remote.user.trim();
-        Some(if user.is_empty() {
-            host.to_owned()
-        } else {
-            format!("{user}@{host}")
-        })
-    }
-
     fn remote_test(&mut self) {
-        let Some(target) = self.remote_host_target() else {
+        if self.remote.host.trim().is_empty() {
             self.remote.status = Some(self.lang.t("Укажите хост.", "Enter a host.").to_owned());
             return;
-        };
-        let args = vec![
-            "-o".to_owned(),
-            "BatchMode=yes".to_owned(),
-            "-o".to_owned(),
-            "ConnectTimeout=8".to_owned(),
-            "-p".to_owned(),
-            self.remote.port(),
-            target,
-            "echo ok".to_owned(),
-        ];
-        self.remote.status = Some(match Remote::run("ssh", &args) {
+        }
+        self.remote.status = Some(match self.remote.test() {
             Ok(_) => self
                 .lang
                 .t("Соединение работает.", "Connection works.")
                 .to_owned(),
-            Err(error) => format!("{}: {error}", self.lang.t("Ошибка SSH", "SSH error")),
+            Err(error) => format!("{}: {error}", self.lang.t("Ошибка", "Error")),
         });
     }
 
     fn remote_download(&mut self) {
-        let Some(target) = self.remote.target() else {
+        if !self.remote.ready() {
             self.remote.status = Some(
                 self.lang
                     .t(
@@ -861,19 +1251,9 @@ impl App {
                     .to_owned(),
             );
             return;
-        };
+        }
         let local = preview_dir().join(format!("remote-{}.spv", std::process::id()));
-        let args = vec![
-            "-o".to_owned(),
-            "BatchMode=yes".to_owned(),
-            "-o".to_owned(),
-            "ConnectTimeout=10".to_owned(),
-            "-P".to_owned(),
-            self.remote.port(),
-            target,
-            local.to_string_lossy().into_owned(),
-        ];
-        self.remote.status = Some(match Remote::run("scp", &args) {
+        self.remote.status = Some(match self.remote.download(&local) {
             Ok(_) => {
                 self.vault_path = local.to_string_lossy().into_owned();
                 self.creating = false;
@@ -885,12 +1265,12 @@ impl App {
                     )
                     .to_owned()
             }
-            Err(error) => format!("{}: {error}", self.lang.t("Ошибка SCP", "SCP error")),
+            Err(error) => format!("{}: {error}", self.lang.t("Ошибка", "Error")),
         });
     }
 
     fn remote_upload(&mut self) {
-        let Some(target) = self.remote.target() else {
+        if !self.remote.ready() {
             self.remote.status = Some(
                 self.lang
                     .t(
@@ -900,7 +1280,7 @@ impl App {
                     .to_owned(),
             );
             return;
-        };
+        }
         let local = self.vault_path.trim().to_owned();
         if local.is_empty() || !Path::new(&local).exists() {
             self.remote.status = Some(
@@ -913,22 +1293,12 @@ impl App {
             );
             return;
         }
-        let args = vec![
-            "-o".to_owned(),
-            "BatchMode=yes".to_owned(),
-            "-o".to_owned(),
-            "ConnectTimeout=10".to_owned(),
-            "-P".to_owned(),
-            self.remote.port(),
-            local,
-            target,
-        ];
-        self.remote.status = Some(match Remote::run("scp", &args) {
+        self.remote.status = Some(match self.remote.upload(Path::new(&local)) {
             Ok(_) => self
                 .lang
                 .t("Сейф загружен на сервер.", "Vault uploaded to the server.")
                 .to_owned(),
-            Err(error) => format!("{}: {error}", self.lang.t("Ошибка SCP", "SCP error")),
+            Err(error) => format!("{}: {error}", self.lang.t("Ошибка", "Error")),
         });
     }
 
@@ -1100,6 +1470,7 @@ impl App {
         self.rekey_open = open;
     }
 
+    #[allow(clippy::too_many_lines)]
     fn header(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("header")
             .exact_height(78.0)
@@ -1166,23 +1537,45 @@ impl App {
                         language_switch(ui, &mut self.lang);
                         ui.add_space(14.0);
                         let mut picked = None;
-                        for theme in [
-                            Theme::Light,
-                            Theme::Sunset,
-                            Theme::Forest,
-                            Theme::Neon,
-                            Theme::Midnight,
-                        ] {
-                            if theme_swatch(ui, theme, self.theme == theme, self.lang) {
-                                picked = Some(theme);
-                            }
-                            ui.add_space(5.0);
-                        }
-                        ui.add_space(2.0);
-                        ui.label(
-                            RichText::new(self.lang.t("Тема", "Theme"))
-                                .size(11.0)
-                                .color(muted()),
+                        ui.menu_button(
+                            RichText::new(format!(
+                                "{} {}",
+                                self.lang.t("Тема", "Theme"),
+                                self.theme.label(self.lang)
+                            ))
+                            .size(11.5),
+                            |ui| {
+                                for theme in [
+                                    Theme::Midnight,
+                                    Theme::Neon,
+                                    Theme::Light,
+                                    Theme::Sunset,
+                                    Theme::Forest,
+                                ] {
+                                    ui.horizontal(|ui| {
+                                        let (rect, _) = ui.allocate_exact_size(
+                                            egui::vec2(16.0, 16.0),
+                                            egui::Sense::hover(),
+                                        );
+                                        let palette = theme.palette();
+                                        ui.painter().rect_filled(rect, 4.0, palette.bg);
+                                        ui.painter().circle_filled(
+                                            rect.center(),
+                                            3.5,
+                                            palette.accent,
+                                        );
+                                        if ui
+                                            .selectable_label(
+                                                self.theme == theme,
+                                                theme.label(self.lang),
+                                            )
+                                            .clicked()
+                                        {
+                                            picked = Some(theme);
+                                        }
+                                    });
+                                }
+                            },
                         );
                         if let Some(theme) = picked {
                             self.theme = theme;
@@ -1235,8 +1628,12 @@ impl eframe::App for App {
         storage.set_string(
             "remote",
             format!(
-                "{}\u{1f}{}\u{1f}{}\u{1f}{}",
-                self.remote.host, self.remote.port, self.remote.user, self.remote.path
+                "{}\u{1f}{}\u{1f}{}\u{1f}{}\u{1f}{}",
+                self.remote.kind.key(),
+                self.remote.host,
+                self.remote.port,
+                self.remote.user,
+                self.remote.path
             ),
         );
         storage.set_string("lang", self.lang.key().to_owned());
@@ -1424,6 +1821,102 @@ impl App {
                             }
                         }
                     });
+
+                    ui.add_space(12.0);
+                    field_label(ui, lang.t("Куда сохранить", "Destination"));
+                    ui.horizontal_wrapped(|ui| {
+                        for (label, kind) in [
+                            (lang.t("Локально", "Local"), None),
+                            ("SSH", Some(RemoteKind::Ssh)),
+                            ("FTP", Some(RemoteKind::Ftp)),
+                        ] {
+                            let active = kind.map_or(!self.publish, |kind| {
+                                self.publish && self.remote.kind == kind
+                            });
+                            let button = egui::Button::new(
+                                RichText::new(label)
+                                    .size(11.5)
+                                    .color(if active { on_accent() } else { muted() }),
+                            )
+                            .fill(if active { accent() } else { input_bg() })
+                            .stroke(Stroke::new(
+                                1.0_f32,
+                                if active { accent() } else { line() },
+                            ))
+                            .corner_radius(7)
+                            .min_size(egui::vec2(86.0, 28.0));
+                            if ui.add(button).clicked() {
+                                match kind {
+                                    Some(kind) => {
+                                        self.publish = true;
+                                        self.remote.kind = kind;
+                                    }
+                                    None => self.publish = false,
+                                }
+                            }
+                        }
+                    });
+                    if self.publish {
+                        ui.add_space(6.0);
+                        egui::Grid::new("create-remote")
+                            .num_columns(2)
+                            .spacing([8.0, 5.0])
+                            .show(ui, |ui| {
+                                ui.label(RichText::new(lang.t("Хост", "Host")).size(11.0));
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.remote.host)
+                                        .hint_text("example.com")
+                                        .desired_width(260.0),
+                                );
+                                ui.end_row();
+                                ui.label(RichText::new(lang.t("Порт", "Port")).size(11.0));
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.remote.port)
+                                        .hint_text(self.remote.kind.default_port())
+                                        .desired_width(80.0),
+                                );
+                                ui.end_row();
+                                ui.label(RichText::new(lang.t("Логин", "Login")).size(11.0));
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.remote.user)
+                                        .hint_text("user")
+                                        .desired_width(180.0),
+                                );
+                                ui.end_row();
+                                ui.label(RichText::new(lang.t("Пароль", "Password")).size(11.0));
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.remote.password)
+                                        .password(true)
+                                        .hint_text(lang.t("для FTP", "for FTP"))
+                                        .desired_width(180.0),
+                                );
+                                ui.end_row();
+                                ui.label(RichText::new(lang.t("Путь на сервере", "Server path")).size(11.0));
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.remote.path)
+                                        .hint_text("/home/user/vault.spv")
+                                        .desired_width(260.0),
+                                );
+                                ui.end_row();
+                            });
+                        ui.label(
+                            RichText::new(lang.t(
+                                "SSH: ключ или ssh-agent подхватываются автоматически. FTP: логин и пароль, пароль не сохраняется.",
+                                "SSH: a key or ssh-agent is picked up automatically. FTP: login and password, the password is not saved.",
+                            ))
+                            .size(10.0)
+                            .color(muted()),
+                        );
+                    } else {
+                        ui.label(
+                            RichText::new(lang.t(
+                                "Можно указать сетевую папку: \\\\server\\share\\vault.spv.",
+                                "A network folder works too: \\\\server\\share\\vault.spv.",
+                            ))
+                            .size(10.0)
+                            .color(muted()),
+                        );
+                    }
                 }
 
                 ui.add_space(14.0);
@@ -2676,48 +3169,6 @@ fn logo_tile(ui: &mut egui::Ui, size: f32) {
         FontId::new(size * 0.34, FontFamily::Proportional),
         Color32::WHITE,
     );
-}
-
-fn theme_swatch(ui: &mut egui::Ui, theme: Theme, active: bool, lang: Lang) -> bool {
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
-    let palette = theme.palette();
-    let painter = ui.painter();
-    painter.rect_filled(rect, 6.0, palette.bg);
-    painter.circle_filled(
-        egui::pos2(rect.left() + 8.0, rect.top() + 8.0),
-        4.0,
-        palette.accent,
-    );
-    painter.circle_filled(
-        egui::pos2(rect.right() - 8.0, rect.bottom() - 8.0),
-        4.0,
-        palette.violet,
-    );
-    painter.rect_stroke(
-        rect,
-        6.0,
-        Stroke::new(1.0_f32, palette.line),
-        egui::StrokeKind::Inside,
-    );
-    if active {
-        painter.rect_stroke(
-            rect.expand(2.0),
-            8.0,
-            Stroke::new(2.0_f32, palette.accent),
-            egui::StrokeKind::Outside,
-        );
-    } else if response.hovered() {
-        painter.rect_stroke(
-            rect.expand(1.0),
-            7.0,
-            Stroke::new(1.0_f32, line()),
-            egui::StrokeKind::Outside,
-        );
-    }
-    if response.hovered() {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-    }
-    response.on_hover_text(theme.label(lang)).clicked()
 }
 
 fn language_switch(ui: &mut egui::Ui, lang: &mut Lang) {

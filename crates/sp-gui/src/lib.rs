@@ -44,6 +44,8 @@ enum Theme {
     Midnight,
     Neon,
     Light,
+    Paper,
+    Mint,
     Sunset,
     Forest,
 }
@@ -93,6 +95,34 @@ impl Theme {
                 input: Color32::from_rgb(248, 250, 253),
                 selected: Color32::from_rgb(226, 235, 250),
             },
+            Self::Paper => Palette {
+                bg: Color32::from_rgb(250, 247, 242),
+                panel: Color32::from_rgb(255, 253, 249),
+                card: Color32::from_rgb(255, 255, 255),
+                line: Color32::from_rgb(229, 221, 209),
+                ink: Color32::from_rgb(45, 38, 30),
+                muted: Color32::from_rgb(120, 108, 94),
+                accent: Color32::from_rgb(180, 83, 9),
+                violet: Color32::from_rgb(124, 58, 237),
+                danger: Color32::from_rgb(185, 28, 28),
+                good: Color32::from_rgb(21, 128, 61),
+                input: Color32::from_rgb(252, 249, 244),
+                selected: Color32::from_rgb(243, 232, 216),
+            },
+            Self::Mint => Palette {
+                bg: Color32::from_rgb(240, 250, 245),
+                panel: Color32::from_rgb(255, 255, 255),
+                card: Color32::from_rgb(255, 255, 255),
+                line: Color32::from_rgb(199, 228, 214),
+                ink: Color32::from_rgb(16, 48, 38),
+                muted: Color32::from_rgb(82, 116, 102),
+                accent: Color32::from_rgb(5, 150, 105),
+                violet: Color32::from_rgb(14, 116, 144),
+                danger: Color32::from_rgb(190, 30, 45),
+                good: Color32::from_rgb(22, 163, 74),
+                input: Color32::from_rgb(245, 253, 249),
+                selected: Color32::from_rgb(214, 244, 229),
+            },
             Self::Sunset => Palette {
                 bg: Color32::from_rgb(20, 11, 18),
                 panel: Color32::from_rgb(29, 16, 24),
@@ -132,6 +162,10 @@ impl Theme {
             (Self::Neon, Lang::En) => "Neon",
             (Self::Light, Lang::Ru) => "Свет",
             (Self::Light, Lang::En) => "Light",
+            (Self::Paper, Lang::Ru) => "Бумага",
+            (Self::Paper, Lang::En) => "Paper",
+            (Self::Mint, Lang::Ru) => "Мята",
+            (Self::Mint, Lang::En) => "Mint",
             (Self::Sunset, Lang::Ru) => "Закат",
             (Self::Sunset, Lang::En) => "Sunset",
             (Self::Forest, Lang::Ru) => "Лес",
@@ -140,7 +174,7 @@ impl Theme {
     }
 
     fn is_light(self) -> bool {
-        matches!(self, Self::Light)
+        matches!(self, Self::Light | Self::Paper | Self::Mint)
     }
 
     const fn key(self) -> &'static str {
@@ -148,6 +182,8 @@ impl Theme {
             Self::Midnight => "midnight",
             Self::Neon => "neon",
             Self::Light => "light",
+            Self::Paper => "paper",
+            Self::Mint => "mint",
             Self::Sunset => "sunset",
             Self::Forest => "forest",
         }
@@ -157,6 +193,8 @@ impl Theme {
         match key {
             "neon" => Self::Neon,
             "light" => Self::Light,
+            "paper" => Self::Paper,
+            "mint" => Self::Mint,
             "sunset" => Self::Sunset,
             "forest" => Self::Forest,
             _ => Self::Midnight,
@@ -244,6 +282,19 @@ fn set_wipe_passes(passes: u32) {
     WIPE_PASSES.store(passes.clamp(1, 7), Ordering::Relaxed);
 }
 
+/// Optional per-vault folder for files extracted for external viewing.
+static PREVIEW_ROOT: RwLock<Option<PathBuf>> = RwLock::new(None);
+
+fn set_preview_root(root: &str) {
+    let trimmed = root.trim();
+    let value = if trimmed.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(trimmed))
+    };
+    *PREVIEW_ROOT.write().unwrap_or_else(PoisonError::into_inner) = value;
+}
+
 /// Overwrites a file with random bytes `passes` times, flushes and removes it.
 fn wipe_temp(path: &Path, passes: u32) {
     if let Ok(mut file) = std::fs::OpenOptions::new().write(true).open(path) {
@@ -270,7 +321,11 @@ fn wipe_temp(path: &Path, passes: u32) {
 
 /// Folder for externally opened previews, removed as soon as it is empty.
 fn preview_dir() -> PathBuf {
-    let dir = std::env::temp_dir().join("secretpiece-preview");
+    let custom = PREVIEW_ROOT
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clone();
+    let dir = custom.unwrap_or_else(|| std::env::temp_dir().join("secretpiece-preview"));
     let _ = std::fs::create_dir_all(&dir);
     #[cfg(unix)]
     {
@@ -466,6 +521,12 @@ struct App {
     info: Option<String>,
     browser: Option<Browser>,
     settings_open: bool,
+    server_open: bool,
+    presets: Vec<Preset>,
+    preset_name: String,
+    show_presets: bool,
+    remember_password: bool,
+    auto_sync: bool,
     remote: Remote,
     rekey_open: bool,
     rekey_old: String,
@@ -864,6 +925,62 @@ impl Ftp {
     }
 }
 
+/// A saved server destination (SSH or FTP).
+#[derive(Clone, Default)]
+struct Preset {
+    name: String,
+    kind: RemoteKind,
+    host: String,
+    port: String,
+    user: String,
+    password: String,
+    path: String,
+}
+
+impl Preset {
+    fn encode(&self) -> String {
+        [
+            self.name.as_str(),
+            self.kind.key(),
+            self.host.as_str(),
+            self.port.as_str(),
+            self.user.as_str(),
+            self.password.as_str(),
+            self.path.as_str(),
+        ]
+        .join("\u{1f}")
+    }
+
+    fn decode(raw: &str) -> Option<Self> {
+        let parts: Vec<&str> = raw.split('\u{1f}').collect();
+        if parts.len() < 7 {
+            return None;
+        }
+        Some(Self {
+            name: parts[0].to_owned(),
+            kind: if parts[1] == "ftp" {
+                RemoteKind::Ftp
+            } else {
+                RemoteKind::Ssh
+            },
+            host: parts[2].to_owned(),
+            port: parts[3].to_owned(),
+            user: parts[4].to_owned(),
+            password: parts[5].to_owned(),
+            path: parts[6].to_owned(),
+        })
+    }
+
+    fn apply(&self, remote: &mut Remote) {
+        remote.kind = self.kind;
+        remote.host.clone_from(&self.host);
+        remote.port.clone_from(&self.port);
+        remote.user.clone_from(&self.user);
+        remote.password.clone_from(&self.password);
+        remote.path.clone_from(&self.path);
+    }
+}
+
 /// Argon2id effort offered in the create form.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum KdfChoice {
@@ -947,6 +1064,27 @@ impl App {
                 }
             })
             .unwrap_or_default();
+        let presets = cc
+            .storage
+            .and_then(|storage| storage.get_string("presets"))
+            .map(|raw| {
+                raw.split('\u{1e}')
+                    .filter_map(Preset::decode)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let show_presets = cc
+            .storage
+            .and_then(|storage| storage.get_string("show_presets"))
+            .is_none_or(|value| value == "1");
+        let remember_password = cc
+            .storage
+            .and_then(|storage| storage.get_string("remember_password"))
+            .is_some_and(|value| value == "1");
+        let auto_sync = cc
+            .storage
+            .and_then(|storage| storage.get_string("auto_sync"))
+            .is_none_or(|value| value == "1");
         Self {
             lang,
             theme,
@@ -961,6 +1099,12 @@ impl App {
             info: None,
             browser: None,
             settings_open: false,
+            server_open: false,
+            presets,
+            preset_name: String::new(),
+            show_presets,
+            remember_password,
+            auto_sync,
             remote,
             rekey_open: false,
             rekey_old: String::new(),
@@ -1222,8 +1366,295 @@ impl App {
                     ui.add_space(4.0);
                     ui.label(RichText::new(status).size(11.0).color(muted()));
                 }
+
+                ui.add_space(12.0);
+                ui.separator();
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(lang.t("Приватность и пресеты", "Privacy and presets"))
+                        .size(13.0)
+                        .strong()
+                        .color(accent()),
+                );
+                ui.checkbox(
+                    &mut self.show_presets,
+                    RichText::new(lang.t(
+                        "Показывать выбор пресетов у входа",
+                        "Show preset picker at sign-in",
+                    ))
+                    .size(12.0),
+                );
+                ui.checkbox(
+                    &mut self.remember_password,
+                    RichText::new(lang.t(
+                        "Разрешить сохранять пароль в пресете",
+                        "Allow saving the password in a preset",
+                    ))
+                    .size(12.0),
+                );
+                ui.checkbox(
+                    &mut self.auto_sync,
+                    RichText::new(lang.t(
+                        "Выгружать сейф на сервер при блокировке",
+                        "Upload the vault on lock",
+                    ))
+                    .size(12.0),
+                );
+                ui.label(
+                    RichText::new(lang.t(
+                        "Пароль в пресете хранится открыто в конфиге приложения. Не включайте на чужом компьютере.",
+                        "A saved password is stored in plain text in the app config. Do not enable this on a shared computer.",
+                    ))
+                    .size(10.0)
+                    .color(muted()),
+                );
             });
         self.settings_open = open;
+    }
+
+    fn preset_picker(&mut self, ui: &mut egui::Ui) {
+        if !self.show_presets || self.presets.is_empty() {
+            return;
+        }
+        let lang = self.lang;
+        ui.horizontal(|ui| {
+            ui.label(
+                RichText::new(lang.t("Пресет:", "Preset:"))
+                    .size(11.5)
+                    .color(muted()),
+            );
+            let current = if self.preset_name.is_empty() {
+                lang.t("выбрать…", "choose…").to_owned()
+            } else {
+                self.preset_name.clone()
+            };
+            let mut chosen = None;
+            egui::ComboBox::from_id_salt("preset-picker")
+                .selected_text(current)
+                .width(260.0)
+                .show_ui(ui, |ui| {
+                    for (index, preset) in self.presets.iter().enumerate() {
+                        let label = format!(
+                            "{} · {} · {}",
+                            preset.name,
+                            match preset.kind {
+                                RemoteKind::Ssh => "SSH",
+                                RemoteKind::Ftp => "FTP",
+                            },
+                            preset.host
+                        );
+                        if ui.selectable_label(false, label).clicked() {
+                            chosen = Some(index);
+                        }
+                    }
+                });
+            if let Some(index) = chosen {
+                if let Some(preset) = self.presets.get(index) {
+                    preset.apply(&mut self.remote);
+                    self.preset_name.clone_from(&preset.name);
+                }
+            }
+            if !self.preset_name.is_empty()
+                && ui
+                    .add(
+                        egui::Button::new(
+                            RichText::new(lang.t("Удалить", "Delete"))
+                                .size(11.0)
+                                .color(danger()),
+                        )
+                        .frame(false),
+                    )
+                    .clicked()
+            {
+                self.presets
+                    .retain(|preset| preset.name != self.preset_name);
+                self.preset_name.clear();
+            }
+        });
+    }
+
+    /// Server dialog reachable straight from the sign-in screen.
+    #[allow(clippy::too_many_lines)]
+    fn server_window(&mut self, ctx: &egui::Context) {
+        if !self.server_open {
+            return;
+        }
+        let lang = self.lang;
+        let mut open = true;
+        egui::Window::new(lang.t("Сервер: открыть или создать сейф", "Server: open or create a vault"))
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .default_width(560.0)
+            .show(ctx, |ui| {
+                ui.label(
+                    RichText::new(lang.t(
+                        "SSH работает по ключу или ssh-agent автоматически. FTP — логин и пароль; пароль не покидает это окно.",
+                        "SSH uses a key or ssh-agent automatically. FTP uses login and password; the password never leaves this dialog.",
+                    ))
+                    .size(10.5)
+                    .color(muted()),
+                );
+                ui.add_space(6.0);
+                self.preset_picker(ui);
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    for kind in [RemoteKind::Ssh, RemoteKind::Ftp] {
+                        let selected = self.remote.kind == kind;
+                        let button = egui::Button::new(
+                            RichText::new(match kind {
+                                RemoteKind::Ssh => "SSH / SCP",
+                                RemoteKind::Ftp => "FTP",
+                            })
+                            .size(11.5)
+                            .color(if selected { on_accent() } else { ink() }),
+                        )
+                        .fill(if selected { accent() } else { input_bg() })
+                        .stroke(Stroke::new(
+                            1.0_f32,
+                            if selected { accent() } else { line() },
+                        ))
+                        .corner_radius(7);
+                        if ui.add(button).clicked() {
+                            self.remote.kind = kind;
+                        }
+                    }
+                });
+                ui.add_space(4.0);
+                egui::Grid::new("server-grid")
+                    .num_columns(2)
+                    .spacing([10.0, 6.0])
+                    .show(ui, |ui| {
+                        ui.label(RichText::new(lang.t("Хост", "Host")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.remote.host)
+                                .hint_text("example.com")
+                                .desired_width(320.0),
+                        );
+                        ui.end_row();
+                        ui.label(RichText::new(lang.t("Порт", "Port")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.remote.port)
+                                .hint_text(self.remote.kind.default_port())
+                                .desired_width(80.0),
+                        );
+                        ui.end_row();
+                        ui.label(RichText::new(lang.t("Логин", "Login")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.remote.user)
+                                .hint_text("user")
+                                .desired_width(200.0),
+                        );
+                        ui.end_row();
+                        ui.label(RichText::new(lang.t("Пароль", "Password")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.remote.password)
+                                .password(true)
+                                .hint_text(lang.t("для FTP", "for FTP"))
+                                .desired_width(200.0),
+                        );
+                        ui.end_row();
+                        ui.label(RichText::new(lang.t("Путь к сейфу", "Vault path")).size(12.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.remote.path)
+                                .hint_text("/home/user/vault.spv")
+                                .desired_width(320.0),
+                        );
+                        ui.end_row();
+                    });
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    if ui.button(lang.t("Проверить", "Test")).clicked() {
+                        self.remote_test();
+                    }
+                    if ui
+                        .add(
+                            egui::Button::new(
+                                RichText::new(lang.t("Скачать и открыть", "Download and open"))
+                                    .color(on_accent()),
+                            )
+                            .fill(accent())
+                            .corner_radius(8),
+                        )
+                        .clicked()
+                    {
+                        self.remote_download();
+                        if self.remote.status.as_deref().is_some_and(|status| {
+                            status.contains(lang.t("скачан", "downloaded"))
+                        }) {
+                            self.server_open = false;
+                        }
+                    }
+                    if ui
+                        .add(
+                            egui::Button::new(
+                                RichText::new(lang.t("Создать здесь", "Create here")).color(ink()),
+                            )
+                            .fill(card_bg())
+                            .stroke(Stroke::new(1.0_f32, line()))
+                            .corner_radius(8),
+                        )
+                        .clicked()
+                    {
+                        self.creating = true;
+                        self.publish = true;
+                        if self.vault_path.trim().is_empty() {
+                            "vault.spv".clone_into(&mut self.vault_path);
+                        }
+                        self.server_open = false;
+                    }
+                });
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.preset_name)
+                            .hint_text(lang.t("имя пресета", "preset name"))
+                            .desired_width(180.0),
+                    );
+                    if ui.button(lang.t("Сохранить пресет", "Save preset")).clicked() {
+                        let name = if self.preset_name.trim().is_empty() {
+                            self.remote.host.trim().to_owned()
+                        } else {
+                            self.preset_name.trim().to_owned()
+                        };
+                        if !name.is_empty() {
+                            let preset = Preset {
+                                name: name.clone(),
+                                kind: self.remote.kind,
+                                host: self.remote.host.clone(),
+                                port: self.remote.port.clone(),
+                                user: self.remote.user.clone(),
+                                password: if self.remember_password {
+                                    self.remote.password.clone()
+                                } else {
+                                    String::new()
+                                },
+                                path: self.remote.path.clone(),
+                            };
+                            self.presets.retain(|item| item.name != name);
+                            self.presets.insert(0, preset);
+                            self.presets.truncate(20);
+                            self.preset_name = name;
+                        }
+                    }
+                    if !self.remember_password {
+                        ui.label(
+                            RichText::new(lang.t(
+                                "пароль не сохраняется (включите в настройках)",
+                                "password not saved (enable in settings)",
+                            ))
+                            .size(10.0)
+                            .color(muted()),
+                        );
+                    }
+                });
+                if let Some(status) = &self.remote.status {
+                    ui.add_space(4.0);
+                    ui.label(RichText::new(status).size(11.0).color(muted()));
+                }
+            });
+        self.server_open = open;
     }
 
     fn remote_test(&mut self) {
@@ -1512,13 +1943,24 @@ impl App {
                             .corner_radius(9)
                             .min_size(egui::vec2(128.0, 30.0));
                             if ui.add(lock).clicked() {
-                                if self.remote.ready() && !self.vault_path.trim().is_empty() {
+                                let mut remote = self.remote.clone();
+                                let sync = self.auto_sync
+                                    && self
+                                        .browser
+                                        .as_ref()
+                                        .is_some_and(|browser| browser.settings.auto_sync);
+                                if let Some(browser) = &self.browser {
+                                    if !browser.settings.remote_path.trim().is_empty() {
+                                        browser.settings.remote_path.clone_into(&mut remote.path);
+                                    }
+                                }
+                                if sync && remote.ready() && !self.vault_path.trim().is_empty() {
                                     if let Err(error) =
-                                        self.remote.upload(Path::new(self.vault_path.trim()))
+                                        remote.upload(Path::new(self.vault_path.trim()))
                                     {
                                         self.remote.status = Some(format!(
                                             "{}: {error}",
-                                            self.lang.t("Синхронизация не удалась", "Sync failed",)
+                                            self.lang.t("Синхронизация не удалась", "Sync failed")
                                         ));
                                     }
                                 }
@@ -1543,6 +1985,42 @@ impl App {
                         {
                             self.settings_open = true;
                         }
+                        ui.add_space(8.0);
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    RichText::new(self.lang.t("Сервер", "Server"))
+                                        .size(11.5)
+                                        .color(accent()),
+                                )
+                                .fill(card_bg())
+                                .stroke(Stroke::new(1.0_f32, accent()))
+                                .corner_radius(9)
+                                .min_size(egui::vec2(86.0, 30.0)),
+                            )
+                            .clicked()
+                        {
+                            self.server_open = true;
+                        }
+                        if let Some(browser) = self.browser.as_mut() {
+                            ui.add_space(8.0);
+                            if ui
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new(self.lang.t("Контейнер", "Vault"))
+                                            .size(11.5)
+                                            .color(ink()),
+                                    )
+                                    .fill(card_bg())
+                                    .stroke(Stroke::new(1.0_f32, line()))
+                                    .corner_radius(9)
+                                    .min_size(egui::vec2(96.0, 30.0)),
+                                )
+                                .clicked()
+                            {
+                                browser.container_open = true;
+                            }
+                        }
                         ui.add_space(12.0);
                         language_switch(ui, &mut self.lang);
                         ui.add_space(14.0);
@@ -1559,6 +2037,8 @@ impl App {
                                     Theme::Midnight,
                                     Theme::Neon,
                                     Theme::Light,
+                                    Theme::Paper,
+                                    Theme::Mint,
                                     Theme::Sunset,
                                     Theme::Forest,
                                 ] {
@@ -1629,6 +2109,7 @@ impl eframe::App for App {
                 }
             });
         self.settings(ctx);
+        self.server_window(ctx);
         self.rekey_window(ctx);
     }
 
@@ -1647,6 +2128,25 @@ impl eframe::App for App {
             ),
         );
         storage.set_string("lang", self.lang.key().to_owned());
+        let presets = self
+            .presets
+            .iter()
+            .map(Preset::encode)
+            .collect::<Vec<_>>()
+            .join("\u{1e}");
+        storage.set_string("presets", presets);
+        storage.set_string(
+            "show_presets",
+            if self.show_presets { "1" } else { "0" }.to_owned(),
+        );
+        storage.set_string(
+            "remember_password",
+            if self.remember_password { "1" } else { "0" }.to_owned(),
+        );
+        storage.set_string(
+            "auto_sync",
+            if self.auto_sync { "1" } else { "0" }.to_owned(),
+        );
     }
 }
 
@@ -1676,6 +2176,22 @@ impl App {
                     );
                     ui.add_space(14.0);
                     self.form_card(ui, card_width);
+                    ui.add_space(10.0);
+                    let plaque = egui::Button::new(
+                        RichText::new(self.lang.t(
+                            "Сервер SSH / FTP — открыть или создать сейф",
+                            "SSH / FTP server — open or create a vault",
+                        ))
+                        .size(12.0)
+                        .color(accent()),
+                    )
+                    .fill(card_bg())
+                    .stroke(Stroke::new(1.0_f32, accent()))
+                    .corner_radius(10)
+                    .min_size(egui::vec2(card_width, 38.0));
+                    if ui.add(plaque).clicked() {
+                        self.server_open = true;
+                    }
                     ui.add_space(14.0);
                     ui.horizontal(|ui| {
                         let total = 3.0 * 150.0 + 2.0 * 8.0;
@@ -1868,6 +2384,7 @@ impl App {
                     });
                     if self.publish {
                         ui.add_space(6.0);
+                        self.preset_picker(ui);
                         egui::Grid::new("create-remote")
                             .num_columns(2)
                             .spacing([8.0, 5.0])
@@ -2131,6 +2648,53 @@ struct Browser {
     shred_on_delete: bool,
     sort: SortBy,
     sort_desc: bool,
+    settings: ContainerSettings,
+    container_open: bool,
+}
+
+/// Per-container options stored inside the vault at `.secretpiece/settings`.
+#[derive(Clone)]
+struct ContainerSettings {
+    external_preview: bool,
+    preview_root: String,
+    auto_sync: bool,
+    remote_path: String,
+}
+
+impl Default for ContainerSettings {
+    fn default() -> Self {
+        Self {
+            external_preview: true,
+            preview_root: String::new(),
+            auto_sync: true,
+            remote_path: String::new(),
+        }
+    }
+}
+
+impl ContainerSettings {
+    fn encode(&self) -> String {
+        [
+            if self.external_preview { "1" } else { "0" },
+            &self.preview_root,
+            if self.auto_sync { "1" } else { "0" },
+            &self.remote_path,
+        ]
+        .join("\u{1f}")
+    }
+
+    fn decode(raw: &str) -> Option<Self> {
+        let parts: Vec<&str> = raw.split('\u{1f}').collect();
+        if parts.len() < 4 {
+            return None;
+        }
+        Some(Self {
+            external_preview: parts[0] == "1",
+            preview_root: parts[1].to_owned(),
+            auto_sync: parts[2] == "1",
+            remote_path: parts[3].to_owned(),
+        })
+    }
 }
 
 /// Sort order of the vault browser.
@@ -2180,6 +2744,7 @@ struct Preview {
     path: String,
     data: Vec<u8>,
     hex: bool,
+    wrap: bool,
 }
 
 impl Drop for Preview {
@@ -2189,7 +2754,13 @@ impl Drop for Preview {
 }
 
 impl Browser {
-    fn new(vault: Vault) -> Self {
+    fn new(mut vault: Vault) -> Self {
+        let settings = vault
+            .get(".secretpiece/settings")
+            .ok()
+            .and_then(|data| ContainerSettings::decode(&String::from_utf8_lossy(&data)))
+            .unwrap_or_default();
+        set_preview_root(&settings.preview_root);
         let mut browser = Self {
             vault,
             cwd: String::new(),
@@ -2205,6 +2776,8 @@ impl Browser {
             shred_on_delete: true,
             sort: SortBy::Name,
             sort_desc: false,
+            settings,
+            container_open: false,
         };
         browser.refresh();
         browser
@@ -2212,6 +2785,8 @@ impl Browser {
 
     fn refresh(&mut self) {
         self.entries = self.vault.list(Some(&self.cwd));
+        self.entries
+            .retain(|entry| !entry.path.starts_with(".secretpiece"));
         let sort = self.sort;
         let desc = self.sort_desc;
         self.entries.sort_by(|a, b| {
@@ -2623,10 +3198,18 @@ impl Browser {
                         path: path.to_owned(),
                         data,
                         hex: false,
+                        wrap: true,
                     });
-                } else {
+                } else if self.settings.external_preview {
                     data.fill(0);
                     self.pending_external = Some(path.to_owned());
+                } else {
+                    self.preview = Some(Preview {
+                        path: path.to_owned(),
+                        data,
+                        hex: true,
+                        wrap: true,
+                    });
                 }
             }
             Err(error) => {
@@ -2927,6 +3510,7 @@ impl Browser {
                 .default_size([760.0, 520.0])
                 .show(ui.ctx(), |ui| {
                     let text = preview_text(&preview.data);
+                    let hex = preview.hex || text.is_none();
                     ui.horizontal(|ui| {
                         ui.label(RichText::new(&preview.path).strong().color(ink()));
                         ui.label(
@@ -2934,17 +3518,41 @@ impl Browser {
                                 .size(12.0)
                                 .color(muted()),
                         );
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            if text.is_some() {
-                                let label = if preview.hex {
-                                    lang.t("Текст", "Text")
-                                } else {
-                                    lang.t("Hex", "Hex")
-                                };
-                                if ui.button(label).clicked() {
-                                    preview.hex = !preview.hex;
+                        if let Some(text) = text {
+                            ui.label(
+                                RichText::new(format!(
+                                    "{}: {}",
+                                    lang.t("строк", "lines"),
+                                    text.lines().count()
+                                ))
+                                .size(11.0)
+                                .color(muted()),
+                            );
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        if text.is_some() {
+                            let label = if preview.hex {
+                                lang.t("Текст", "Text")
+                            } else {
+                                lang.t("Hex", "Hex")
+                            };
+                            if ui.button(label).clicked() {
+                                preview.hex = !preview.hex;
+                            }
+                            if !preview.hex {
+                                ui.checkbox(
+                                    &mut preview.wrap,
+                                    RichText::new(lang.t("Перенос", "Wrap")).size(11.5),
+                                );
+                            }
+                            if ui.button(lang.t("Копировать", "Copy")).clicked() {
+                                if let Some(text) = text {
+                                    ui.ctx().copy_text(clip(text, 200_000).to_owned());
                                 }
                             }
+                        }
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             ui.label(
                                 RichText::new(lang.t(
                                     "данные только в RAM, окно закроется — буфер затрётся",
@@ -2956,54 +3564,178 @@ impl Browser {
                         });
                     });
                     ui.separator();
-                    egui::ScrollArea::both()
-                        .auto_shrink([false, false])
-                        .show(ui, |ui| {
-                            let hex = preview.hex || text.is_none();
-                            if hex {
-                                ui.add(
-                                    egui::Label::new(
-                                        RichText::new(hex_dump(&preview.data, 16 * 1024))
-                                            .monospace()
-                                            .size(12.0)
-                                            .color(ink()),
-                                    )
-                                    .selectable(true),
-                                );
-                                if preview.data.len() > 16 * 1024 {
-                                    ui.label(
-                                        RichText::new(lang.t(
+                    let scroll = if preview.wrap && !hex {
+                        egui::ScrollArea::vertical()
+                    } else {
+                        egui::ScrollArea::both()
+                    };
+                    scroll.auto_shrink([false, false]).show(ui, |ui| {
+                        if hex {
+                            ui.add(
+                                egui::Label::new(
+                                    RichText::new(hex_dump(&preview.data, 16 * 1024))
+                                        .monospace()
+                                        .size(12.0)
+                                        .color(ink()),
+                                )
+                                .selectable(true),
+                            );
+                            if preview.data.len() > 16 * 1024 {
+                                ui.label(
+                                    RichText::new(
+                                        lang.t(
                                             "Показаны первые 16 КиБ.",
                                             "Showing the first 16 KiB.",
-                                        ))
-                                        .size(11.0)
-                                        .color(muted()),
-                                    );
-                                }
-                            } else if let Some(text) = text {
-                                let shown = clip(text, 200_000);
-                                ui.add(
-                                    egui::Label::new(
-                                        RichText::new(shown).monospace().size(12.5).color(ink()),
+                                        ),
                                     )
-                                    .selectable(true),
+                                    .size(11.0)
+                                    .color(muted()),
                                 );
-                                if shown.len() < text.len() {
-                                    ui.label(
-                                        RichText::new(lang.t(
-                                            "Показаны первые 200 КБ текста.",
-                                            "Showing the first 200 KB of text.",
-                                        ))
-                                        .size(11.0)
-                                        .color(muted()),
-                                    );
-                                }
                             }
-                        });
+                        } else if let Some(text) = text {
+                            let shown = clip(text, 200_000);
+                            let label = egui::Label::new(
+                                RichText::new(shown).monospace().size(12.5).color(ink()),
+                            )
+                            .selectable(true);
+                            if preview.wrap {
+                                ui.add(label.wrap());
+                            } else {
+                                ui.add(label);
+                            }
+                            if shown.len() < text.len() {
+                                ui.label(
+                                    RichText::new(lang.t(
+                                        "Показаны первые 200 КБ текста.",
+                                        "Showing the first 200 KB of text.",
+                                    ))
+                                    .size(11.0)
+                                    .color(muted()),
+                                );
+                            }
+                        }
+                    });
                 });
             if !open {
                 self.preview = None;
             }
+        }
+
+        if self.container_open {
+            let mut open = true;
+            egui::Window::new(lang.t("Настройки контейнера", "Vault settings"))
+                .open(&mut open)
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+                .default_width(520.0)
+                .show(ui.ctx(), |ui| {
+                    ui.label(
+                        RichText::new(lang.t(
+                            "Параметры хранятся внутри этого контейнера (.secretpiece/settings) и переезжают вместе с ним.",
+                            "These options live inside this container (.secretpiece/settings) and travel with it.",
+                        ))
+                        .size(10.5)
+                        .color(muted()),
+                    );
+                    ui.add_space(8.0);
+                    ui.checkbox(
+                        &mut self.settings.external_preview,
+                        RichText::new(lang.t(
+                            "Открывать нетекстовые файлы во внешнем приложении",
+                            "Open non-text files in an external app",
+                        ))
+                        .size(12.0),
+                    );
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(lang.t(
+                            "Куда распаковывать для просмотра (пусто — системный TEMP):",
+                            "Where to extract for viewing (empty — system TEMP):",
+                        ))
+                        .size(11.0)
+                        .color(muted()),
+                    );
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.settings.preview_root)
+                                .hint_text("%TEMP%\\secretpiece-preview")
+                                .desired_width(330.0),
+                        );
+                        if ui.button(lang.t("Обзор…", "Browse…")).clicked() {
+                            if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                                self.settings.preview_root = dir.to_string_lossy().into_owned();
+                            }
+                        }
+                    });
+                    ui.label(
+                        RichText::new(format!(
+                            "{}: {}",
+                            lang.t("Сейчас", "Now"),
+                            preview_dir().display()
+                        ))
+                        .size(10.5)
+                        .color(muted()),
+                    );
+                    ui.add_space(6.0);
+                    ui.checkbox(
+                        &mut self.settings.auto_sync,
+                        RichText::new(lang.t(
+                            "Выгружать этот сейф на сервер при блокировке",
+                            "Upload this vault to the server on lock",
+                        ))
+                        .size(12.0),
+                    );
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(lang.t(
+                            "Свой путь на сервере для этого контейнера (пусто — общий из настроек):",
+                            "Per-vault server path (empty — the one from Settings):",
+                        ))
+                        .size(11.0)
+                        .color(muted()),
+                    );
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.settings.remote_path)
+                            .hint_text("/home/user/vault.spv")
+                            .desired_width(330.0),
+                    );
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    RichText::new(lang.t("Сохранить в контейнер", "Save into vault"))
+                                        .color(on_accent()),
+                                )
+                                .fill(accent())
+                                .corner_radius(8),
+                            )
+                            .clicked()
+                        {
+                            let data = self.settings.encode();
+                            let _ = self.vault.mkdir(".secretpiece");
+                            let _ = self.vault.put(".secretpiece/settings", data.as_bytes());
+                            set_preview_root(&self.settings.preview_root);
+                            self.refresh();
+                            self.status = Some(Status {
+                                text: lang
+                                    .t("Настройки контейнера сохранены.", "Vault settings saved.")
+                                    .to_owned(),
+                                error: false,
+                            });
+                        }
+                        ui.label(
+                            RichText::new(lang.t(
+                                "После смены папки новые файлы пишутся уже туда.",
+                                "New extractions use the new folder.",
+                            ))
+                            .size(10.0)
+                            .color(muted()),
+                        );
+                    });
+                });
+            self.container_open = open;
         }
 
         if let Some(path) = self.pending_external.clone() {
@@ -3473,7 +4205,30 @@ mod tests {
         assert_eq!(Theme::from_key("midnight"), Theme::Midnight);
         assert_eq!(Theme::from_key("sunset"), Theme::Sunset);
         assert_eq!(Theme::from_key("forest"), Theme::Forest);
+        assert_eq!(Theme::from_key("paper"), Theme::Paper);
+        assert_eq!(Theme::from_key("mint"), Theme::Mint);
+        assert!(Theme::Paper.is_light());
+        assert!(Theme::Mint.is_light());
         assert_eq!(Theme::Neon.key(), "neon");
+    }
+
+    #[test]
+    fn presets_roundtrip() {
+        let preset = Preset {
+            name: "home".to_owned(),
+            kind: RemoteKind::Ftp,
+            host: "example.com".to_owned(),
+            port: "21".to_owned(),
+            user: "user".to_owned(),
+            password: "secret".to_owned(),
+            path: "/vault.spv".to_owned(),
+        };
+        let decoded = Preset::decode(&preset.encode()).expect("preset decodes");
+        assert_eq!(decoded.name, "home");
+        assert_eq!(decoded.kind, RemoteKind::Ftp);
+        assert_eq!(decoded.host, "example.com");
+        assert_eq!(decoded.password, "secret");
+        assert_eq!(decoded.path, "/vault.spv");
     }
 
     #[test]

@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-19
+
+Server presets, per-container options, two more light themes and a proper text
+viewer. The vault format is unchanged.
+
+### Added
+
+- **Server dialog at sign-in**: a wide "SSH / FTP server" plaque under the form
+  and a Server button in the header open host, port, login, password and path
+  fields, with Test, Download and open, and Create here.
+- **Saved presets**: name a destination and store it; the picker appears at
+  sign-in and in the create form when enabled in Settings. Password saving is a
+  separate opt-in checkbox with a plain-text warning.
+- **Per-container settings**: a Vault button after unlock opens options stored
+  inside the container (`.secretpiece/settings`): external preview on/off,
+  custom extraction folder, auto-upload on lock, and a per-vault server path.
+- **Two more light themes**: Paper (warm) and Mint (green), joining Light.
+- **Text preview improvements**: line count, word-wrap toggle, copy button and
+  a cleaner header.
+- **Privacy toggles** in Settings: show presets, allow saving passwords, upload
+  on lock.
+
+### Changed
+
+- Remote files are extracted to the configured folder (system TEMP by default)
+  and wiped on close; binary files can stay in the app as a hex view instead of
+  being written to disk.
+
 ## [1.9.0] - 2026-11-19
 
 Vaults can be created straight on a server, FTP joins SSH, and the theme

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-20
+
+Remote sessions without a permanent local copy.
+
+### Added
+
+- **Server mode without leftovers**: "Download and open" now places the vault in
+  a uniquely named temp file, keeps working from it, uploads it back on lock and
+  then overwrites and deletes the local copy. If the upload fails, the temp copy
+  is kept so nothing is lost.
+- Remote-session upload runs even when automatic sync is off, because the server
+  file is the source of truth in this mode.
+
 ## [1.12.0] - 2026-11-20
 
 Preview fixes, multi-file import, extraction choices, upload verification, and

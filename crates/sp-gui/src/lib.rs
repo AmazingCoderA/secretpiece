@@ -536,6 +536,7 @@ struct App {
     show_presets: bool,
     remember_password: bool,
     auto_sync: bool,
+    remote_session: Option<PathBuf>,
     remote: Remote,
     rekey_open: bool,
     rekey_old: String,
@@ -1137,6 +1138,7 @@ impl App {
             show_presets,
             remember_password,
             auto_sync,
+            remote_session: None,
             remote,
             rekey_open: false,
             rekey_old: String::new(),
@@ -1803,16 +1805,23 @@ impl App {
             );
             return;
         }
-        let local = preview_dir().join(format!("remote-{}.spv", std::process::id()));
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |value| value.as_nanos());
+        let local = preview_dir().join(format!("remote-{stamp}-{}.spv", std::process::id()));
+        if let Some(parent) = local.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
         self.remote.status = Some(match self.remote.download(&local) {
             Ok(_) => {
                 self.vault_path = local.to_string_lossy().into_owned();
+                self.remote_session = Some(local);
                 self.creating = false;
                 self.error = None;
                 self.lang
                     .t(
-                        "Сейф скачан, введите пароль.",
-                        "Vault downloaded, enter the password.",
+                        "Сейф скачан во временную папку: локальной копии не останется — при блокировке он загрузится обратно и затрётся. Введите пароль.",
+                        "Vault downloaded to a temp folder: no local copy is kept — on lock it is uploaded back and wiped. Enter the password.",
                     )
                     .to_owned()
             }
@@ -2064,28 +2073,41 @@ impl App {
                             .min_size(egui::vec2(128.0, 30.0));
                             if ui.add(lock).clicked() {
                                 let mut remote = self.remote.clone();
-                                let sync = self.auto_sync
-                                    && self
-                                        .browser
-                                        .as_ref()
-                                        .is_some_and(|browser| browser.settings.auto_sync);
+                                let sync = self.remote_session.is_some()
+                                    || (self.auto_sync
+                                        && self
+                                            .browser
+                                            .as_ref()
+                                            .is_some_and(|browser| browser.settings.auto_sync));
                                 if let Some(browser) = &self.browser {
                                     if !browser.settings.remote_path.trim().is_empty() {
                                         browser.settings.remote_path.clone_into(&mut remote.path);
                                     }
                                 }
+                                let mut sync_ok = !sync;
                                 if sync && remote.ready() && !self.vault_path.trim().is_empty() {
-                                    if let Err(error) =
-                                        remote.upload(Path::new(self.vault_path.trim()))
-                                    {
-                                        self.remote.status = Some(format!(
-                                            "{}: {error}",
-                                            self.lang.t("Синхронизация не удалась", "Sync failed")
-                                        ));
+                                    match remote.upload(Path::new(self.vault_path.trim())) {
+                                        Ok(_) => sync_ok = true,
+                                        Err(error) => {
+                                            self.remote.status = Some(format!(
+                                                "{}: {error}",
+                                                self.lang
+                                                    .t("Синхронизация не удалась", "Sync failed")
+                                            ));
+                                        }
                                     }
                                 }
                                 self.browser = None;
                                 self.password.clear();
+                                if sync_ok {
+                                    if let Some(temp) = self.remote_session.take() {
+                                        let temp_str = temp.to_string_lossy().into_owned();
+                                        wipe_temp(&temp, wipe_passes());
+                                        if self.vault_path.trim() == temp_str {
+                                            self.vault_path.clear();
+                                        }
+                                    }
+                                }
                             }
                             ui.add_space(8.0);
                         }

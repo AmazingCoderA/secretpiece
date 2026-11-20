@@ -424,6 +424,7 @@ The byte-level specification lives in [`docs/SPV.md`](docs/SPV.md); a separate `
 | **v1.10** | ✅ | server presets, per-vault settings, Paper/Mint themes, text viewer |
 | **v1.11** | ✅ | folder tree, multi-file move, table view, RU/EN help |
 | **v1.12** | ✅ | multi-file import, repeat-open fix, extraction folder choice, upload check, Shamir core |
+| **v1.13** | ✅ | server session without a local copy: temp download, upload and wipe on lock |
 | **v2.0** | ⏳ | `sp migrate` between ciphers, hidden volume, split/FAT32, recovery UI, fuzzing and audit |
 
 ## 🤝 Contributing

@@ -15,6 +15,8 @@ use chacha20poly1305::{KeyInit, XChaCha20Poly1305, XNonce};
 use sp_core::{ErrorCategory, ErrorCode, SpError};
 use zeroize::Zeroize;
 
+pub mod shamir;
+
 /// Size of a symmetric key in bytes.
 pub const KEY_SIZE: usize = 32;
 /// Size of an `XChaCha20` nonce in bytes.

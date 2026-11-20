@@ -710,17 +710,31 @@ impl Remote {
     }
 
     fn upload(&self, local: &Path) -> Result<String, String> {
+        let local_len = std::fs::metadata(local)
+            .map_err(|error| format!("{}: {error}", local.display()))?
+            .len();
         match self.kind {
-            RemoteKind::Ssh => self.ssh_upload(local),
+            RemoteKind::Ssh => {
+                self.ssh_upload(local)?;
+            }
             RemoteKind::Ftp => {
                 let bytes = std::fs::read(local)
                     .map_err(|error| format!("{}: {error}", local.display()))?;
                 let mut ftp = self.ftp()?;
                 ftp.stor(self.path.trim(), &bytes)?;
+                let remote = ftp.size(self.path.trim());
                 ftp.quit();
-                Ok("ok".to_owned())
+                if let Some(remote) = remote {
+                    if remote != local_len {
+                        return Err(format!("server has {remote} bytes, expected {local_len}"));
+                    }
+                }
             }
         }
+        if local_len == 0 {
+            return Err("local vault is empty".to_owned());
+        }
+        Ok("ok".to_owned())
     }
 
     fn download(&self, local: &Path) -> Result<String, String> {
@@ -927,6 +941,14 @@ impl Ftp {
         } else {
             Err(text)
         }
+    }
+
+    fn size(&mut self, remote: &str) -> Option<u64> {
+        let (code, text) = self.command(&format!("SIZE {remote}")).ok()?;
+        if code != 213 {
+            return None;
+        }
+        text.split_whitespace().next()?.parse().ok()
     }
 
     fn quit(&mut self) {
@@ -1227,7 +1249,11 @@ impl App {
                 self.confirm.clear();
                 self.remote.status.clone_from(&note);
                 self.info = note;
-                self.browser = Some(Browser::new(vault));
+                self.browser = Some({
+                    let mut browser = Browser::new(vault);
+                    browser.vault_file = Path::new(&path).to_path_buf();
+                    browser
+                });
             }
             Err(error) => self.error = Some(describe(self.lang, &error)),
         }
@@ -2763,12 +2789,13 @@ struct Browser {
     pending_add: Option<PendingAdd>,
     pending_external: Option<String>,
     preview: Option<Preview>,
-    external: Option<ExternalPreview>,
+    external: Vec<ExternalPreview>,
     shred_on_delete: bool,
     sort: SortBy,
     sort_desc: bool,
     settings: ContainerSettings,
     container_open: bool,
+    vault_file: PathBuf,
     checked: BTreeSet<String>,
     move_open: bool,
     move_target: String,
@@ -2895,12 +2922,13 @@ impl Browser {
             pending_add: None,
             pending_external: None,
             preview: None,
-            external: None,
+            external: Vec::new(),
             shred_on_delete: true,
             sort: SortBy::Name,
             sort_desc: false,
             settings,
             container_open: false,
+            vault_file: PathBuf::new(),
             checked: BTreeSet::new(),
             move_open: false,
             move_target: String::new(),
@@ -3174,8 +3202,10 @@ impl Browser {
                 )
                 .clicked()
             {
-                if let Some(path) = rfd::FileDialog::new().pick_file() {
-                    self.add_file(&path, lang);
+                if let Some(paths) = rfd::FileDialog::new().pick_files() {
+                    for path in paths {
+                        self.add_file(&path, lang);
+                    }
                 }
             }
             if secondary_button(ui, lang.t("Новая папка", "New folder")).clicked() {
@@ -3515,14 +3545,17 @@ impl Browser {
                 }
             })
             .collect();
-        let temp = preview_dir().join(format!("{}-{safe}", std::process::id()));
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |value| value.as_nanos());
+        let temp = preview_dir().join(format!("{}-{stamp}-{safe}", std::process::id()));
         match self.vault.get(path) {
             Ok(mut data) => {
                 let result = std::fs::write(&temp, &data).and_then(|()| open_with_system(&temp));
                 data.fill(0);
                 match result {
                     Ok(()) => {
-                        self.external = Some(ExternalPreview {
+                        self.external.push(ExternalPreview {
                             path: path.to_owned(),
                             temp,
                         });
@@ -4078,11 +4111,30 @@ impl Browser {
                         ui.add(
                             egui::TextEdit::singleline(&mut self.settings.preview_root)
                                 .hint_text("%TEMP%\\secretpiece-preview")
-                                .desired_width(330.0),
+                                .desired_width(300.0),
                         );
                         if ui.button(lang.t("Обзор…", "Browse…")).clicked() {
                             if let Some(dir) = rfd::FileDialog::new().pick_folder() {
                                 self.settings.preview_root = dir.to_string_lossy().into_owned();
+                            }
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        if ui
+                            .button(lang.t("Системный TEMP", "System TEMP"))
+                            .clicked()
+                        {
+                            self.settings.preview_root.clear();
+                            set_preview_root("");
+                        }
+                        if ui
+                            .button(lang.t("Рядом с контейнером", "Beside the container"))
+                            .clicked()
+                        {
+                            if let Some(dir) = self.vault_file.parent() {
+                                self.settings.preview_root =
+                                    dir.to_string_lossy().into_owned();
+                                set_preview_root(&self.settings.preview_root);
                             }
                         }
                     });
@@ -4217,8 +4269,9 @@ impl Browser {
             }
         }
 
-        if let Some(external_path) = self.external.as_ref().map(|external| external.path.clone()) {
+        if let Some(external_path) = self.external.last().map(|external| external.path.clone()) {
             let mut wipe_now = false;
+            let count = self.external.len();
             Frame::new()
                 .fill(card_bg())
                 .stroke(Stroke::new(1.0_f32, accent()))
@@ -4229,13 +4282,11 @@ impl Browser {
                         ui.label(
                             RichText::new(match lang {
                                 Lang::Ru => format!(
-                                    "Временно открыт: {} ({} проход(ов) при закрытии)",
-                                    external_path,
+                                    "Временно открыто: {external_path} (файлов: {count}, затирание при закрытии: {} проход(ов))",
                                     wipe_passes()
                                 ),
                                 Lang::En => format!(
-                                    "Open temporarily: {} ({} pass(es) on close)",
-                                    external_path,
+                                    "Open temporarily: {external_path} ({count} file(s), {} pass(es) wiped on close)",
                                     wipe_passes()
                                 ),
                             })
@@ -4251,7 +4302,7 @@ impl Browser {
                     });
                 });
             if wipe_now {
-                self.external = None;
+                self.external.clear();
                 self.status = Some(Status {
                     text: lang
                         .t(

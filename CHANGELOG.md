@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-11-20
+
+Preview fixes, multi-file import, extraction choices, upload verification, and
+the Shamir secret-sharing core. The vault format is unchanged.
+
+### Fixed
+
+- **Opening the same image or video twice** no longer breaks playback: every
+  external preview gets its own uniquely named temp file, and earlier files are
+  kept until the vault is locked instead of being wiped mid-playback.
+- **Empty vault on the server**: after an FTP upload the remote size is checked
+  against the local file (`SIZE`), and an empty local file is rejected before
+  uploading, so a zero-byte container is reported instead of silently created.
+
+### Added
+
+- **Multi-file import**: the Add file dialog now accepts several files at once.
+- **Extraction choice** in vault settings: system TEMP, the folder next to the
+  container, or any custom folder — with a one-click "Beside the container".
+- **Shamir secret sharing** in `sp-crypto`: split a secret into `n` shares, any
+  `k` of which rebuild it, with GF(2^8) arithmetic and tests.
+
 ## [1.11.0] - 2026-11-19
 
 Folders, multi-select moves, a table viewer, built-in help and honest docs. The

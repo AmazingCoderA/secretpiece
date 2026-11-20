@@ -46,7 +46,7 @@
 | 🗂️ **Formats** | One file with any extension: `.mp4`, `.png`, `.docx`, `.md`, `.opus`… Inside it is always an SPV1 container. |
 | 🚀 **Every platform** | Windows x64/ARM64, macOS universal, Linux x64/ARM64, FreeBSD/OpenBSD/NetBSD, Arch Linux, `.deb`/`.rpm`, Flatpak. |
 | 🤖 **Android** | APK: USB drive over OTG, SAF + JNI, on-device vault creation, RU/EN, disguise, snow/rain/sun. |
-| 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, full integrity verification. Recovery/Shamir are planned. |
+| 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, full integrity verification. The Shamir k-of-n core ships in `sp-crypto`; the UI is next. |
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
 | 🎨 **Live interface** | Seven themes (Midnight, Neon, Light, Paper, Mint, Sunset, Forest), gradient accents, responsive layout, in-vault text/hex preview, drag & drop into the window. |
 | ⚡ **Speed and size** | 1 MiB chunks, index up to 256 MiB; the volume is limited only by free disk space. Older vaults still open. |
@@ -423,7 +423,8 @@ The byte-level specification lives in [`docs/SPV.md`](docs/SPV.md); a separate `
 | **v1.9** | ✅ | create a vault on the server, FTP client, theme menu, sync on lock |
 | **v1.10** | ✅ | server presets, per-vault settings, Paper/Mint themes, text viewer |
 | **v1.11** | ✅ | folder tree, multi-file move, table view, RU/EN help |
-| **v2.0** | ⏳ | `sp migrate` between ciphers, hidden volume, split/FAT32, recovery, fuzzing and audit |
+| **v1.12** | ✅ | multi-file import, repeat-open fix, extraction folder choice, upload check, Shamir core |
+| **v2.0** | ⏳ | `sp migrate` between ciphers, hidden volume, split/FAT32, recovery UI, fuzzing and audit |
 
 ## 🤝 Contributing
 

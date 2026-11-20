@@ -536,12 +536,27 @@ struct App {
     show_presets: bool,
     remember_password: bool,
     auto_sync: bool,
+    background_io: bool,
     remote_session: Option<PathBuf>,
+    job: Option<Job>,
+    lock_wipe: Option<PathBuf>,
     remote: Remote,
     rekey_open: bool,
     rekey_old: String,
     rekey_new: String,
     rekey_confirm: String,
+}
+
+/// A remote operation that runs on a worker thread so the UI never blocks.
+enum JobKind {
+    Test,
+    Download(PathBuf),
+    Upload,
+}
+
+struct Job {
+    rx: std::sync::mpsc::Receiver<Result<String, String>>,
+    kind: JobKind,
 }
 
 /// Where a vault is published: plain SSH/SCP or an FTP server.
@@ -1138,7 +1153,13 @@ impl App {
             show_presets,
             remember_password,
             auto_sync,
+            background_io: cc
+                .storage
+                .and_then(|storage| storage.get_string("background_io"))
+                .is_none_or(|value| value == "1"),
             remote_session: None,
+            job: None,
+            lock_wipe: None,
             remote,
             rekey_open: false,
             rekey_old: String::new(),
@@ -1427,6 +1448,14 @@ impl App {
                     RichText::new(lang.t(
                         "Разрешить сохранять пароль в пресете",
                         "Allow saving the password in a preset",
+                    ))
+                    .size(12.0),
+                );
+                ui.checkbox(
+                    &mut self.background_io,
+                    RichText::new(lang.t(
+                        "Фоновые операции с сервером (не подвешивать окно)",
+                        "Background server operations (do not freeze the window)",
                     ))
                     .size(12.0),
                 );
@@ -1779,18 +1808,92 @@ impl App {
         self.server_open = open;
     }
 
+    fn spawn_job(
+        &mut self,
+        kind: JobKind,
+        work: impl FnOnce() -> Result<String, String> + Send + 'static,
+    ) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        if self.background_io {
+            std::thread::spawn(move || {
+                let _ = tx.send(work());
+            });
+            self.job = Some(Job { rx, kind });
+        } else {
+            let result = work();
+            let _ = tx.send(result);
+            self.job = Some(Job { rx, kind });
+            self.poll_job();
+        }
+    }
+
+    fn poll_job(&mut self) {
+        let Some(job) = self.job.as_ref() else {
+            return;
+        };
+        let Ok(result) = job.rx.try_recv() else {
+            return;
+        };
+        let Some(job) = self.job.take() else {
+            return;
+        };
+        match job.kind {
+            JobKind::Test => {
+                self.remote.status = Some(match result {
+                    Ok(_) => self
+                        .lang
+                        .t("Соединение работает.", "Connection works.")
+                        .to_owned(),
+                    Err(error) => format!("{}: {error}", self.lang.t("Ошибка", "Error")),
+                });
+            }
+            JobKind::Download(local) => {
+                self.remote.status = Some(match result {
+                    Ok(_) => {
+                        self.vault_path = local.to_string_lossy().into_owned();
+                        self.remote_session = Some(local);
+                        self.creating = false;
+                        self.error = None;
+                        self.lang
+                            .t(
+                                "Сейф скачан во временную папку: локальной копии не останется — при блокировке он загрузится обратно и затрётся. Введите пароль.",
+                                "Vault downloaded to a temp folder: no local copy is kept — on lock it is uploaded back and wiped. Enter the password.",
+                            )
+                            .to_owned()
+                    }
+                    Err(error) => format!("{}: {error}", self.lang.t("Ошибка", "Error")),
+                });
+            }
+            JobKind::Upload => {
+                let ok = result.is_ok();
+                self.remote.status = Some(match result {
+                    Ok(_) => self
+                        .lang
+                        .t("Сейф загружен на сервер.", "Vault uploaded to the server.")
+                        .to_owned(),
+                    Err(error) => format!("{}: {error}", self.lang.t("Ошибка", "Error")),
+                });
+                if ok {
+                    if let Some(temp) = self.lock_wipe.take() {
+                        let temp_str = temp.to_string_lossy().into_owned();
+                        wipe_temp(&temp, wipe_passes());
+                        if self.vault_path.trim() == temp_str {
+                            self.vault_path.clear();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn remote_test(&mut self) {
         if self.remote.host.trim().is_empty() {
             self.remote.status = Some(self.lang.t("Укажите хост.", "Enter a host.").to_owned());
             return;
         }
-        self.remote.status = Some(match self.remote.test() {
-            Ok(_) => self
-                .lang
-                .t("Соединение работает.", "Connection works.")
-                .to_owned(),
-            Err(error) => format!("{}: {error}", self.lang.t("Ошибка", "Error")),
-        });
+        let remote = self.remote.clone();
+        self.remote.status = Some(self.lang.t("Проверяю…", "Testing…").to_owned());
+        self.spawn_job(JobKind::Test, move || remote.test());
     }
 
     fn remote_download(&mut self) {
@@ -1812,21 +1915,14 @@ impl App {
         if let Some(parent) = local.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        self.remote.status = Some(match self.remote.download(&local) {
-            Ok(_) => {
-                self.vault_path = local.to_string_lossy().into_owned();
-                self.remote_session = Some(local);
-                self.creating = false;
-                self.error = None;
-                self.lang
-                    .t(
-                        "Сейф скачан во временную папку: локальной копии не останется — при блокировке он загрузится обратно и затрётся. Введите пароль.",
-                        "Vault downloaded to a temp folder: no local copy is kept — on lock it is uploaded back and wiped. Enter the password.",
-                    )
-                    .to_owned()
-            }
-            Err(error) => format!("{}: {error}", self.lang.t("Ошибка", "Error")),
-        });
+        let remote = self.remote.clone();
+        let target = local.clone();
+        self.remote.status = Some(
+            self.lang
+                .t("Скачиваю сейф…", "Downloading the vault…")
+                .to_owned(),
+        );
+        self.spawn_job(JobKind::Download(local), move || remote.download(&target));
     }
 
     fn remote_upload(&mut self) {
@@ -1853,13 +1949,14 @@ impl App {
             );
             return;
         }
-        self.remote.status = Some(match self.remote.upload(Path::new(&local)) {
-            Ok(_) => self
-                .lang
-                .t("Сейф загружен на сервер.", "Vault uploaded to the server.")
+        let remote = self.remote.clone();
+        let target = PathBuf::from(&local);
+        self.remote.status = Some(
+            self.lang
+                .t("Загружаю на сервер…", "Uploading to the server…")
                 .to_owned(),
-            Err(error) => format!("{}: {error}", self.lang.t("Ошибка", "Error")),
-        });
+        );
+        self.spawn_job(JobKind::Upload, move || remote.upload(&target));
     }
 
     /// Rewrites the vault with a new password and Argon2id profile.
@@ -2084,22 +2181,20 @@ impl App {
                                         browser.settings.remote_path.clone_into(&mut remote.path);
                                     }
                                 }
-                                let mut sync_ok = !sync;
-                                if sync && remote.ready() && !self.vault_path.trim().is_empty() {
-                                    match remote.upload(Path::new(self.vault_path.trim())) {
-                                        Ok(_) => sync_ok = true,
-                                        Err(error) => {
-                                            self.remote.status = Some(format!(
-                                                "{}: {error}",
-                                                self.lang
-                                                    .t("Синхронизация не удалась", "Sync failed")
-                                            ));
-                                        }
-                                    }
-                                }
                                 self.browser = None;
                                 self.password.clear();
-                                if sync_ok {
+                                let can_upload =
+                                    sync && remote.ready() && !self.vault_path.trim().is_empty();
+                                if can_upload {
+                                    self.lock_wipe = self.remote_session.take();
+                                    let target = PathBuf::from(self.vault_path.trim());
+                                    self.remote.status = Some(
+                                        self.lang
+                                            .t("Загружаю на сервер…", "Uploading to the server…")
+                                            .to_owned(),
+                                    );
+                                    self.spawn_job(JobKind::Upload, move || remote.upload(&target));
+                                } else if !sync {
                                     if let Some(temp) = self.remote_session.take() {
                                         let temp_str = temp.to_string_lossy().into_owned();
                                         wipe_temp(&temp, wipe_passes());
@@ -2244,6 +2339,7 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.poll_job();
         self.header(ctx);
         if let Some(browser) = self.browser.as_mut() {
             let dropped = ctx.input(|input| input.raw.dropped_files.clone());
@@ -2304,6 +2400,10 @@ impl eframe::App for App {
             if self.remember_password { "1" } else { "0" }.to_owned(),
         );
         storage.set_string(
+            "background_io",
+            if self.background_io { "1" } else { "0" }.to_owned(),
+        );
+        storage.set_string(
             "auto_sync",
             if self.auto_sync { "1" } else { "0" }.to_owned(),
         );
@@ -2311,6 +2411,7 @@ impl eframe::App for App {
 }
 
 impl App {
+    #[allow(clippy::too_many_lines)]
     fn unlock_ui(&mut self, ui: &mut egui::Ui) {
         let card_width = (ui.available_width() - 24.0).clamp(330.0, 470.0);
         egui::ScrollArea::vertical()
@@ -2351,6 +2452,29 @@ impl App {
                     .min_size(egui::vec2(card_width, 38.0));
                     if ui.add(plaque).clicked() {
                         self.server_open = true;
+                    }
+                    if self.show_presets && !self.presets.is_empty() {
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            self.preset_picker(ui);
+                            if ui
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new(
+                                            self.lang.t("Открыть с сервера", "Open from server"),
+                                        )
+                                        .size(11.5)
+                                        .color(on_accent()),
+                                    )
+                                    .fill(accent())
+                                    .corner_radius(8)
+                                    .min_size(egui::vec2(0.0, 26.0)),
+                                )
+                                .clicked()
+                            {
+                                self.remote_download();
+                            }
+                        });
                     }
                     ui.add_space(14.0);
                     ui.horizontal(|ui| {

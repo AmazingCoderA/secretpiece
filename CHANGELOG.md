@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-11-20
+
+No more freezes on server work.
+
+### Added
+
+- **Background server operations**: test, download and upload run on a worker
+  thread, so the window stays responsive on slow links. Settings has an on/off
+  switch for background mode if the old synchronous behaviour is preferred.
+- **Quick open from a preset**: the sign-in screen shows the preset picker and an
+  "Open from server" button — pick SSH/FTP, press once, enter the password. No
+  extra dialogs and no permanent local copy.
+- Lock upload is asynchronous; the temp copy is wiped only after the server
+  confirms the upload.
+
 ## [1.13.0] - 2026-11-20
 
 Remote sessions without a permanent local copy.

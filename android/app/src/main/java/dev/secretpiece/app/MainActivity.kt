@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -41,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -52,7 +54,10 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -71,7 +76,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -79,7 +86,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.sin
@@ -100,6 +109,7 @@ private data class ServerPreset(
     val password: String,
     val path: String,
     val memoryOnly: Boolean = false,
+    val vaultPassword: String = "",
 )
 
 private fun loadPresets(context: Context): List<ServerPreset> = runCatching {
@@ -116,6 +126,7 @@ private fun loadPresets(context: Context): List<ServerPreset> = runCatching {
             password = item.optString("password"),
             path = item.optString("path"),
             memoryOnly = item.optBoolean("memoryOnly", false),
+            vaultPassword = item.optString("vaultPassword", ""),
         )
     }
 }.getOrDefault(emptyList())
@@ -132,6 +143,7 @@ private fun savePresets(context: Context, presets: List<ServerPreset>) {
                 put("password", preset.password)
                 put("path", preset.path)
                 put("memoryOnly", preset.memoryOnly)
+                put("vaultPassword", preset.vaultPassword)
             },
         )
     }
@@ -663,6 +675,7 @@ private fun VaultScreen(
     onTheme: (Theme) -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var fileUri by remember { mutableStateOf(initialUri) }
     var fileName by remember {
         mutableStateOf(initialUri?.let { displayName(context, it) } ?: "")
@@ -716,31 +729,35 @@ private fun VaultScreen(
             val cache = remoteCache
             val preset = selectedPreset
             if (cache != null && preset != null) {
-                val status = runCatching {
-                    NativeVault.ftpUpload(
-                        preset.host, preset.port, preset.user, preset.password,
-                        preset.path, cache.path,
-                    )
-                }.getOrDefault("Upload failed")
-                if (status == "ok") {
-                    wipeFile(cache)
-                    remoteCache = null
-                } else {
-                    openError = "Server upload failed (local copy kept): $status"
+                scope.launch(Dispatchers.IO) {
+                    val status = runCatching {
+                        NativeVault.ftpUpload(
+                            preset.host, preset.port, preset.user, preset.password,
+                            preset.path, cache.path,
+                        )
+                    }.getOrDefault("Upload failed")
+                    if (status == "ok") {
+                        wipeFile(cache)
+                        remoteCache = null
+                    } else {
+                        openError = "Server upload failed (local copy kept): $status"
+                    }
                 }
             }
             val memory = memoryVault
             if (memory != null && preset != null) {
-                val status = runCatching {
-                    val bytes = NativeVault.memRead(memory) ?: ByteArray(0)
-                    NativeVault.ftpPutBytes(
-                        preset.host, preset.port, preset.user, preset.password,
-                        preset.path, bytes,
-                    )
-                }.getOrDefault("Upload failed")
-                NativeVault.memClose(memory)
-                memoryVault = null
-                if (status != "ok") openError = "Server upload failed: $status"
+                scope.launch(Dispatchers.IO) {
+                    val status = runCatching {
+                        val bytes = NativeVault.memRead(memory) ?: ByteArray(0)
+                        NativeVault.ftpPutBytes(
+                            preset.host, preset.port, preset.user, preset.password,
+                            preset.path, bytes,
+                        )
+                    }.getOrDefault("Upload failed")
+                    NativeVault.memClose(memory)
+                    memoryVault = null
+                    if (status != "ok") openError = "Server upload failed: $status"
+                }
             }
         }
         return
@@ -801,7 +818,12 @@ private fun VaultScreen(
 
     fun openRemote() {
         val preset = selectedPreset
-        if (preset == null || password.isEmpty()) return
+        if (preset == null) return
+        val vaultPass = preset.vaultPassword.ifBlank { password }
+        if (vaultPass.isEmpty()) {
+            openError = "Enter the vault password"
+            return
+        }
         openError = null
         if (preset.memoryOnly) {
             val bytes = runCatching {
@@ -818,7 +840,7 @@ private fun VaultScreen(
                 val fd = NativeVault.memCreate(data)
                 if (fd < 0) return@runCatching 0L
                 val dup = NativeVault.memDup(fd)
-                val handle = NativeVault.openFd(fd, password)
+                val handle = NativeVault.openFd(fd, vaultPass)
                 if (handle == 0L) {
                     if (dup >= 0) NativeVault.memClose(dup)
                 } else {
@@ -830,7 +852,7 @@ private fun VaultScreen(
                 openError = t.openFailed
                 return
             }
-            sessionPassword = password
+            sessionPassword = vaultPass
             handle = opened
             password = ""
             return
@@ -852,14 +874,14 @@ private fun VaultScreen(
                 cache,
                 android.os.ParcelFileDescriptor.MODE_READ_WRITE,
             )
-            NativeVault.openFd(fd.detachFd(), password)
+            NativeVault.openFd(fd.detachFd(), vaultPass)
         }.getOrDefault(0L)
         if (opened == 0L) {
             openError = t.openFailed
             wipeFile(cache)
             return
         }
-        sessionPassword = password
+        sessionPassword = vaultPass
         remoteCache = cache
         handle = opened
         password = ""
@@ -1090,7 +1112,8 @@ private fun VaultScreen(
                     }
                     Button(
                         onClick = { openRemote() },
-                        enabled = selectedPreset != null && password.isNotEmpty(),
+                        enabled = selectedPreset != null &&
+                            (password.isNotEmpty() || selectedPreset?.vaultPassword?.isNotEmpty() == true),
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Открыть с сервера", fontSize = 12.sp) }
                 }
@@ -1279,6 +1302,7 @@ private fun VaultScreen(
                                 put("password", preset.password)
                                 put("path", preset.path)
                                 put("memoryOnly", preset.memoryOnly)
+                put("vaultPassword", preset.vaultPassword)
                             },
                         )
                     }
@@ -1397,8 +1421,10 @@ private fun SettingsDialog(
         title = { Text(t.settingsTitle) },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(t.lookTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(t.lookHint, fontSize = 11.sp, color = Muted)
@@ -1496,6 +1522,7 @@ private fun SettingsDialog(
                 var presetUser by remember { mutableStateOf("") }
                 var presetPassword by remember { mutableStateOf("") }
                 var presetPath by remember { mutableStateOf("vault.spv") }
+                var presetVaultPass by remember { mutableStateOf("") }
                 var presetMemory by remember { mutableStateOf(false) }
                 Text("Сервер (FTP)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 listOf(
@@ -1505,6 +1532,7 @@ private fun SettingsDialog(
                     "Логин" to presetUser,
                     "Пароль" to presetPassword,
                     "Путь" to presetPath,
+                    "Пароль сейфа" to presetVaultPass,
                 ).forEach { (label, value) ->
                     OutlinedTextField(
                         value = value,
@@ -1515,6 +1543,7 @@ private fun SettingsDialog(
                                 "Порт" -> presetPort = text
                                 "Логин" -> presetUser = text
                                 "Пароль" -> presetPassword = text
+                                "Пароль сейфа" -> presetVaultPass = text
                                 else -> presetPath = text
                             }
                         },
@@ -1538,6 +1567,7 @@ private fun SettingsDialog(
                                 password = presetPassword,
                                 path = presetPath.trim(),
                                 memoryOnly = presetMemory,
+                                vaultPassword = presetVaultPass,
                             ),
                         )
                     }
@@ -1622,6 +1652,7 @@ private fun VaultBrowser(
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var previewTitle by remember { mutableStateOf("") }
+    var previewOffset by remember { mutableStateOf(Offset.Zero) }
     var preview by remember { mutableStateOf<String?>(null) }
     var newFolder by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
@@ -1860,64 +1891,91 @@ private fun VaultBrowser(
     }
 
     preview?.let { text ->
-        AlertDialog(
-            onDismissRequest = { preview = null },
-            confirmButton = {
-                TextButton(onClick = { preview = null }) { Text(t.close) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    runCatching {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
-                            as? android.content.ClipboardManager
-                        clipboard?.setPrimaryClip(
-                            android.content.ClipData.newPlainText(previewTitle, text),
+        Dialog(onDismissRequest = { preview = null }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = SurfaceDark,
+                modifier = Modifier.offset {
+                    IntOffset(
+                        previewOffset.x.roundToInt(),
+                        previewOffset.y.roundToInt(),
+                    )
+                },
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .pointerInput(Unit) {
+                                detectDragGestures { change, amount ->
+                                    change.consume()
+                                    previewOffset += amount
+                                }
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("⠿", color = Faint)
+                        Text(
+                            previewTitle,
+                            modifier = Modifier.weight(1f),
+                            fontWeight = FontWeight.Bold,
+                            color = Cyan,
                         )
-                        notice = t.copied
+                        TextButton(onClick = { preview = null }) { Text(t.close) }
                     }
-                    preview = null
-                }) {
-                    Text(t.copyText, color = Cyan)
-                }
-            },
-            title = { Text(previewTitle) },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .height(360.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    val rows = text.lines().filter { it.isNotBlank() }.take(200)
-                    val delim = when {
-                        rows.firstOrNull()?.contains('\t') == true -> '\t'
-                        rows.firstOrNull()?.contains(';') == true -> ';'
-                        else -> ','
-                    }
-                    val cells = rows.map { it.split(delim) }
-                    if (cells.size > 1 && cells.first().size > 1) {
-                        Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                            cells.forEachIndexed { index, row ->
-                                Row {
-                                    row.forEach { cell ->
-                                        Text(
-                                            cell.trim(),
-                                            modifier = Modifier.width(140.dp),
-                                            fontSize = 11.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = if (index == 0) Cyan else Ink,
-                                            fontWeight = if (index == 0) FontWeight.Bold
-                                            else FontWeight.Normal,
-                                        )
+                    Column(
+                        modifier = Modifier
+                            .height(360.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        val rows = text.lines().filter { it.isNotBlank() }.take(200)
+                        val delim = when {
+                            rows.firstOrNull()?.contains('\t') == true -> '\t'
+                            rows.firstOrNull()?.contains(';') == true -> ';'
+                            else -> ','
+                        }
+                        val cells = rows.map { it.split(delim) }
+                        if (cells.size > 1 && cells.first().size > 1) {
+                            Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                                cells.forEachIndexed { index, row ->
+                                    Row {
+                                        row.forEach { cell ->
+                                            Text(
+                                                cell.trim(),
+                                                modifier = Modifier.width(140.dp),
+                                                fontSize = 11.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = if (index == 0) Cyan else Ink,
+                                                fontWeight = if (index == 0) FontWeight.Bold
+                                                else FontWeight.Normal,
+                                            )
+                                        }
                                     }
                                 }
                             }
+                        } else {
+                            Text(text, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         }
-                    } else {
-                        Text(text, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = {
+                            runCatching {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                                    as? android.content.ClipboardManager
+                                clipboard?.setPrimaryClip(
+                                    android.content.ClipData.newPlainText(previewTitle, text),
+                                )
+                                notice = t.copied
+                            }
+                            preview = null
+                        }) { Text(t.copyText, color = Cyan) }
                     }
                 }
-            },
-        )
+            }
+        }
     }
     if (newFolder) {
         AlertDialog(

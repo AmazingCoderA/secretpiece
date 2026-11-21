@@ -11,8 +11,8 @@ android {
         applicationId = "dev.secretpiece.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 30
-        versionName = "1.20"
+        versionCode = 31
+        versionName = "1.21"
     }
 
     buildFeatures {
@@ -52,5 +52,6 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

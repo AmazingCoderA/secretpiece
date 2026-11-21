@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-11-21
+
+Explorer-style tree, async server upload and ten themes on both platforms.
+
+### Added
+
+- **Drag-and-drop in the desktop vault tree**: drag a file row or a folder onto
+  any folder (or root) to move it. The tree is now a permanent side panel
+  instead of a collapsed header.
+- **Vault password in a server preset** on Android: the preset can store the
+  container password separately from the FTP password, so signing in to the
+  server needs no extra typing. Delete presets with the ✕ button.
+- **Asynchronous upload on lock** — the UI no longer blocks while the vault is
+  being sent back to the server.
+- **Sepia, Ocean and Rose themes on the desktop**, giving parity with Android
+  at ten themes on both platforms.
+- Movable preview window on Android (drag the title bar) and a compact,
+  height-limited Settings dialog.
+- openSUSE `zypper install` instructions in the README.
+
 ## [1.20.0] - 2026-11-21
 
 Server-only memory mode, custom preview limit and a Flathub submission.

@@ -50,9 +50,13 @@ enum Theme {
     Mint,
     Sunset,
     Forest,
+    Sepia,
+    Ocean,
+    Rose,
 }
 
 impl Theme {
+    #[allow(clippy::too_many_lines)]
     const fn palette(self) -> Palette {
         match self {
             Self::Midnight => Palette {
@@ -153,6 +157,48 @@ impl Theme {
                 input: Color32::from_rgb(9, 23, 15),
                 selected: Color32::from_rgb(23, 48, 31),
             },
+            Self::Sepia => Palette {
+                bg: Color32::from_rgb(29, 23, 16),
+                panel: Color32::from_rgb(42, 32, 23),
+                card: Color32::from_rgb(51, 40, 29),
+                line: Color32::from_rgb(90, 70, 50),
+                ink: Color32::from_rgb(246, 235, 220),
+                muted: Color32::from_rgb(194, 170, 142),
+                accent: Color32::from_rgb(232, 184, 120),
+                violet: Color32::from_rgb(216, 154, 106),
+                danger: Color32::from_rgb(255, 138, 106),
+                good: Color32::from_rgb(163, 230, 53),
+                input: Color32::from_rgb(23, 18, 12),
+                selected: Color32::from_rgb(64, 50, 37),
+            },
+            Self::Ocean => Palette {
+                bg: Color32::from_rgb(4, 18, 28),
+                panel: Color32::from_rgb(7, 32, 51),
+                card: Color32::from_rgb(10, 43, 66),
+                line: Color32::from_rgb(24, 74, 102),
+                ink: Color32::from_rgb(226, 244, 255),
+                muted: Color32::from_rgb(163, 198, 216),
+                accent: Color32::from_rgb(93, 214, 255),
+                violet: Color32::from_rgb(124, 156, 255),
+                danger: Color32::from_rgb(255, 126, 126),
+                good: Color32::from_rgb(74, 222, 128),
+                input: Color32::from_rgb(5, 24, 37),
+                selected: Color32::from_rgb(14, 56, 84),
+            },
+            Self::Rose => Palette {
+                bg: Color32::from_rgb(30, 14, 21),
+                panel: Color32::from_rgb(44, 20, 32),
+                card: Color32::from_rgb(56, 26, 41),
+                line: Color32::from_rgb(100, 48, 70),
+                ink: Color32::from_rgb(255, 235, 242),
+                muted: Color32::from_rgb(224, 182, 198),
+                accent: Color32::from_rgb(255, 158, 196),
+                violet: Color32::from_rgb(255, 193, 120),
+                danger: Color32::from_rgb(255, 117, 136),
+                good: Color32::from_rgb(74, 222, 128),
+                input: Color32::from_rgb(24, 11, 17),
+                selected: Color32::from_rgb(71, 34, 52),
+            },
         }
     }
 
@@ -172,6 +218,12 @@ impl Theme {
             (Self::Sunset, Lang::En) => "Sunset",
             (Self::Forest, Lang::Ru) => "Лес",
             (Self::Forest, Lang::En) => "Forest",
+            (Self::Sepia, Lang::Ru) => "Сепия",
+            (Self::Sepia, Lang::En) => "Sepia",
+            (Self::Ocean, Lang::Ru) => "Океан",
+            (Self::Ocean, Lang::En) => "Ocean",
+            (Self::Rose, Lang::Ru) => "Роза",
+            (Self::Rose, Lang::En) => "Rose",
         }
     }
 
@@ -188,6 +240,9 @@ impl Theme {
             Self::Mint => "mint",
             Self::Sunset => "sunset",
             Self::Forest => "forest",
+            Self::Sepia => "sepia",
+            Self::Ocean => "ocean",
+            Self::Rose => "rose",
         }
     }
 
@@ -199,6 +254,9 @@ impl Theme {
             "mint" => Self::Mint,
             "sunset" => Self::Sunset,
             "forest" => Self::Forest,
+            "sepia" => Self::Sepia,
+            "ocean" => Self::Ocean,
+            "rose" => Self::Rose,
             _ => Self::Midnight,
         }
     }
@@ -2422,6 +2480,9 @@ impl App {
                                     Theme::Mint,
                                     Theme::Sunset,
                                     Theme::Forest,
+                                    Theme::Sepia,
+                                    Theme::Ocean,
+                                    Theme::Rose,
                                 ] {
                                     ui.horizontal(|ui| {
                                         let (rect, _) = ui.allocate_exact_size(
@@ -3335,35 +3396,76 @@ impl Browser {
         let dirs = self.all_dirs();
         if !dirs.is_empty() {
             ui.add_space(4.0);
-            egui::CollapsingHeader::new(format!(
-                "{} ({})",
-                lang.t("Дерево контейнера", "Vault tree"),
-                dirs.len()
-            ))
-            .id_salt("vault-tree")
-            .show(ui, |ui| {
-                if ui
-                    .selectable_label(self.cwd.is_empty(), "/  ·  root")
-                    .clicked()
-                {
-                    self.cwd.clear();
-                    self.refresh();
+            let mut dropped: Option<(String, String)> = None;
+            Frame::new()
+                .fill(panel())
+                .stroke(Stroke::new(1.0_f32, line()))
+                .corner_radius(10)
+                .inner_margin(Margin::same(8))
+                .show(ui, |ui| {
+                    ui.label(
+                        RichText::new(lang.t("Дерево контейнера", "Vault tree"))
+                            .size(11.0)
+                            .color(muted()),
+                    );
+                    egui::ScrollArea::vertical()
+                        .max_height(170.0)
+                        .show(ui, |ui| {
+                            let (_, root_drop) =
+                                ui.dnd_drop_zone::<String, _>(Frame::new(), |ui| {
+                                    if ui
+                                        .selectable_label(self.cwd.is_empty(), "/  ·  root")
+                                        .clicked()
+                                    {
+                                        self.cwd.clear();
+                                        self.refresh();
+                                    }
+                                });
+                            if let Some(payload) = root_drop {
+                                dropped = Some(((*payload).clone(), String::new()));
+                            }
+                            for dir in &dirs {
+                                let depth = dir.matches('/').count();
+                                let name = dir.rsplit('/').next().unwrap_or(dir);
+                                ui.horizontal(|ui| {
+                                    ui.add_space(
+                                        f32::from(u8::try_from(depth.min(20)).unwrap_or(0)) * 14.0,
+                                    );
+                                    let (_, folder_drop) =
+                                        ui.dnd_drop_zone::<String, _>(Frame::new(), |ui| {
+                                            let id = egui::Id::new(("tree-dir", dir.clone()));
+                                            let response =
+                                                ui.dnd_drag_source(id, dir.clone(), |ui| {
+                                                    ui.selectable_label(
+                                                        self.cwd == *dir,
+                                                        format!("📁 {name}"),
+                                                    )
+                                                });
+                                            if response.inner.clicked() {
+                                                self.cwd.clone_from(dir);
+                                                self.refresh();
+                                            }
+                                        });
+                                    if let Some(payload) = folder_drop {
+                                        dropped = Some(((*payload).clone(), dir.clone()));
+                                    }
+                                });
+                            }
+                        });
+                });
+            if let Some((source, target)) = dropped {
+                self.checked.clear();
+                self.checked.insert(source);
+                match self.move_checked(&target, lang) {
+                    Ok(_) => {
+                        self.status = Some(Status {
+                            text: lang.t("Перемещено.", "Moved.").to_owned(),
+                            error: false,
+                        });
+                    }
+                    Err(text) => self.status = Some(Status { text, error: true }),
                 }
-                for dir in &dirs {
-                    let depth = dir.matches('/').count();
-                    let name = dir.rsplit('/').next().unwrap_or(dir);
-                    ui.horizontal(|ui| {
-                        ui.add_space(f32::from(u8::try_from(depth.min(20)).unwrap_or(0)) * 14.0);
-                        if ui
-                            .selectable_label(self.cwd == *dir, format!("📁 {name}"))
-                            .clicked()
-                        {
-                            self.cwd.clone_from(dir);
-                            self.refresh();
-                        }
-                    });
-                }
-            });
+            }
         }
         ui.add_space(10.0);
         if let Ok(info) = &info {
@@ -3408,13 +3510,18 @@ impl Browser {
                         let mut preview: Option<String> = None;
                         for entry in &self.entries {
                             let selected = self.selected.as_deref() == Some(entry.path.as_str());
-                            let click = row(
-                                ui,
-                                lang,
-                                entry,
-                                selected,
-                                self.checked.contains(&entry.path),
-                            );
+                            let drag_id = egui::Id::new(("tree-file", entry.path.clone()));
+                            let click = ui
+                                .dnd_drag_source(drag_id, entry.path.clone(), |ui| {
+                                    row(
+                                        ui,
+                                        lang,
+                                        entry,
+                                        selected,
+                                        self.checked.contains(&entry.path),
+                                    )
+                                })
+                                .inner;
                             if click.toggle {
                                 if self.checked.contains(&entry.path) {
                                     self.checked.remove(&entry.path);

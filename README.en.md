@@ -48,7 +48,7 @@
 | 🤖 **Android** | APK: USB drive over OTG, SAF + JNI, on-device vault creation, RU/EN, disguise, snow/rain/sun. |
 | 🛟 **Recoverability** | Two headers, two superblocks, `doctor`, full integrity verification. The Shamir k-of-n core ships in `sp-crypto`; the UI is next. |
 | 🧹 **Secure deletion** | File and free-space shred, container crypto-erase — with an honest report. |
-| 🎨 **Live interface** | Seven themes (Midnight, Neon, Light, Paper, Mint, Sunset, Forest), gradient accents, responsive layout, in-vault text/hex preview, drag & drop into the window. |
+| 🎨 **Live interface** | Ten themes (Midnight, Neon, Light, Paper, Mint, Sunset, Forest, Sepia, Ocean, Rose), gradient accents, responsive layout, in-vault text/hex preview, drag & drop into the window. |
 | ⚡ **Speed and size** | 1 MiB chunks, index up to 256 MiB; the volume is limited only by free disk space. Older vaults still open. |
 | 🎛️ **Tunable** | Sort by name/size/date/kind, 1–7 wipe passes, per-vault settings, server presets. |
 | 🎬 **Any format** | Text, JSON, FB2, CSV/TSV (with a table view) and code stay in the app (wrap, copy, hex); video, images, EPUB and archives open from a temp folder after a warning and are wiped on close. |

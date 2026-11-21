@@ -809,12 +809,13 @@ private fun VaultScreen(
                     preset.host, preset.port, preset.user, preset.password, preset.path,
                 )
             }.getOrNull()
-            if (bytes.isNullOrEmpty()) {
+            val data = bytes ?: ByteArray(0)
+            if (data.isEmpty()) {
                 openError = "Server download failed (memory mode)"
                 return
             }
             val opened = runCatching {
-                val fd = NativeVault.memCreate(bytes)
+                val fd = NativeVault.memCreate(data)
                 if (fd < 0) return@runCatching 0L
                 val dup = NativeVault.memDup(fd)
                 val handle = NativeVault.openFd(fd, password)

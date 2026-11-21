@@ -578,7 +578,7 @@ fn memfd_from_bytes(data: &[u8]) -> Option<i32> {
             unsafe { libc::close(fd) };
             return None;
         }
-        written += count as usize;
+        written += usize::try_from(count).unwrap_or(0);
     }
     unsafe { libc::lseek(fd, 0, libc::SEEK_SET) };
     Some(fd)
@@ -590,13 +590,14 @@ fn memfd_read(fd: i32) -> Vec<u8> {
         return Vec::new();
     }
     let mut bytes = Vec::new();
-    let mut chunk = [0_u8; 65536];
+    let mut chunk = vec![0_u8; 8192];
     loop {
         let count = unsafe { libc::read(fd, chunk.as_mut_ptr().cast(), chunk.len()) };
         if count <= 0 {
             break;
         }
-        bytes.extend_from_slice(&chunk[..count as usize]);
+        let len = usize::try_from(count).unwrap_or(0);
+        bytes.extend_from_slice(&chunk[..len]);
     }
     bytes
 }

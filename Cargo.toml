@@ -40,11 +40,8 @@ rfd = "0.15"
 sp-core = { path = "crates/sp-core" }
 sp-crypto = { path = "crates/sp-crypto" }
 sp-format = { path = "crates/sp-format" }
-sp-storage = { path = "crates/sp-storage" }
-sp-fs = { path = "crates/sp-fs" }
 sp-vault = { path = "crates/sp-vault" }
 sp-wipe = { path = "crates/sp-wipe" }
-sp-platform = { path = "crates/sp-platform" }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

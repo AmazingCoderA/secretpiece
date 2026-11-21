@@ -42,6 +42,10 @@ object NativeVault {
         host: String, port: String, user: String, password: String,
         path: String, bytes: ByteArray,
     ): String
+    external fun memCreate(bytes: ByteArray): Int
+    external fun memRead(fd: Int): ByteArray?
+    external fun memDup(fd: Int): Int
+    external fun memClose(fd: Int)
     external fun info(handle: Long): String?
     external fun verify(handle: Long): Int
     external fun close(handle: Long)

@@ -3107,6 +3107,7 @@ name = "sp-ffi"
 version = "1.19.0"
 dependencies = [
  "jni 0.21.1",
+ "libc",
  "serde_json",
  "sp-core",
  "sp-crypto",

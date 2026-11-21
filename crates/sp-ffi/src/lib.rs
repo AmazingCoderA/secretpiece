@@ -514,6 +514,121 @@ pub extern "system" fn Java_dev_secretpiece_app_NativeVault_ftpUpload(
     result_string(&mut env, result)
 }
 
+/// Creates an anonymous in-memory file descriptor filled with `bytes`.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_memCreate(
+    env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    bytes: JByteArray<'_>,
+) -> jint {
+    let Ok(data) = env.convert_byte_array(&bytes) else {
+        return -1;
+    };
+    memfd_from_bytes(&data).unwrap_or(-1)
+}
+
+/// Reads all bytes from an in-memory descriptor (used on lock for upload).
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_memRead(
+    env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    fd: jint,
+) -> jbyteArray {
+    let bytes = memfd_read(fd);
+    match env.byte_array_from_slice(&bytes) {
+        Ok(array) => array.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Duplicates a descriptor so the vault and the uploader can both own one.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_memDup(
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    fd: jint,
+) -> jint {
+    memfd_dup(fd)
+}
+
+/// Closes a duplicated in-memory descriptor.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_memClose(
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    fd: jint,
+) {
+    memfd_close(fd);
+}
+
+#[cfg(target_os = "linux")]
+fn memfd_from_bytes(data: &[u8]) -> Option<i32> {
+    use std::ffi::CString;
+
+    let name = CString::new("secretpiece").ok()?;
+    let fd = unsafe { libc::memfd_create(name.as_ptr(), 0) };
+    if fd < 0 {
+        return None;
+    }
+    let mut written = 0;
+    while written < data.len() {
+        let count =
+            unsafe { libc::write(fd, data[written..].as_ptr().cast(), data.len() - written) };
+        if count <= 0 {
+            unsafe { libc::close(fd) };
+            return None;
+        }
+        written += count as usize;
+    }
+    unsafe { libc::lseek(fd, 0, libc::SEEK_SET) };
+    Some(fd)
+}
+
+#[cfg(target_os = "linux")]
+fn memfd_read(fd: i32) -> Vec<u8> {
+    if unsafe { libc::lseek(fd, 0, libc::SEEK_SET) } < 0 {
+        return Vec::new();
+    }
+    let mut bytes = Vec::new();
+    let mut chunk = [0_u8; 65536];
+    loop {
+        let count = unsafe { libc::read(fd, chunk.as_mut_ptr().cast(), chunk.len()) };
+        if count <= 0 {
+            break;
+        }
+        bytes.extend_from_slice(&chunk[..count as usize]);
+    }
+    bytes
+}
+
+#[cfg(target_os = "linux")]
+fn memfd_dup(fd: i32) -> i32 {
+    unsafe { libc::dup(fd) }
+}
+
+#[cfg(target_os = "linux")]
+fn memfd_close(fd: i32) {
+    unsafe { libc::close(fd) };
+}
+
+#[cfg(not(target_os = "linux"))]
+fn memfd_from_bytes(_data: &[u8]) -> Option<i32> {
+    None
+}
+
+#[cfg(not(target_os = "linux"))]
+fn memfd_read(_fd: i32) -> Vec<u8> {
+    Vec::new()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn memfd_dup(_fd: i32) -> i32 {
+    -1
+}
+
+#[cfg(not(target_os = "linux"))]
+fn memfd_close(_fd: i32) {}
+
 /// Splits the vault password into Shamir shares (`x:hex` lines as JSON array).
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_dev_secretpiece_app_NativeVault_shares(

@@ -692,7 +692,7 @@ private fun VaultScreen(
     var presets by remember { mutableStateOf(loadPresets(context)) }
     var selectedPreset by remember { mutableStateOf<ServerPreset?>(null) }
     var remoteCache by remember { mutableStateOf<java.io.File?>(null) }
-    var memoryVault by remember { mutableStateOf<android.os.MemoryFile?>(null) }
+    var memoryVault by remember { mutableStateOf<Int?>(null) }
     var memoryOnly by remember {
         mutableStateOf(prefs(context).getBoolean(PREF_MEMORY_ONLY, false))
     }
@@ -732,17 +732,13 @@ private fun VaultScreen(
             val memory = memoryVault
             if (memory != null && preset != null) {
                 val status = runCatching {
-                    val dup = android.os.ParcelFileDescriptor.dup(memory.fileDescriptor)
-                    val bytes = dup.fileDescriptor?.let { fd ->
-                        java.io.FileInputStream(fd).use { it.readBytes() }
-                    } ?: ByteArray(0)
-                    dup.close()
+                    val bytes = NativeVault.memRead(memory) ?: ByteArray(0)
                     NativeVault.ftpPutBytes(
                         preset.host, preset.port, preset.user, preset.password,
                         preset.path, bytes,
                     )
                 }.getOrDefault("Upload failed")
-                runCatching { memory.close() }
+                NativeVault.memClose(memory)
                 memoryVault = null
                 if (status != "ok") openError = "Server upload failed: $status"
             }
@@ -818,14 +814,14 @@ private fun VaultScreen(
                 return
             }
             val opened = runCatching {
-                val memory = android.os.MemoryFile("secretpiece", bytes.size)
-                memory.writeBytes(bytes, 0, 0, bytes.size)
-                val fd = android.os.ParcelFileDescriptor.dup(memory.fileDescriptor)
-                val handle = NativeVault.openFd(fd.detachFd(), password)
+                val fd = NativeVault.memCreate(bytes)
+                if (fd < 0) return@runCatching 0L
+                val dup = NativeVault.memDup(fd)
+                val handle = NativeVault.openFd(fd, password)
                 if (handle == 0L) {
-                    memory.close()
+                    if (dup >= 0) NativeVault.memClose(dup)
                 } else {
-                    memoryVault = memory
+                    memoryVault = dup
                 }
                 handle
             }.getOrDefault(0L)

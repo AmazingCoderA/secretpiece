@@ -1204,7 +1204,6 @@ private fun SettingsDialog(
     )
 }
 
-@Composable
 private fun collectDirs(
     handle: Long,
     parent: String,
@@ -1222,6 +1221,7 @@ private fun collectDirs(
     return out
 }
 
+@Composable
 private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
     val context = LocalContext.current
     var prefix by remember { mutableStateOf("") }

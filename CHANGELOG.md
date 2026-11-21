@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-11-21
+
+Android: folder tree and crash guards.
+
+### Fixed
+
+- Opening a container no longer crashes the app when a native call fails:
+  listing, statistics and file reads are wrapped, and the error is shown in the
+  UI instead of killing the process.
+
+### Added
+
+- **Folder tree on Android**: a monospace tree of every folder (up to five
+  levels) with the current folder highlighted; tap to jump anywhere in the vault.
+
 ## [1.14.0] - 2026-11-20
 
 No more freezes on server work.

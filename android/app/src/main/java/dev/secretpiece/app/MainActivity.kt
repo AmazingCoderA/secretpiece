@@ -1105,6 +1105,23 @@ private fun SettingsDialog(
 }
 
 @Composable
+private fun collectDirs(
+    handle: Long,
+    parent: String,
+    depth: Int = 0,
+): List<Triple<String, Int, String>> {
+    if (depth > 4) return emptyList()
+    val out = mutableListOf<Triple<String, Int, String>>()
+    val children = runCatching { parseEntries(NativeVault.list(handle, parent)) }
+        .getOrDefault(emptyList())
+    for (entry in children) {
+        if (!entry.isDir) continue
+        out += Triple(entry.path, depth, entry.name)
+        out += collectDirs(handle, entry.path, depth + 1)
+    }
+    return out
+}
+
 private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
     val context = LocalContext.current
     var prefix by remember { mutableStateOf("") }
@@ -1114,8 +1131,14 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
     var previewTitle by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf<String?>(null) }
 
-    val entries = remember(prefix, tick) { parseEntries(NativeVault.list(handle, prefix)) }
-    val stats = remember(handle, tick) { parseStats(NativeVault.info(handle)) }
+    val entries = remember(prefix, tick) {
+        runCatching { parseEntries(NativeVault.list(handle, prefix)) }
+            .getOrDefault(emptyList())
+    }
+    val stats = remember(handle, tick) {
+        runCatching { parseStats(NativeVault.info(handle)) }.getOrNull()
+    }
+    val tree = remember(tick) { collectDirs(handle, "") }
 
     Column(
         modifier = Modifier
@@ -1184,6 +1207,26 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
             )
         }
 
+        if (tree.isNotEmpty()) {
+            Text("📁 /", fontSize = 12.sp, color = Cyan, fontFamily = FontFamily.Monospace)
+            tree.forEach { node ->
+                Text(
+                    "   ".repeat(node.second) + "↳ " + node.third,
+                    fontSize = 12.sp,
+                    color = if (prefix == node.first) Cyan else Muted,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            prefix = node.first
+                            error = null
+                        }
+                        .padding(vertical = 2.dp),
+                )
+            }
+            Text("—", fontSize = 10.sp, color = Faint)
+        }
+
         if (entries.isEmpty()) {
             Text(t.emptyFolder, fontSize = 13.sp, color = Muted)
         }
@@ -1199,7 +1242,8 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
                         if (entry.isDir) {
                             prefix = entry.path
                         } else {
-                            val data = NativeVault.read(handle, entry.path)
+                            val data = runCatching { NativeVault.read(handle, entry.path) }
+                                .getOrNull()
                             previewTitle = entry.name
                             preview = when {
                                 data == null -> {

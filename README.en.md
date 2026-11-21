@@ -212,7 +212,7 @@ are `libx11`, `libxkbcommon`, `libgl`, `libegl` and `libwayland-client`.
 
 ```bash
 # ready-made bundle from Releases
-flatpak install --user ./secretpiece-1.5-x86_64.flatpak
+flatpak install --user ./secretpiece-1.16-x86_64.flatpak
 flatpak run dev.secretpiece.SecretPiece
 ```
 

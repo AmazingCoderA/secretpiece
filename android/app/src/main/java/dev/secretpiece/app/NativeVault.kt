@@ -19,6 +19,10 @@ object NativeVault {
     external fun createFd(fd: Int, password: String): Long
     external fun list(handle: Long, prefix: String): String
     external fun read(handle: Long, path: String): ByteArray?
+    external fun put(handle: Long, path: String, data: ByteArray): Int
+    external fun mkdir(handle: Long, path: String): Int
+    external fun remove(handle: Long, path: String): Int
+    external fun move(handle: Long, from: String, to: String): Int
     external fun info(handle: Long): String?
     external fun verify(handle: Long): Int
     external fun close(handle: Long)

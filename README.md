@@ -210,7 +210,7 @@ sudo dnf install ./secretpiece-1.5-linux-x64.rpm
 
 ```bash
 # готовый bundle из Releases
-flatpak install --user ./secretpiece-1.5-x86_64.flatpak
+flatpak install --user ./secretpiece-1.16-x86_64.flatpak
 flatpak run dev.secretpiece.SecretPiece
 ```
 

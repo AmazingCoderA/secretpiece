@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-11-21
+
+Themes on Android and full write access on the phone.
+
+### Added
+
+- **Five Android themes** — Night, Light, Paper, Mint, Sunset — picked in
+  Settings, persisted across launches, and applied to the whole UI including
+  dialog surfaces and text colours.
+- **Android write operations**: create a folder, import a file from the system
+  picker, rename or move an entry, delete a file or a folder tree. The JNI
+  bridge (`sp-ffi`) gained `put`, `mkdir`, `remove` and `move`.
+
+### Changed
+
+- README Flatpak instructions now point at the current bundle name.
+
 ## [1.15.0] - 2026-11-21
 
 Android: folder tree and crash guards.

@@ -11,7 +11,7 @@
 #![allow(unsafe_code)]
 
 use jni::JNIEnv;
-use jni::objects::{JClass, JString};
+use jni::objects::{JByteArray, JClass, JString};
 use jni::sys::{jbyteArray, jint, jlong, jstring};
 use sp_format::EntryKind;
 use sp_vault::Vault;
@@ -219,6 +219,121 @@ pub extern "system" fn Java_dev_secretpiece_app_NativeVault_info(
     })
     .to_string();
     to_jstring(&mut env, &payload)
+}
+
+/// Writes a file into the vault. Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_put(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    raw: jlong,
+    path: JString<'_>,
+    data: JByteArray<'_>,
+) -> jint {
+    let Some(handle) = handle_from(raw) else {
+        return 0;
+    };
+    let Ok(path): Result<String, _> = env.get_string(&path).map(Into::into) else {
+        return 0;
+    };
+    let Ok(bytes) = env.convert_byte_array(&data) else {
+        return 0;
+    };
+    i32::from(handle.vault.put(&path, &bytes).is_ok())
+}
+
+/// Creates a folder. Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_mkdir(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    raw: jlong,
+    path: JString<'_>,
+) -> jint {
+    let Some(handle) = handle_from(raw) else {
+        return 0;
+    };
+    let Ok(path): Result<String, _> = env.get_string(&path).map(Into::into) else {
+        return 0;
+    };
+    i32::from(handle.vault.mkdir(&path).is_ok())
+}
+
+/// Removes a file or a folder tree. Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_remove(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    raw: jlong,
+    path: JString<'_>,
+) -> jint {
+    let Some(handle) = handle_from(raw) else {
+        return 0;
+    };
+    let Ok(path): Result<String, _> = env.get_string(&path).map(Into::into) else {
+        return 0;
+    };
+    i32::from(handle.vault.remove(&path).is_ok())
+}
+
+/// Moves a file or a folder tree to a new path. Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_move(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    raw: jlong,
+    from: JString<'_>,
+    to: JString<'_>,
+) -> jint {
+    let Some(handle) = handle_from(raw) else {
+        return 0;
+    };
+    let Ok(from): Result<String, _> = env.get_string(&from).map(Into::into) else {
+        return 0;
+    };
+    let Ok(to): Result<String, _> = env.get_string(&to).map(Into::into) else {
+        return 0;
+    };
+    let entries: Vec<(String, EntryKind)> = handle
+        .vault
+        .list(None)
+        .into_iter()
+        .map(|entry| (entry.path, entry.kind))
+        .collect();
+    let mut result = Ok(());
+    for (path, kind) in entries {
+        let new_path = if path == from {
+            to.clone()
+        } else if let Some(rest) = path.strip_prefix(&format!("{from}/")) {
+            format!("{to}/{rest}")
+        } else {
+            continue;
+        };
+        result = match kind {
+            EntryKind::Dir => handle.vault.mkdir(&new_path),
+            EntryKind::File => handle.vault.get(&path).and_then(|mut data| {
+                let put = handle.vault.put(&new_path, &data);
+                data.fill(0);
+                put
+            }),
+        };
+        if result.is_err() {
+            break;
+        }
+    }
+    if result.is_ok() && from != to {
+        let is_dir = handle
+            .vault
+            .list(None)
+            .iter()
+            .any(|entry| entry.path == from && entry.kind == EntryKind::Dir);
+        if is_dir {
+            result = handle.vault.remove(&from);
+        } else {
+            result = handle.vault.shred(&from);
+        }
+    }
+    i32::from(result.is_ok())
 }
 
 /// Re-authenticates every file. Returns `true` when the vault is intact.

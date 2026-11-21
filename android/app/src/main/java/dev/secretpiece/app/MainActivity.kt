@@ -86,17 +86,82 @@ private const val PREFS = "secretpiece"
 private const val PREF_DISGUISE = "disguise"
 private const val PREF_SKY = "sky"
 private const val PREF_LANG = "lang"
+private const val PREF_THEME = "theme"
 
-private val Bg = Color(0xFF05080F)
-private val Deep = Color(0xFF0A1020)
-private val SurfaceDark = Color(0xFF0D1424)
-private val SurfaceSoft = Color(0xFF121B2E)
-private val Cyan = Color(0xFF4DE8FF)
-private val Violet = Color(0xFF9B6BFF)
-private val Muted = Color(0xFF8EA3C8)
-private val Faint = Color(0xFF6F84A8)
-private val Danger = Color(0xFFFF7A90)
-private val Gold = Color(0xFFFFD48A)
+private var Bg = Color(0xFF05080F)
+private var Deep = Color(0xFF0A1020)
+private var SurfaceDark = Color(0xFF0D1424)
+private var SurfaceSoft = Color(0xFF121B2E)
+private var Cyan = Color(0xFF4DE8FF)
+private var Violet = Color(0xFF9B6BFF)
+private var Muted = Color(0xFF8EA3C8)
+private var Faint = Color(0xFF6F84A8)
+private var Danger = Color(0xFFFF7A90)
+private var Gold = Color(0xFFFFD48A)
+private var Ink = Color(red = 232, green = 240, blue = 255)
+
+private enum class Theme { Night, Light, Paper, Mint, Sunset }
+
+private fun themeKey(theme: Theme) = when (theme) {
+    Theme.Night -> "night"
+    Theme.Light -> "light"
+    Theme.Paper -> "paper"
+    Theme.Mint -> "mint"
+    Theme.Sunset -> "sunset"
+}
+
+private fun loadTheme(context: Context): Theme =
+    when (prefs(context).getString(PREF_THEME, "night")) {
+        "light" -> Theme.Light
+        "paper" -> Theme.Paper
+        "mint" -> Theme.Mint
+        "sunset" -> Theme.Sunset
+        else -> Theme.Night
+    }
+
+private fun applyTheme(theme: Theme) {
+    when (theme) {
+        Theme.Night -> {
+            Bg = Color(0xFF05080F); Deep = Color(0xFF0A1020)
+            SurfaceDark = Color(0xFF0D1424); SurfaceSoft = Color(0xFF121B2E)
+            Cyan = Color(0xFF4DE8FF); Violet = Color(0xFF9B6BFF)
+            Muted = Color(0xFF8EA3C8); Faint = Color(0xFF6F84A8)
+            Danger = Color(0xFFFF7A90); Gold = Color(0xFFFFD48A)
+            Ink = Ink
+        }
+        Theme.Light -> {
+            Bg = Color(0xFFF4F6FB); Deep = Color(0xFFE8ECF5)
+            SurfaceDark = Color(0xFFFFFFFF); SurfaceSoft = Color(0xFFEDF1F8)
+            Cyan = Color(0xFF1663C7); Violet = Color(0xFF6B46C1)
+            Muted = Color(0xFF465268); Faint = Color(0xFF6B7689)
+            Danger = Color(0xFFC0263A); Gold = Color(0xFF9A6B00)
+            Ink = Color(0xFF121826)
+        }
+        Theme.Paper -> {
+            Bg = Color(0xFFF7F1E7); Deep = Color(0xFFEFE6D7)
+            SurfaceDark = Color(0xFFFFFBF4); SurfaceSoft = Color(0xFFF1E8D9)
+            Cyan = Color(0xFF8A5A2B); Violet = Color(0xFF6D4C41)
+            Muted = Color(0xFF5C5144); Faint = Color(0xFF7B6E5D)
+            Danger = Color(0xFFA33A2A); Gold = Color(0xFF9A6B00)
+            Ink = Color(0xFF2A2318)
+        }
+        Theme.Mint -> {
+            Bg = Color(0xFFF1FAF6); Deep = Color(0xFFE0F3EA)
+            SurfaceDark = Color(0xFFFFFFFF); SurfaceSoft = Color(0xFFE6F4EC)
+            Cyan = Color(0xFF0E7A5F); Violet = Color(0xFF2E7D56)
+            Muted = Color(0xFF43604F); Faint = Color(0xFF5F7A6A)
+            Danger = Color(0xFFB3261E); Gold = Color(0xFF8A6A00)
+        }
+        Theme.Sunset -> {
+            Bg = Color(0xFF1A0F1E); Deep = Color(0xFF261226)
+            SurfaceDark = Color(0xFF2A1530); SurfaceSoft = Color(0xFF351A3A)
+            Cyan = Color(0xFFFFB86B); Violet = Color(0xFFFF6FA5)
+            Muted = Color(0xFFD3B2C9); Faint = Color(0xFFA98CA0)
+            Danger = Color(0xFFFF7A90); Gold = Color(0xFFFFD48A)
+            Ink = Color(0xFFFCEBFA)
+        }
+    }
+}
 
 private enum class Lang { Ru, En }
 
@@ -391,7 +456,9 @@ fun SecretPieceApp(initialUri: Uri? = null) {
     val context = LocalContext.current
     var lang by remember { mutableStateOf(loadLang(context)) }
     var sky by remember { mutableStateOf(loadSky(context)) }
+    var theme by remember { mutableStateOf(loadTheme(context)) }
     val t = copyFor(lang)
+    applyTheme(theme)
 
     MaterialTheme(
         colorScheme = darkColorScheme(
@@ -399,9 +466,13 @@ fun SecretPieceApp(initialUri: Uri? = null) {
             secondary = Violet,
             background = Bg,
             surface = SurfaceDark,
-            onPrimary = Color(0xFF031018),
-            onBackground = Color(0xFFE8F0FF),
-            onSurface = Color(0xFFE8F0FF),
+            onPrimary = if (theme in listOf(Theme.Light, Theme.Paper, Theme.Mint)) {
+                Color.White
+            } else {
+                Color(0xFF031018)
+            },
+            onBackground = Ink,
+            onSurface = Ink,
         ),
     ) {
         Box(
@@ -424,6 +495,11 @@ fun SecretPieceApp(initialUri: Uri? = null) {
                     onSky = {
                         sky = it
                         saveSky(context, it)
+                    },
+                    theme = theme,
+                    onTheme = {
+                        theme = it
+                        prefs(context).edit().putString(PREF_THEME, themeKey(it)).apply()
                     },
                 )
             }
@@ -512,6 +588,8 @@ private fun VaultScreen(
     initialUri: Uri?,
     onLang: (Lang) -> Unit,
     onSky: (Sky) -> Unit,
+    theme: Theme,
+    onTheme: (Theme) -> Unit,
 ) {
     val context = LocalContext.current
     var fileUri by remember { mutableStateOf(initialUri) }
@@ -653,7 +731,7 @@ private fun VaultScreen(
                 t.tagline,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFFE8F0FF),
+                color = Ink,
             )
             Text(t.platforms, fontSize = 11.sp, color = Muted, fontFamily = FontFamily.Monospace)
             Spacer(Modifier.height(6.dp))
@@ -696,7 +774,7 @@ private fun VaultScreen(
                     t.unlockTitle,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE8F0FF),
+                    color = Ink,
                 )
                 Text(t.unlockHint, fontSize = 12.sp, color = Muted)
 
@@ -734,7 +812,7 @@ private fun VaultScreen(
                             Text(
                                 fileName,
                                 fontSize = 13.sp,
-                                color = Color(0xFFE8F0FF),
+                                color = Ink,
                                 fontWeight = FontWeight.Medium,
                             )
                         }
@@ -831,7 +909,7 @@ private fun VaultScreen(
                     t.scenarioTitle,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE8F0FF),
+                    color = Ink,
                 )
                 t.scenario.forEach { line ->
                     Text(line, fontSize = 13.sp, color = Muted)
@@ -843,7 +921,7 @@ private fun VaultScreen(
             t.advancedTitle,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFE8F0FF),
+            color = Ink,
             modifier = Modifier.padding(top = 2.dp),
         )
 
@@ -863,7 +941,7 @@ private fun VaultScreen(
                             t.maskTitle,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE8F0FF),
+                            color = Ink,
                         )
                         Text(t.maskSummary, fontSize = 12.sp, color = Muted)
                         Text(t.maskNote, fontSize = 11.sp, color = Faint)
@@ -888,7 +966,7 @@ private fun VaultScreen(
                             t.shortcut,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE8F0FF),
+                            color = Ink,
                         )
                         Text(t.shortcutHint, fontSize = 11.sp, color = Faint)
                     }
@@ -921,6 +999,11 @@ private fun VaultScreen(
             onSky = {
                 sky = it
                 onSky(it)
+            },
+            theme = theme,
+            onTheme = {
+                theme = it
+                onTheme(it)
             },
             onDisguise = { checked ->
                 applyDisguise(context, checked)
@@ -1012,6 +1095,8 @@ private fun SettingsDialog(
     masked: Boolean,
     onLang: (Lang) -> Unit,
     onSky: (Sky) -> Unit,
+    theme: Theme,
+    onTheme: (Theme) -> Unit,
     onDisguise: (Boolean) -> Unit,
     onShortcut: () -> Unit,
     onDismiss: () -> Unit,
@@ -1029,6 +1114,21 @@ private fun SettingsDialog(
             ) {
                 Text(t.lookTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(t.lookHint, fontSize = 11.sp, color = Muted)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    listOf(
+                        Theme.Night, Theme.Light, Theme.Paper, Theme.Mint, Theme.Sunset,
+                    ).forEach { option ->
+                        FilterChip(
+                            selected = theme == option,
+                            onClick = { onTheme(option) },
+                            label = { Text(option.name, fontSize = 10.sp) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1130,6 +1230,34 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
     var notice by remember { mutableStateOf<String?>(null) }
     var previewTitle by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf<String?>(null) }
+    var newFolder by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+    var renameFrom by remember { mutableStateOf<String?>(null) }
+    var renameTo by remember { mutableStateOf("") }
+
+    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val name = displayName(context, uri)
+            val bytes = runCatching {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            }.getOrNull()
+            if (bytes == null) {
+                error = t.readFailed
+            } else {
+                val target = listOf(prefix.trim('/'), name)
+                    .filter { it.isNotEmpty() }
+                    .joinToString("/")
+                error = if (NativeVault.put(handle, target, bytes) == 1) {
+                    notice = "✓ $name"
+                    tick++
+                    null
+                } else {
+                    t.readFailed
+                }
+                bytes.fill(0)
+            }
+        }
+    }
 
     val entries = remember(prefix, tick) {
         runCatching { parseEntries(NativeVault.list(handle, prefix)) }
@@ -1205,6 +1333,13 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
                 fontFamily = FontFamily.Monospace,
                 modifier = Modifier.weight(1f),
             )
+            TextButton(onClick = {
+                newName = ""
+                newFolder = true
+            }) { Text("📁 +", color = Cyan, fontSize = 13.sp) }
+            TextButton(onClick = { importer.launch(arrayOf("*/*")) }) {
+                Text("📥", color = Cyan, fontSize = 13.sp)
+            }
         }
 
         if (tree.isNotEmpty()) {
@@ -1269,7 +1404,7 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
                             entry.name,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFFE8F0FF),
+                            color = Ink,
                         )
                         Text(
                             if (entry.isDir) t.browserTitle else humanBytes(entry.size),
@@ -1277,6 +1412,20 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
                             color = Muted,
                         )
                     }
+                    TextButton(onClick = {
+                        renameFrom = entry.path
+                        renameTo = entry.name
+                    }) { Text("✎", color = Cyan, fontSize = 13.sp) }
+                    TextButton(onClick = {
+                        error = null
+                        notice = null
+                        if (NativeVault.remove(handle, entry.path) == 1) {
+                            notice = "✓ ${entry.name}"
+                            tick++
+                        } else {
+                            error = t.readFailed
+                        }
+                    }) { Text("🗑", color = Danger, fontSize = 13.sp) }
                     if (entry.isDir) Text("›", fontSize = 20.sp, color = Muted)
                 }
             }
@@ -1322,6 +1471,76 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
                 ) {
                     Text(text, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 }
+            },
+        )
+    }
+    if (newFolder) {
+        AlertDialog(
+            onDismissRequest = { newFolder = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val clean = newName.trim().trim('/')
+                    if (clean.isNotEmpty()) {
+                        val target = listOf(prefix.trim('/'), clean)
+                            .filter { it.isNotEmpty() }
+                            .joinToString("/")
+                        error = if (NativeVault.mkdir(handle, target) == 1) {
+                            notice = "✓ $clean"
+                            tick++
+                            null
+                        } else {
+                            t.readFailed
+                        }
+                    }
+                    newFolder = false
+                }) { Text(t.done, color = Cyan) }
+            },
+            dismissButton = {
+                TextButton(onClick = { newFolder = false }) { Text(t.close) }
+            },
+            title = { Text("📁 +") },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    singleLine = true,
+                )
+            },
+        )
+    }
+
+    renameFrom?.let { from ->
+        AlertDialog(
+            onDismissRequest = { renameFrom = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    val clean = renameTo.trim().trim('/')
+                    if (clean.isNotEmpty()) {
+                        val parent = from.substringBeforeLast('/', "")
+                        val target = listOf(parent, clean)
+                            .filter { it.isNotEmpty() }
+                            .joinToString("/")
+                        error = if (NativeVault.move(handle, from, target) == 1) {
+                            notice = "✓ $clean"
+                            tick++
+                            null
+                        } else {
+                            t.readFailed
+                        }
+                    }
+                    renameFrom = null
+                }) { Text(t.done, color = Cyan) }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameFrom = null }) { Text(t.close) }
+            },
+            title = { Text("✎") },
+            text = {
+                OutlinedTextField(
+                    value = renameTo,
+                    onValueChange = { renameTo = it },
+                    singleLine = true,
+                )
             },
         )
     }

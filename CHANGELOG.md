@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-11-21
+
+Media preview on Android.
+
+### Added
+
+- **Photo and video preview on Android** (experimental setting in Settings,
+  "Фото/видео из ОЗУ"): images render inline from decrypted bytes; video is
+  written to a temporary cache file for playback and wiped on close or lock.
+- On the desktop, non-text media continues to open through the existing
+  "external preview" setting (the same experimental mode in spirit).
+
 ## [1.21.0] - 2026-11-21
 
 Explorer-style tree, async server upload and ten themes on both platforms.

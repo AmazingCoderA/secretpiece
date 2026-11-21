@@ -9,7 +9,11 @@ import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.VideoView
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -87,7 +91,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -101,6 +105,7 @@ private const val PREF_LANG = "lang"
 private const val PREF_THEME = "theme"
 private const val PREF_PRESETS = "server_presets"
 private const val PREF_MAX_PREVIEW_MB = "max_preview_mb"
+private const val PREF_MEDIA_PREVIEW = "media_preview"
 
 private data class ServerPreset(
     val name: String,
@@ -707,6 +712,9 @@ private fun VaultScreen(
     var maxPreviewMb by remember {
         mutableStateOf(prefs(context).getInt(PREF_MAX_PREVIEW_MB, 16))
     }
+    var mediaPreview by remember {
+        mutableStateOf(prefs(context).getBoolean(PREF_MEDIA_PREVIEW, false))
+    }
     var selectedPreset by remember { mutableStateOf<ServerPreset?>(null) }
     var remoteCache by remember { mutableStateOf<java.io.File?>(null) }
     var memoryVault by remember { mutableStateOf<Int?>(null) }
@@ -724,8 +732,10 @@ private fun VaultScreen(
     }
 
     if (handle != 0L) {
-        VaultBrowser(handle, t, maxPreviewMb) {
+        VaultBrowser(handle, t, maxPreviewMb, mediaPreview) {
             NativeVault.close(handle)
+            mediaFile?.let { wipeFile(it) }
+            mediaFile = null
             handle = 0L
             val cache = remoteCache
             val preset = selectedPreset
@@ -1261,6 +1271,11 @@ private fun VaultScreen(
                 maxPreviewMb = value.coerceIn(1, 2048)
                 prefs(context).edit().putInt(PREF_MAX_PREVIEW_MB, maxPreviewMb).apply()
             },
+            mediaPreview = mediaPreview,
+            onMediaPreview = {
+                mediaPreview = it
+                prefs(context).edit().putBoolean(PREF_MEDIA_PREVIEW, it).apply()
+            },
             onDisguise = { checked ->
                 applyDisguise(context, checked)
                 masked = checked
@@ -1406,6 +1421,8 @@ private fun SettingsDialog(
     unlockPassword: String,
     maxPreviewMb: Int,
     onMaxPreviewMb: (Int) -> Unit,
+    mediaPreview: Boolean,
+    onMediaPreview: (Boolean) -> Unit,
     onDisguise: (Boolean) -> Unit,
     onShortcut: () -> Unit,
     onExportSettings: () -> Unit,
@@ -1515,6 +1532,18 @@ private fun SettingsDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+
+                HorizontalDivider(color = Color(0xFF1C2A44))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Экспериментально: фото/видео из ОЗУ", fontSize = 12.sp)
+                        Text("Временно распаковать для просмотра", fontSize = 10.sp, color = Muted)
+                    }
+                    Switch(checked = mediaPreview, onCheckedChange = onMediaPreview)
+                }
 
                 HorizontalDivider(color = Color(0xFF1C2A44))
                 var presetName by remember { mutableStateOf("") }
@@ -1641,10 +1670,31 @@ private fun collectDirs(
 }
 
 @Composable
+private data class MediaPreview(
+    val name: String,
+    val mime: String,
+    val bytes: ByteArray,
+    val path: String = "",
+)
+
+private fun mediaMime(name: String): String? = when (
+    name.substringAfterLast('.').lowercase()
+) {
+    "jpg", "jpeg" -> "image/jpeg"
+    "png" -> "image/png"
+    "webp" -> "image/webp"
+    "gif" -> "image/gif"
+    "mp4", "m4v" -> "video/mp4"
+    "webm" -> "video/webm"
+    "mkv" -> "video/x-matroska"
+    else -> null
+}
+
 private fun VaultBrowser(
     handle: Long,
     t: Copy,
     maxPreviewMb: Int,
+    mediaPreview: Boolean,
     onLock: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -1654,6 +1704,8 @@ private fun VaultBrowser(
     var notice by remember { mutableStateOf<String?>(null) }
     var previewTitle by remember { mutableStateOf("") }
     var previewOffset by remember { mutableStateOf(Offset.Zero) }
+    var media by remember { mutableStateOf<MediaPreview?>(null) }
+    var mediaFile by remember { mutableStateOf<java.io.File?>(null) }
     var preview by remember { mutableStateOf<String?>(null) }
     var newFolder by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
@@ -1822,18 +1874,37 @@ private fun VaultBrowser(
                         } else {
                             val data = runCatching { NativeVault.read(handle, entry.path) }
                                 .getOrNull()
-                            previewTitle = entry.name
-                            preview = when {
-                                data == null -> {
-                                    error = t.readFailed
-                                    null
+                            if (data == null) {
+                                error = t.readFailed
+                            } else {
+                                val mime = mediaMime(entry.name)
+                                if (mediaPreview && mime != null) {
+                                    val path = if (mime.startsWith("video/")) {
+                                        val file = java.io.File(
+                                            context.cacheDir,
+                                            "media-${System.currentTimeMillis()}-${entry.name}",
+                                        )
+                                        runCatching {
+                                            file.writeBytes(data)
+                                            mediaFile = file
+                                            file.path
+                                        }.getOrDefault("")
+                                    } else {
+                                        ""
+                                    }
+                                    media = MediaPreview(entry.name, mime, data, path)
+                                    preview = null
+                                } else {
+                                    previewTitle = entry.name
+                                    preview = when {
+                                        data.size > maxPreviewMb.toLong() * 1024L * 1024L ||
+                                            data.any { it == 0.toByte() } ->
+                                            t.binaryFile
+                                        else -> String(data, Charsets.UTF_8)
+                                            .takeIf { !it.contains('\uFFFD') }
+                                            ?: t.binaryFile
+                                    }
                                 }
-                                data.size > maxPreviewMb.toLong() * 1024L * 1024L ||
-                                    data.any { it == 0.toByte() } ->
-                                    t.binaryFile
-                                else -> String(data, Charsets.UTF_8)
-                                    .takeIf { !it.contains('\uFFFD') }
-                                    ?: t.binaryFile
                             }
                         }
                     },
@@ -1978,6 +2049,56 @@ private fun VaultBrowser(
             }
         }
     }
+    media?.let { item ->
+        Dialog(onDismissRequest = {
+            media = null
+            mediaFile?.let { wipeFile(it) }
+            mediaFile = null
+        }) {
+            Surface(shape = RoundedCornerShape(16.dp), color = SurfaceDark) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(item.name, color = Cyan, modifier = Modifier.weight(1f))
+                        TextButton(onClick = {
+                            media = null
+                            mediaFile?.let { wipeFile(it) }
+                            mediaFile = null
+                        }) { Text(t.close) }
+                    }
+                    if (item.mime.startsWith("video/") && item.path.isNotEmpty()) {
+                        AndroidView(
+                            factory = { ctx ->
+                                VideoView(ctx).apply {
+                                    layoutParams = ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT, 600,
+                                    )
+                                    setVideoPath(item.path)
+                                    setOnPreparedListener { it.isLooping = true; start() }
+                                }
+                            },
+                            modifier = Modifier.height(360.dp).fillMaxWidth(),
+                        )
+                    } else {
+                        AndroidView(
+                            factory = { ctx ->
+                                ImageView(ctx).apply {
+                                    adjustViewBounds = true
+                                    scaleType = ImageView.ScaleType.FIT_CENTER
+                                    setImageBitmap(
+                                        BitmapFactory.decodeByteArray(
+                                            item.bytes, 0, item.bytes.size,
+                                        ),
+                                    )
+                                }
+                            },
+                            modifier = Modifier.heightIn(max = 500.dp).fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     if (newFolder) {
         AlertDialog(
             onDismissRequest = { newFolder = false },

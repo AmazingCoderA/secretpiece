@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-11-21
+
+Parity pass: recovery keys, ten themes, tables and a stricter release gate.
+
+### Added
+
+- **Recovery shares (Shamir) on both platforms**: split a secret into `K of N`
+  shares, save them to a file, and recombine them. On Android this lives in
+  Settings → "Ключи (Shamir)"; on the desktop in Settings.
+- **Ten Android themes** (Night, Light, Paper, Mint, Sunset, Forest, Neon,
+  Sepia, Ocean, Rose) with proper Material 3 light/dark colour schemes.
+- **CSV/TSV table preview on Android**: delimited files open as a scrollable
+  table instead of raw text.
+- **Settings export on Android** — language, theme, sky and disguise state are
+  written to a JSON file from Settings.
+- CI compiles the Android Kotlin sources on every push.
+
+### Fixed
+
+- **Server presets**: the picker selection and the new-preset name no longer
+  share one field, so selecting a preset no longer overwrites it on save;
+  the stale connection status is cleared on selection.
+- **Releases**: the Release workflow now verifies that the tag matches
+  `Cargo.toml`, the Android `versionName` and the changelog before publishing,
+  and the Android build is no longer `continue-on-error`. A broken APK can no
+  longer delay or corrupt a release.
+
 ## [1.16.0] - 2026-11-21
 
 Themes on Android and full write access on the phone.

@@ -13,6 +13,7 @@
 use jni::JNIEnv;
 use jni::objects::{JByteArray, JClass, JString};
 use jni::sys::{jbyteArray, jint, jlong, jstring};
+use sp_crypto::shamir::split;
 use sp_format::EntryKind;
 use sp_vault::Vault;
 
@@ -334,6 +335,46 @@ pub extern "system" fn Java_dev_secretpiece_app_NativeVault_move(
         }
     }
     i32::from(result.is_ok())
+}
+
+/// Splits the vault password into Shamir shares (`x:hex` lines as JSON array).
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_shares(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    raw: jlong,
+    secret: JString<'_>,
+    n: jint,
+    k: jint,
+) -> jstring {
+    if handle_from(raw).is_none() {
+        return to_jstring(&mut env, "[]");
+    }
+    let Ok(secret): Result<String, _> = env.get_string(&secret).map(Into::into) else {
+        return to_jstring(&mut env, "[]");
+    };
+    let parts = split(
+        secret.as_bytes(),
+        u8::try_from(k).unwrap_or(0),
+        u8::try_from(n).unwrap_or(0),
+    )
+    .map(|shares| {
+        shares
+            .iter()
+            .map(|share| {
+                let mut body = String::with_capacity(share.y.len() * 2);
+                {
+                    use std::fmt::Write as FmtWrite;
+                    for byte in &share.y {
+                        let _ = write!(body, "{byte:02x}");
+                    }
+                }
+                format!("{}:{}", share.x, body)
+            })
+            .collect::<Vec<_>>()
+    })
+    .unwrap_or_default();
+    to_jstring(&mut env, &serde_json::json!(parts).to_string())
 }
 
 /// Re-authenticates every file. Returns `true` when the vault is intact.

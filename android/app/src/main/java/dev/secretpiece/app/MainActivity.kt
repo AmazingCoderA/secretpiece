@@ -41,7 +41,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -51,6 +51,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -100,67 +101,70 @@ private var Danger = Color(0xFFFF7A90)
 private var Gold = Color(0xFFFFD48A)
 private var Ink = Color(red = 232, green = 240, blue = 255)
 
-private enum class Theme { Night, Light, Paper, Mint, Sunset }
-
-private fun themeKey(theme: Theme) = when (theme) {
-    Theme.Night -> "night"
-    Theme.Light -> "light"
-    Theme.Paper -> "paper"
-    Theme.Mint -> "mint"
-    Theme.Sunset -> "sunset"
+private enum class Theme {
+    Night, Light, Paper, Mint, Sunset, Forest, Neon, Sepia, Ocean, Rose,
 }
 
+private data class Palette(
+    val bg: Color, val deep: Color, val surface: Color, val soft: Color,
+    val cyan: Color, val violet: Color, val muted: Color, val faint: Color,
+    val danger: Color, val gold: Color, val ink: Color, val light: Boolean,
+)
+
+private val palettes = mapOf(
+    Theme.Night to Palette(
+        Color(0xFF05080F), Color(0xFF0A1020), Color(0xFF0D1424), Color(0xFF121B2E),
+        Color(0xFF4DE8FF), Color(0xFF9B6BFF), Color(0xFF8EA3C8), Color(0xFF6F84A8),
+        Color(0xFFFF7A90), Color(0xFFFFD48A), Color(0xFFE8F0FF), false),
+    Theme.Light to Palette(
+        Color(0xFFF4F6FB), Color(0xFFE8ECF5), Color.White, Color(0xFFEDF1F8),
+        Color(0xFF1663C7), Color(0xFF6B46C1), Color(0xFF465268), Color(0xFF6B7689),
+        Color(0xFFC0263A), Color(0xFF9A6B00), Color(0xFF121826), true),
+    Theme.Paper to Palette(
+        Color(0xFFF7F1E7), Color(0xFFEFE6D7), Color(0xFFFFFBF4), Color(0xFFF1E8D9),
+        Color(0xFF8A5A2B), Color(0xFF6D4C41), Color(0xFF5C5144), Color(0xFF7B6E5D),
+        Color(0xFFA33A2A), Color(0xFF9A6B00), Color(0xFF2A2318), true),
+    Theme.Mint to Palette(
+        Color(0xFFF1FAF6), Color(0xFFE0F3EA), Color.White, Color(0xFFE6F4EC),
+        Color(0xFF0E7A5F), Color(0xFF2E7D56), Color(0xFF43604F), Color(0xFF5F7A6A),
+        Color(0xFFB3261E), Color(0xFF8A6A00), Color(0xFF0F2A20), true),
+    Theme.Sunset to Palette(
+        Color(0xFF1A0F1E), Color(0xFF261226), Color(0xFF2A1530), Color(0xFF351A3A),
+        Color(0xFFFFB86B), Color(0xFFFF6FA5), Color(0xFFD3B2C9), Color(0xFFA98CA0),
+        Color(0xFFFF7A90), Color(0xFFFFD48A), Color(0xFFFCEBFA), false),
+    Theme.Forest to Palette(
+        Color(0xFF08120C), Color(0xFF0C1D13), Color(0xFF10281A), Color(0xFF163222),
+        Color(0xFF7BE0A0), Color(0xFFB8D46C), Color(0xFF9ABAA6), Color(0xFF6F8F7B),
+        Color(0xFFFF8A80), Color(0xFFE8C77A), Color(0xFFE4F5E9), false),
+    Theme.Neon to Palette(
+        Color(0xFF08040F), Color(0xFF130726), Color(0xFF1A0B33), Color(0xFF251044),
+        Color(0xFF00FFD5), Color(0xFFFF3EBA), Color(0xFFC79BE8), Color(0xFF9168B8),
+        Color(0xFFFF4D6D), Color(0xFFFFE66D), Color(0xFFEAE0FF), false),
+    Theme.Sepia to Palette(
+        Color(0xFF1D1710), Color(0xFF2A2017), Color(0xFF33281D), Color(0xFF403225),
+        Color(0xFFE8B878), Color(0xFFD89A6A), Color(0xFFC2AA8E), Color(0xFF937F68),
+        Color(0xFFFF8A6A), Color(0xFFF2D08A), Color(0xFFF6EBDC), false),
+    Theme.Ocean to Palette(
+        Color(0xFF04121C), Color(0xFF072033), Color(0xFF0A2B42), Color(0xFF0E3854),
+        Color(0xFF5DD6FF), Color(0xFF7C9CFF), Color(0xFFA3C6D8), Color(0xFF7294A8),
+        Color(0xFFFF7E7E), Color(0xFFFBD98A), Color(0xFFE2F4FF), false),
+    Theme.Rose to Palette(
+        Color(0xFF1E0E15), Color(0xFF2C1420), Color(0xFF381A29), Color(0xFF472234),
+        Color(0xFFFF9EC4), Color(0xFFFFC178), Color(0xFFE0B6C6), Color(0xFFAF8698),
+        Color(0xFFFF7588), Color(0xFFFFD98A), Color(0xFFFFEBF2), false),
+)
+
+private fun themeKey(theme: Theme) = theme.name.lowercase()
+
 private fun loadTheme(context: Context): Theme =
-    when (prefs(context).getString(PREF_THEME, "night")) {
-        "light" -> Theme.Light
-        "paper" -> Theme.Paper
-        "mint" -> Theme.Mint
-        "sunset" -> Theme.Sunset
-        else -> Theme.Night
-    }
+    Theme.values().firstOrNull { themeKey(it) == prefs(context).getString(PREF_THEME, "night") }
+        ?: Theme.Night
 
 private fun applyTheme(theme: Theme) {
-    when (theme) {
-        Theme.Night -> {
-            Bg = Color(0xFF05080F); Deep = Color(0xFF0A1020)
-            SurfaceDark = Color(0xFF0D1424); SurfaceSoft = Color(0xFF121B2E)
-            Cyan = Color(0xFF4DE8FF); Violet = Color(0xFF9B6BFF)
-            Muted = Color(0xFF8EA3C8); Faint = Color(0xFF6F84A8)
-            Danger = Color(0xFFFF7A90); Gold = Color(0xFFFFD48A)
-            Ink = Ink
-        }
-        Theme.Light -> {
-            Bg = Color(0xFFF4F6FB); Deep = Color(0xFFE8ECF5)
-            SurfaceDark = Color(0xFFFFFFFF); SurfaceSoft = Color(0xFFEDF1F8)
-            Cyan = Color(0xFF1663C7); Violet = Color(0xFF6B46C1)
-            Muted = Color(0xFF465268); Faint = Color(0xFF6B7689)
-            Danger = Color(0xFFC0263A); Gold = Color(0xFF9A6B00)
-            Ink = Color(0xFF121826)
-        }
-        Theme.Paper -> {
-            Bg = Color(0xFFF7F1E7); Deep = Color(0xFFEFE6D7)
-            SurfaceDark = Color(0xFFFFFBF4); SurfaceSoft = Color(0xFFF1E8D9)
-            Cyan = Color(0xFF8A5A2B); Violet = Color(0xFF6D4C41)
-            Muted = Color(0xFF5C5144); Faint = Color(0xFF7B6E5D)
-            Danger = Color(0xFFA33A2A); Gold = Color(0xFF9A6B00)
-            Ink = Color(0xFF2A2318)
-        }
-        Theme.Mint -> {
-            Bg = Color(0xFFF1FAF6); Deep = Color(0xFFE0F3EA)
-            SurfaceDark = Color(0xFFFFFFFF); SurfaceSoft = Color(0xFFE6F4EC)
-            Cyan = Color(0xFF0E7A5F); Violet = Color(0xFF2E7D56)
-            Muted = Color(0xFF43604F); Faint = Color(0xFF5F7A6A)
-            Danger = Color(0xFFB3261E); Gold = Color(0xFF8A6A00)
-        }
-        Theme.Sunset -> {
-            Bg = Color(0xFF1A0F1E); Deep = Color(0xFF261226)
-            SurfaceDark = Color(0xFF2A1530); SurfaceSoft = Color(0xFF351A3A)
-            Cyan = Color(0xFFFFB86B); Violet = Color(0xFFFF6FA5)
-            Muted = Color(0xFFD3B2C9); Faint = Color(0xFFA98CA0)
-            Danger = Color(0xFFFF7A90); Gold = Color(0xFFFFD48A)
-            Ink = Color(0xFFFCEBFA)
-        }
-    }
+    val p = palettes.getValue(theme)
+    Bg = p.bg; Deep = p.deep; SurfaceDark = p.surface; SurfaceSoft = p.soft
+    Cyan = p.cyan; Violet = p.violet; Muted = p.muted; Faint = p.faint
+    Danger = p.danger; Gold = p.gold; Ink = p.ink
 }
 
 private enum class Lang { Ru, En }
@@ -460,21 +464,30 @@ fun SecretPieceApp(initialUri: Uri? = null) {
     val t = copyFor(lang)
     applyTheme(theme)
 
-    MaterialTheme(
-        colorScheme = darkColorScheme(
+    val scheme = if (palettes.getValue(theme).light) {
+        lightColorScheme(
             primary = Cyan,
             secondary = Violet,
             background = Bg,
             surface = SurfaceDark,
-            onPrimary = if (theme in listOf(Theme.Light, Theme.Paper, Theme.Mint)) {
-                Color.White
-            } else {
-                Color(0xFF031018)
-            },
+            onPrimary = Color.White,
             onBackground = Ink,
             onSurface = Ink,
-        ),
-    ) {
+            error = Danger,
+        )
+    } else {
+        darkColorScheme(
+            primary = Cyan,
+            secondary = Violet,
+            background = Bg,
+            surface = SurfaceDark,
+            onPrimary = Color(0xFF031018),
+            onBackground = Ink,
+            onSurface = Ink,
+            error = Danger,
+        )
+    }
+    MaterialTheme(colorScheme = scheme) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -603,6 +616,20 @@ private fun VaultScreen(
     var settings by remember { mutableStateOf(false) }
     var sky by remember { mutableStateOf(loadSky(context)) }
     var handle by remember { mutableStateOf(0L) }
+    var exportName by remember { mutableStateOf("secretpiece-export.txt") }
+    var exportData by remember { mutableStateOf("") }
+    val settingsExporter = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*"),
+    ) { uri ->
+        if (uri != null && exportData.isNotEmpty()) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use {
+                    it.write(exportData.toByteArray(Charsets.UTF_8))
+                }
+            }
+            exportData = ""
+        }
+    }
     var openError by remember { mutableStateOf<String?>(null) }
     var createOpen by remember { mutableStateOf(false) }
     var newPassword by remember { mutableStateOf("") }
@@ -1009,6 +1036,28 @@ private fun VaultScreen(
                 masked = checked
             },
             onShortcut = { pinShortcut(context) },
+            onExportSettings = {
+                exportName = "secretpiece-settings.json"
+                exportData = org.json.JSONObject().apply {
+                    put("app", "SecretPiece")
+                    put("version", NativeVault.version())
+                    put("language", lang.name)
+                    put("theme", themeKey(theme))
+                    put("sky", sky.name)
+                    put("disguise", masked)
+                }.toString(2)
+                settingsExporter.launch(exportName)
+            },
+            onExportKeys = {
+                exportName = "secretpiece-shares.txt"
+                exportData = runCatching {
+                    val array = org.json.JSONArray(
+                        org.json.JSONTokener(NativeVault.shares(handle, password, 3, 2)),
+                    )
+                    (0 until array.length()).joinToString("\n") { array.getString(it) }
+                }.getOrDefault("")
+                settingsExporter.launch(exportName)
+            },
             onDismiss = { settings = false },
         )
     }
@@ -1098,6 +1147,8 @@ private fun SettingsDialog(
     onTheme: (Theme) -> Unit,
     onDisguise: (Boolean) -> Unit,
     onShortcut: () -> Unit,
+    onExportSettings: () -> Unit,
+    onExportKeys: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -1117,15 +1168,26 @@ private fun SettingsDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    listOf(
-                        Theme.Night, Theme.Light, Theme.Paper, Theme.Mint, Theme.Sunset,
-                    ).forEach { option ->
-                        FilterChip(
-                            selected = theme == option,
-                            onClick = { onTheme(option) },
-                            label = { Text(option.name, fontSize = 10.sp) },
-                            modifier = Modifier.weight(1f),
-                        )
+                    Theme.values().toList().chunked(5).forEach { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            row.forEach { option ->
+                                FilterChip(
+                                    selected = theme == option,
+                                    onClick = { onTheme(option) },
+                                    label = {
+                                        Text(
+                                            option.name,
+                                            fontSize = 9.sp,
+                                            maxLines = 1,
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
                     }
                 }
                 Row(
@@ -1176,6 +1238,17 @@ private fun SettingsDialog(
                         onClick = { onLang(Lang.En) },
                         label = { Text("English") },
                     )
+                }
+
+                HorizontalDivider(color = Color(0xFF1C2A44))
+                Text("Экспорт", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onExportSettings) {
+                        Text("Настройки", fontSize = 11.sp)
+                    }
+                    OutlinedButton(onClick = onExportKeys) {
+                        Text("Ключи (Shamir)", fontSize = 11.sp)
+                    }
                 }
 
                 HorizontalDivider(color = Color(0xFF1C2A44))
@@ -1492,7 +1565,34 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
                         .height(360.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    Text(text, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                    val rows = text.lines().filter { it.isNotBlank() }.take(200)
+                    val delim = when {
+                        rows.firstOrNull()?.contains('\t') == true -> '\t'
+                        rows.firstOrNull()?.contains(';') == true -> ';'
+                        else -> ','
+                    }
+                    val cells = rows.map { it.split(delim) }
+                    if (cells.size > 1 && cells.first().size > 1) {
+                        Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                            cells.forEachIndexed { index, row ->
+                                Row {
+                                    row.forEach { cell ->
+                                        Text(
+                                            cell.trim(),
+                                            modifier = Modifier.width(140.dp),
+                                            fontSize = 11.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = if (index == 0) Cyan else Ink,
+                                            fontWeight = if (index == 0) FontWeight.Bold
+                                            else FontWeight.Normal,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Text(text, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                    }
                 }
             },
         )

@@ -19,6 +19,7 @@ use egui::{
 };
 use sp_core::{ErrorCode, SpError};
 use sp_crypto::KdfParams;
+use sp_crypto::shamir::{self, Share};
 use sp_format::EntryKind;
 use sp_vault::{ListEntry, Vault, VaultInfo};
 
@@ -531,8 +532,10 @@ struct App {
     settings_open: bool,
     server_open: bool,
     help_open: bool,
+    recovery: Recovery,
     presets: Vec<Preset>,
     preset_name: String,
+    new_preset_name: String,
     show_presets: bool,
     remember_password: bool,
     auto_sync: bool,
@@ -972,6 +975,119 @@ impl Ftp {
     }
 }
 
+/// State of the Shamir recovery panel (split a secret into shares, recombine).
+#[derive(Default)]
+struct Recovery {
+    secret: String,
+    total: u8,
+    threshold: u8,
+    shares: String,
+    restore: String,
+    result: String,
+}
+
+fn recovery_ui(ui: &mut egui::Ui, rec: &mut Recovery, lang: crate::Lang) {
+    ui.add_space(12.0);
+    ui.separator();
+    ui.add_space(8.0);
+    ui.label(
+        RichText::new(lang.t("Ключи восстановления (Shamir)", "Recovery keys (Shamir)"))
+            .size(13.0)
+            .strong()
+            .color(accent()),
+    );
+    ui.label(
+        RichText::new(lang.t(
+            "Любые K из N долей восстанавливают секрет. Сохраните доли отдельно.",
+            "Any K of N shares restore the secret. Store the shares separately.",
+        ))
+        .size(10.0)
+        .color(muted()),
+    );
+    ui.horizontal(|ui| {
+        ui.label(lang.t("Секрет:", "Secret:"));
+        ui.add(
+            egui::TextEdit::singleline(&mut rec.secret)
+                .password(true)
+                .desired_width(160.0),
+        );
+        ui.label("K");
+        ui.add(egui::DragValue::new(&mut rec.threshold).range(2..=255));
+        ui.label("N");
+        ui.add(egui::DragValue::new(&mut rec.total).range(2..=255));
+        if ui.button(lang.t("Разделить", "Split")).clicked() {
+            match shamir::split(rec.secret.as_bytes(), rec.threshold, rec.total) {
+                Ok(parts) => {
+                    rec.shares = parts
+                        .iter()
+                        .map(|share| {
+                            use std::fmt::Write as FmtWrite;
+                            let mut body = String::with_capacity(share.y.len() * 2);
+                            for byte in &share.y {
+                                let _ = write!(body, "{byte:02x}");
+                            }
+                            format!("{}:{}", share.x, body)
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    rec.result.clear();
+                }
+                Err(error) => rec.result = error.to_string(),
+            }
+        }
+    });
+    ui.add(
+        egui::TextEdit::multiline(&mut rec.shares)
+            .desired_rows(3)
+            .hint_text("1:...\n2:...\n3:..."),
+    );
+    if ui
+        .button(lang.t("Сохранить доли в файл", "Save shares to file"))
+        .clicked()
+        && !rec.shares.is_empty()
+    {
+        if let Some(path) = rfd::FileDialog::new()
+            .set_file_name("secretpiece-shares.txt")
+            .save_file()
+        {
+            rec.result = std::fs::write(path, rec.shares.as_bytes()).map_or_else(
+                |error| error.to_string(),
+                |()| lang.t("Доли сохранены.", "Shares saved.").to_owned(),
+            );
+        }
+    }
+    ui.add(
+        egui::TextEdit::multiline(&mut rec.restore)
+            .desired_rows(3)
+            .hint_text(lang.t(
+                "вставьте доли, по одной в строке",
+                "paste shares, one per line",
+            )),
+    );
+    if ui.button(lang.t("Восстановить", "Combine")).clicked() {
+        let parsed: Vec<Share> = rec
+            .restore
+            .lines()
+            .filter_map(|line| {
+                let (x, y) = line.trim().split_once(':')?;
+                let body = (0..y.len())
+                    .step_by(2)
+                    .filter_map(|at| u8::from_str_radix(y.get(at..at + 2)?, 16).ok())
+                    .collect::<Vec<_>>();
+                Some(Share {
+                    x: x.parse().ok()?,
+                    y: body,
+                })
+            })
+            .collect();
+        rec.result = match shamir::combine(rec.threshold, &parsed) {
+            Ok(secret) => String::from_utf8_lossy(&secret).into_owned(),
+            Err(error) => error.to_string(),
+        };
+    }
+    ui.label(RichText::new(&rec.result).size(11.0).color(muted()));
+}
+
 /// A saved server destination (SSH or FTP).
 #[derive(Clone, Default)]
 struct Preset {
@@ -1069,6 +1185,7 @@ impl KdfChoice {
 }
 
 impl App {
+    #[allow(clippy::too_many_lines)]
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let theme = cc
             .storage
@@ -1148,8 +1265,14 @@ impl App {
             settings_open: false,
             server_open: false,
             help_open: false,
+            recovery: Recovery {
+                total: 3,
+                threshold: 2,
+                ..Recovery::default()
+            },
             presets,
             preset_name: String::new(),
+            new_preset_name: String::new(),
             show_presets,
             remember_password,
             auto_sync,
@@ -1475,6 +1598,7 @@ impl App {
                     .size(10.0)
                     .color(muted()),
                 );
+                recovery_ui(ui, &mut self.recovery, lang);
             });
         self.settings_open = open;
     }
@@ -1519,6 +1643,8 @@ impl App {
                 if let Some(preset) = self.presets.get(index) {
                     preset.apply(&mut self.remote);
                     self.preset_name.clone_from(&preset.name);
+                    self.remote.status = None;
+                    self.new_preset_name.clear();
                 }
             }
             if !self.preset_name.is_empty()
@@ -1759,15 +1885,15 @@ impl App {
                 ui.add_space(6.0);
                 ui.horizontal(|ui| {
                     ui.add(
-                        egui::TextEdit::singleline(&mut self.preset_name)
+                        egui::TextEdit::singleline(&mut self.new_preset_name)
                             .hint_text(lang.t("имя пресета", "preset name"))
                             .desired_width(180.0),
                     );
                     if ui.button(lang.t("Сохранить пресет", "Save preset")).clicked() {
-                        let name = if self.preset_name.trim().is_empty() {
+                        let name = if self.new_preset_name.trim().is_empty() {
                             self.remote.host.trim().to_owned()
                         } else {
-                            self.preset_name.trim().to_owned()
+                            self.new_preset_name.trim().to_owned()
                         };
                         if !name.is_empty() {
                             let preset = Preset {
@@ -1786,7 +1912,8 @@ impl App {
                             self.presets.retain(|item| item.name != name);
                             self.presets.insert(0, preset);
                             self.presets.truncate(20);
-                            self.preset_name = name;
+                            self.preset_name.clone_from(&name);
+                            self.new_preset_name.clear();
                         }
                     }
                     if !self.remember_password {

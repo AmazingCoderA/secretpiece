@@ -23,6 +23,7 @@ object NativeVault {
     external fun mkdir(handle: Long, path: String): Int
     external fun remove(handle: Long, path: String): Int
     external fun move(handle: Long, from: String, to: String): Int
+    external fun shares(handle: Long, password: String, total: Int, threshold: Int): String
     external fun info(handle: Long): String?
     external fun verify(handle: Long): Int
     external fun close(handle: Long)

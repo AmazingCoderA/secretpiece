@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-11-21
+
+Memory-only server sessions, locked exports and an installed Windows GUI.
+
+### Added
+
+- **Memory-only server mode** on Android (per preset or global in Settings):
+  the vault is downloaded into an `ashmem` `MemoryFile`, never written to
+  disk, uploaded back on lock and then released. No local copy at all.
+- **Locked exports**: settings/theme/language export freely, while key shares
+  and server presets require entering the vault password in Settings first.
+- Preset export to JSON.
+- Windows GUI archives now include `install.ps1` — a user-level installer that
+  creates a desktop shortcut; the same archive remains fully portable.
+- Preview size limit raised from 2 MB to 16 MB.
+
+### Changed
+
+- README documents installed vs portable GUI builds and states plainly that
+  there is no Flathub package (release asset only).
+
 ## [1.18.0] - 2026-11-21
 
 Server presets on Android.

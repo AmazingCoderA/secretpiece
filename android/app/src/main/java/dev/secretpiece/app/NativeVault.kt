@@ -35,6 +35,13 @@ object NativeVault {
         host: String, port: String, user: String, password: String,
         path: String, local: String,
     ): String
+    external fun ftpBytes(
+        host: String, port: String, user: String, password: String, path: String,
+    ): ByteArray?
+    external fun ftpPutBytes(
+        host: String, port: String, user: String, password: String,
+        path: String, bytes: ByteArray,
+    ): String
     external fun info(handle: Long): String?
     external fun verify(handle: Long): Int
     external fun close(handle: Long)

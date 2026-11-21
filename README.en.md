@@ -208,11 +208,27 @@ sudo dnf install ./secretpiece-1.5-linux-x64.rpm
 The packages install `sp`, `secretpiece`, a menu entry and an icon; dependencies
 are `libx11`, `libxkbcommon`, `libgl`, `libegl` and `libwayland-client`.
 
+### Windows: installed or portable
+
+`secretpiece-1.19-windows-x64-gui.zip` is the **portable** build: extract it and
+run `secretpiece.exe`. The archive also ships `install.ps1`, a user-level
+installer (no admin rights) that copies the files to
+`%LOCALAPPDATA%\Programs\SecretPiece` and creates a desktop shortcut:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+Linux/macOS GUI archives are portable too; `.deb`/`.rpm` are available for Linux.
+
 ### Flatpak
+
+The bundle is published only as a GitHub release asset — **SecretPiece is not on
+Flathub**.
 
 ```bash
 # ready-made bundle from Releases
-flatpak install --user ./secretpiece-1.16-x86_64.flatpak
+flatpak install --user ./secretpiece-1.19-x86_64.flatpak
 flatpak run dev.secretpiece.SecretPiece
 ```
 

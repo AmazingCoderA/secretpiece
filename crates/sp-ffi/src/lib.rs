@@ -348,6 +348,73 @@ fn result_string(env: &mut JNIEnv<'_>, value: Result<(), String>) -> jstring {
     to_jstring(env, &value.map_or_else(|error| error, |()| "ok".to_owned()))
 }
 
+/// Downloads a remote vault into memory (no local file). Returns its bytes.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_ftpBytes(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    host: JString<'_>,
+    port: JString<'_>,
+    user: JString<'_>,
+    password: JString<'_>,
+    path: JString<'_>,
+) -> jbyteArray {
+    let (host, port, user, password, path) = (
+        jtext(&mut env, &host),
+        jtext(&mut env, &port),
+        jtext(&mut env, &user),
+        jtext(&mut env, &password),
+        jtext(&mut env, &path),
+    );
+    let bytes = ftp::Ftp::connect(&host, &port, &user, &password)
+        .and_then(|mut ftp| ftp.retr(path.trim()))
+        .unwrap_or_default();
+    match env.byte_array_from_slice(&bytes) {
+        Ok(array) => array.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Uploads an in-memory vault without ever writing a local copy.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_ftpPutBytes(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    host: JString<'_>,
+    port: JString<'_>,
+    user: JString<'_>,
+    password: JString<'_>,
+    path: JString<'_>,
+    bytes: JByteArray<'_>,
+) -> jstring {
+    let (host, port, user, password, path) = (
+        jtext(&mut env, &host),
+        jtext(&mut env, &port),
+        jtext(&mut env, &user),
+        jtext(&mut env, &password),
+        jtext(&mut env, &path),
+    );
+    let result = env
+        .convert_byte_array(&bytes)
+        .map_err(|_| "bad bytes".to_owned())
+        .and_then(|data| {
+            if data.is_empty() {
+                return Err("vault is empty".to_owned());
+            }
+            ftp::Ftp::connect(&host, &port, &user, &password)
+                .and_then(|mut ftp| ftp.stor(path.trim(), &data))
+                .and_then(|remote| {
+                    let expected = u64::try_from(data.len()).unwrap_or(u64::MAX);
+                    if remote == expected {
+                        Ok(())
+                    } else {
+                        Err(format!("server has {remote} bytes, expected {expected}"))
+                    }
+                })
+        });
+    result_string(&mut env, result)
+}
+
 /// Checks an FTP server preset. Returns "ok" or the error text.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_dev_secretpiece_app_NativeVault_ftpTest(

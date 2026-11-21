@@ -90,6 +90,7 @@ private const val PREF_SKY = "sky"
 private const val PREF_LANG = "lang"
 private const val PREF_THEME = "theme"
 private const val PREF_PRESETS = "server_presets"
+private const val PREF_MEMORY_ONLY = "memory_only"
 
 private data class ServerPreset(
     val name: String,
@@ -98,6 +99,7 @@ private data class ServerPreset(
     val user: String,
     val password: String,
     val path: String,
+    val memoryOnly: Boolean = false,
 )
 
 private fun loadPresets(context: Context): List<ServerPreset> = runCatching {
@@ -113,6 +115,7 @@ private fun loadPresets(context: Context): List<ServerPreset> = runCatching {
             user = item.optString("user"),
             password = item.optString("password"),
             path = item.optString("path"),
+            memoryOnly = item.optBoolean("memoryOnly", false),
         )
     }
 }.getOrDefault(emptyList())
@@ -128,6 +131,7 @@ private fun savePresets(context: Context, presets: List<ServerPreset>) {
                 put("user", preset.user)
                 put("password", preset.password)
                 put("path", preset.path)
+                put("memoryOnly", preset.memoryOnly)
             },
         )
     }
@@ -688,6 +692,10 @@ private fun VaultScreen(
     var presets by remember { mutableStateOf(loadPresets(context)) }
     var selectedPreset by remember { mutableStateOf<ServerPreset?>(null) }
     var remoteCache by remember { mutableStateOf<java.io.File?>(null) }
+    var memoryVault by remember { mutableStateOf<android.os.MemoryFile?>(null) }
+    var memoryOnly by remember {
+        mutableStateOf(prefs(context).getBoolean(PREF_MEMORY_ONLY, false))
+    }
     var sessionPassword by remember { mutableStateOf("") }
     var createOpen by remember { mutableStateOf(false) }
     var newPassword by remember { mutableStateOf("") }
@@ -720,6 +728,23 @@ private fun VaultScreen(
                 } else {
                     openError = "Server upload failed (local copy kept): $status"
                 }
+            }
+            val memory = memoryVault
+            if (memory != null && preset != null) {
+                val status = runCatching {
+                    val dup = android.os.ParcelFileDescriptor.dup(memory.fileDescriptor)
+                    val bytes = dup.fileDescriptor?.let { fd ->
+                        java.io.FileInputStream(fd).use { it.readBytes() }
+                    } ?: ByteArray(0)
+                    dup.close()
+                    NativeVault.ftpPutBytes(
+                        preset.host, preset.port, preset.user, preset.password,
+                        preset.path, bytes,
+                    )
+                }.getOrDefault("Upload failed")
+                runCatching { memory.close() }
+                memoryVault = null
+                if (status != "ok") openError = "Server upload failed: $status"
             }
         }
         return
@@ -782,6 +807,37 @@ private fun VaultScreen(
         val preset = selectedPreset
         if (preset == null || password.isEmpty()) return
         openError = null
+        if (memoryOnly || preset.memoryOnly) {
+            val bytes = runCatching {
+                NativeVault.ftpBytes(
+                    preset.host, preset.port, preset.user, preset.password, preset.path,
+                )
+            }.getOrNull()
+            if (bytes.isNullOrEmpty()) {
+                openError = "Server download failed (memory mode)"
+                return
+            }
+            val opened = runCatching {
+                val memory = android.os.MemoryFile("secretpiece", bytes.size)
+                memory.writeBytes(bytes, 0, 0, bytes.size)
+                val fd = android.os.ParcelFileDescriptor.dup(memory.fileDescriptor)
+                val handle = NativeVault.openFd(fd.detachFd(), password)
+                if (handle == 0L) {
+                    memory.close()
+                } else {
+                    memoryVault = memory
+                }
+                handle
+            }.getOrDefault(0L)
+            if (opened == 0L) {
+                openError = t.openFailed
+                return
+            }
+            sessionPassword = password
+            handle = opened
+            password = ""
+            return
+        }
         val cache = java.io.File(context.cacheDir, "remote-${System.currentTimeMillis()}.spv")
         val status = runCatching {
             NativeVault.ftpDownload(
@@ -1178,6 +1234,12 @@ private fun VaultScreen(
             onTheme = {
                 onTheme(it)
             },
+            memoryOnly = memoryOnly,
+            onMemoryOnly = {
+                memoryOnly = it
+                prefs(context).edit().putBoolean(PREF_MEMORY_ONLY, it).apply()
+            },
+            unlockPassword = sessionPassword,
             onDisguise = { checked ->
                 applyDisguise(context, checked)
                 masked = checked
@@ -1205,6 +1267,25 @@ private fun VaultScreen(
                     )
                     (0 until array.length()).joinToString("\n") { array.getString(it) }
                 }.getOrDefault("")
+                settingsExporter.launch(exportName)
+            },
+            onExportPresets = {
+                exportName = "secretpiece-presets.json"
+                exportData = org.json.JSONArray().apply {
+                    presets.forEach { preset ->
+                        put(
+                            org.json.JSONObject().apply {
+                                put("name", preset.name)
+                                put("host", preset.host)
+                                put("port", preset.port)
+                                put("user", preset.user)
+                                put("password", preset.password)
+                                put("path", preset.path)
+                                put("memoryOnly", preset.memoryOnly)
+                            },
+                        )
+                    }
+                }.toString(2)
                 settingsExporter.launch(exportName)
             },
             onSavePreset = { preset ->
@@ -1300,10 +1381,14 @@ private fun SettingsDialog(
     onSky: (Sky) -> Unit,
     theme: Theme,
     onTheme: (Theme) -> Unit,
+    memoryOnly: Boolean,
+    onMemoryOnly: (Boolean) -> Unit,
+    unlockPassword: String,
     onDisguise: (Boolean) -> Unit,
     onShortcut: () -> Unit,
     onExportSettings: () -> Unit,
     onExportKeys: () -> Unit,
+    onExportPresets: () -> Unit,
     onSavePreset: (ServerPreset) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -1382,6 +1467,16 @@ private fun SettingsDialog(
                 }
 
                 HorizontalDivider(color = Color(0xFF1C2A44))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Сервер без локального файла", fontSize = 13.sp)
+                        Text("Сейф живёт только в памяти устройства", fontSize = 10.sp, color = Muted)
+                    }
+                    Switch(checked = memoryOnly, onCheckedChange = onMemoryOnly)
+                }
                 Text(t.language, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(
@@ -1403,6 +1498,7 @@ private fun SettingsDialog(
                 var presetUser by remember { mutableStateOf("") }
                 var presetPassword by remember { mutableStateOf("") }
                 var presetPath by remember { mutableStateOf("vault.spv") }
+                var presetMemory by remember { mutableStateOf(false) }
                 Text("Сервер (FTP)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 listOf(
                     "Имя" to presetName,
@@ -1429,6 +1525,10 @@ private fun SettingsDialog(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Только в памяти", fontSize = 11.sp, color = Muted)
+                    Switch(checked = presetMemory, onCheckedChange = { presetMemory = it })
+                }
                 Button(onClick = {
                     if (presetHost.isNotBlank() && presetPath.isNotBlank()) {
                         onSavePreset(
@@ -1439,6 +1539,7 @@ private fun SettingsDialog(
                                 user = presetUser.trim(),
                                 password = presetPassword,
                                 path = presetPath.trim(),
+                                memoryOnly = presetMemory,
                             ),
                         )
                     }
@@ -1446,12 +1547,25 @@ private fun SettingsDialog(
 
                 HorizontalDivider(color = Color(0xFF1C2A44))
                 Text("Экспорт", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                var exportPassword by remember { mutableStateOf("") }
+                val unlocked = exportPassword.isNotEmpty() && exportPassword == unlockPassword
+                OutlinedTextField(
+                    value = exportPassword,
+                    onValueChange = { exportPassword = it },
+                    label = { Text("Пароль сейфа (для ключей и пресетов)", fontSize = 10.sp) },
+                    singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = onExportSettings) {
                         Text("Настройки", fontSize = 11.sp)
                     }
-                    OutlinedButton(onClick = onExportKeys) {
+                    OutlinedButton(onClick = onExportKeys, enabled = unlocked) {
                         Text("Ключи (Shamir)", fontSize = 11.sp)
+                    }
+                    OutlinedButton(onClick = onExportPresets, enabled = unlocked) {
+                        Text("Пресеты", fontSize = 11.sp)
                     }
                 }
 
@@ -1679,7 +1793,7 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
                                     error = t.readFailed
                                     null
                                 }
-                                data.size > 2_000_000 || data.any { it == 0.toByte() } ->
+                                data.size > 16_000_000 || data.any { it == 0.toByte() } ->
                                     t.binaryFile
                                 else -> String(data, Charsets.UTF_8)
                                     .takeIf { !it.contains('\uFFFD') }

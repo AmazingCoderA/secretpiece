@@ -244,6 +244,11 @@ jobs:
           cp README.md README.en.md LICENSE CHANGELOG.md "package/${name}/"
           echo "PACKAGE_NAME=${name}" >> "$GITHUB_ENV"
 
+      - name: Add Windows installer script
+        if: matrix.platform == 'windows-x64'
+        shell: bash
+        run: cp packaging/windows/install.ps1 "package/${PACKAGE_NAME}/install.ps1"
+
       - name: Archive (Windows)
         if: matrix.archive == 'zip'
         shell: pwsh

@@ -197,20 +197,38 @@ makepkg -si
 
 ```bash
 # Debian / Ubuntu / Mint
-sudo apt install ./secretpiece-1.5-linux-x64.deb
+sudo apt install ./secretpiece-1.19-linux-x64.deb
 
 # Fedora / RHEL / openSUSE
-sudo dnf install ./secretpiece-1.5-linux-x64.rpm
+sudo dnf install ./secretpiece-1.19-linux-x64.rpm
 ```
 
 Пакеты ставят `sp`, `secretpiece`, пункт меню и иконку; зависимости —
 `libx11`, `libxkbcommon`, `libgl`, `libegl`, `libwayland-client`.
 
+### Windows: установка или portable
+
+В релизе есть `secretpiece-1.19-windows-x64-gui.zip` — это **portable**-версия:
+распакуйте архив в любую папку и запустите `secretpiece.exe`.
+
+Там же внутри архива лежит `install.ps1` — установка без прав администратора:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+Скрипт копирует файлы в `%LOCALAPPDATA%\Programs\SecretPiece` и создаёт ярлык
+на рабочем столе. `*-linux-x64-gui.tar.gz` и `*-macos-universal-gui.tar.gz` —
+тоже portable-архивы; для Linux есть ещё `.deb`/`.rpm`.
+
 ### Flatpak
+
+Готовый bundle лежит только в ассетах релиза на GitHub — **в Flathub проекта
+нет** (поиск в Google тоже ничего не найдёт, пока пакет не опубликован).
 
 ```bash
 # готовый bundle из Releases
-flatpak install --user ./secretpiece-1.16-x86_64.flatpak
+flatpak install --user ./secretpiece-1.19-x86_64.flatpak
 flatpak run dev.secretpiece.SecretPiece
 ```
 

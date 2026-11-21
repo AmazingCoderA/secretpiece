@@ -224,7 +224,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 ### Flatpak
 
 Готовый bundle лежит в ассетах релиза на GitHub. Подана заявка на Flathub
-([PR #11301](https://github.com/flathub/flathub/pull/11301)); после её
+([PR #11302](https://github.com/flathub/flathub/pull/11302)); после её
 принятия страница будет доступна по адресу
 <https://flathub.org/apps/dev.secretpiece.SecretPiece>. До этого момента
 `flatpak search secretpiece` ничего не найдёт.

@@ -22,7 +22,7 @@ Server-only memory mode, custom preview limit and a Flathub submission.
 ### Added
 
 - Flathub submission files under `packaging/flathub` and a PR to Flathub
-  (#11301). The app page will be
+  (#11302). The app page will be
   `https://flathub.org/apps/dev.secretpiece.SecretPiece` once accepted.
 
 ## [1.19.0] - 2026-11-21

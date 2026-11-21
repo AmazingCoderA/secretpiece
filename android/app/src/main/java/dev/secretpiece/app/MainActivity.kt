@@ -90,7 +90,7 @@ private const val PREF_SKY = "sky"
 private const val PREF_LANG = "lang"
 private const val PREF_THEME = "theme"
 private const val PREF_PRESETS = "server_presets"
-private const val PREF_MEMORY_ONLY = "memory_only"
+private const val PREF_MAX_PREVIEW_MB = "max_preview_mb"
 
 private data class ServerPreset(
     val name: String,
@@ -690,12 +690,12 @@ private fun VaultScreen(
     }
     var openError by remember { mutableStateOf<String?>(null) }
     var presets by remember { mutableStateOf(loadPresets(context)) }
+    var maxPreviewMb by remember {
+        mutableIntStateOf(prefs(context).getInt(PREF_MAX_PREVIEW_MB, 16))
+    }
     var selectedPreset by remember { mutableStateOf<ServerPreset?>(null) }
     var remoteCache by remember { mutableStateOf<java.io.File?>(null) }
     var memoryVault by remember { mutableStateOf<Int?>(null) }
-    var memoryOnly by remember {
-        mutableStateOf(prefs(context).getBoolean(PREF_MEMORY_ONLY, false))
-    }
     var sessionPassword by remember { mutableStateOf("") }
     var createOpen by remember { mutableStateOf(false) }
     var newPassword by remember { mutableStateOf("") }
@@ -710,7 +710,7 @@ private fun VaultScreen(
     }
 
     if (handle != 0L) {
-        VaultBrowser(handle, t) {
+        VaultBrowser(handle, t, maxPreviewMb) {
             NativeVault.close(handle)
             handle = 0L
             val cache = remoteCache
@@ -803,7 +803,7 @@ private fun VaultScreen(
         val preset = selectedPreset
         if (preset == null || password.isEmpty()) return
         openError = null
-        if (memoryOnly || preset.memoryOnly) {
+        if (preset.memoryOnly) {
             val bytes = runCatching {
                 NativeVault.ftpBytes(
                     preset.host, preset.port, preset.user, preset.password, preset.path,
@@ -1231,12 +1231,12 @@ private fun VaultScreen(
             onTheme = {
                 onTheme(it)
             },
-            memoryOnly = memoryOnly,
-            onMemoryOnly = {
-                memoryOnly = it
-                prefs(context).edit().putBoolean(PREF_MEMORY_ONLY, it).apply()
-            },
             unlockPassword = sessionPassword,
+            maxPreviewMb = maxPreviewMb,
+            onMaxPreviewMb = { value ->
+                maxPreviewMb = value.coerceIn(1, 2048)
+                prefs(context).edit().putInt(PREF_MAX_PREVIEW_MB, maxPreviewMb).apply()
+            },
             onDisguise = { checked ->
                 applyDisguise(context, checked)
                 masked = checked
@@ -1378,9 +1378,9 @@ private fun SettingsDialog(
     onSky: (Sky) -> Unit,
     theme: Theme,
     onTheme: (Theme) -> Unit,
-    memoryOnly: Boolean,
-    onMemoryOnly: (Boolean) -> Unit,
     unlockPassword: String,
+    maxPreviewMb: Int,
+    onMaxPreviewMb: (Int) -> Unit,
     onDisguise: (Boolean) -> Unit,
     onShortcut: () -> Unit,
     onExportSettings: () -> Unit,
@@ -1464,16 +1464,6 @@ private fun SettingsDialog(
                 }
 
                 HorizontalDivider(color = Color(0xFF1C2A44))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Сервер без локального файла", fontSize = 13.sp)
-                        Text("Сейф живёт только в памяти устройства", fontSize = 10.sp, color = Muted)
-                    }
-                    Switch(checked = memoryOnly, onCheckedChange = onMemoryOnly)
-                }
                 Text(t.language, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(
@@ -1487,6 +1477,17 @@ private fun SettingsDialog(
                         label = { Text("English") },
                     )
                 }
+
+                HorizontalDivider(color = Color(0xFF1C2A44))
+                OutlinedTextField(
+                    value = maxPreviewMb.toString(),
+                    onValueChange = { text ->
+                        onMaxPreviewMb(text.toIntOrNull() ?: 16)
+                    },
+                    label = { Text("Макс. размер просмотра, МБ", fontSize = 10.sp) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
                 HorizontalDivider(color = Color(0xFF1C2A44))
                 var presetName by remember { mutableStateOf("") }
@@ -1609,7 +1610,12 @@ private fun collectDirs(
 }
 
 @Composable
-private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
+private fun VaultBrowser(
+    handle: Long,
+    t: Copy,
+    maxPreviewMb: Int,
+    onLock: () -> Unit,
+) {
     val context = LocalContext.current
     var prefix by remember { mutableStateOf("") }
     var tick by remember { mutableStateOf(0) }
@@ -1790,7 +1796,8 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
                                     error = t.readFailed
                                     null
                                 }
-                                data.size > 16_000_000 || data.any { it == 0.toByte() } ->
+                                data.size > maxPreviewMb.toLong() * 1024L * 1024L ||
+                                    data.any { it == 0.toByte() } ->
                                     t.binaryFile
                                 else -> String(data, Charsets.UTF_8)
                                     .takeIf { !it.contains('\uFFFD') }

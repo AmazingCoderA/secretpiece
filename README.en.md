@@ -223,8 +223,10 @@ Linux/macOS GUI archives are portable too; `.deb`/`.rpm` are available for Linux
 
 ### Flatpak
 
-The bundle is published only as a GitHub release asset — **SecretPiece is not on
-Flathub**.
+The ready-made bundle is a GitHub release asset. A Flathub submission is open
+([PR #11301](https://github.com/flathub/flathub/pull/11301)); once merged the
+page will be <https://flathub.org/apps/dev.secretpiece.SecretPiece>. Until then
+`flatpak search secretpiece` finds nothing.
 
 ```bash
 # ready-made bundle from Releases

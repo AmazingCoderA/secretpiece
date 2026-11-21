@@ -223,8 +223,11 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 
 ### Flatpak
 
-Готовый bundle лежит только в ассетах релиза на GitHub — **в Flathub проекта
-нет** (поиск в Google тоже ничего не найдёт, пока пакет не опубликован).
+Готовый bundle лежит в ассетах релиза на GitHub. Подана заявка на Flathub
+([PR #11301](https://github.com/flathub/flathub/pull/11301)); после её
+принятия страница будет доступна по адресу
+<https://flathub.org/apps/dev.secretpiece.SecretPiece>. До этого момента
+`flatpak search secretpiece` ничего не найдёт.
 
 ```bash
 # готовый bundle из Releases

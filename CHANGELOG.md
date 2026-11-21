@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-11-21
+
+Server-only memory mode, custom preview limit and a Flathub submission.
+
+### Changed
+
+- **Memory-only vault is now a per-preset server option only** — the global
+  toggle was removed, as requested. It is one mechanic of the server preset,
+  not a separate global mode.
+- Preview size limit is user-configurable in Android Settings
+  (`Макс. размер просмотра, МБ`, 1–2048 MB, default 16), not hard-coded.
+
+### Added
+
+- Flathub submission files under `packaging/flathub` and a PR to Flathub
+  (#11301). The app page will be
+  `https://flathub.org/apps/dev.secretpiece.SecretPiece` once accepted.
+
 ## [1.19.0] - 2026-11-21
 
 Memory-only server sessions, locked exports and an installed Windows GUI.

@@ -691,7 +691,7 @@ private fun VaultScreen(
     var openError by remember { mutableStateOf<String?>(null) }
     var presets by remember { mutableStateOf(loadPresets(context)) }
     var maxPreviewMb by remember {
-        mutableIntStateOf(prefs(context).getInt(PREF_MAX_PREVIEW_MB, 16))
+        mutableStateOf(prefs(context).getInt(PREF_MAX_PREVIEW_MB, 16))
     }
     var selectedPreset by remember { mutableStateOf<ServerPreset?>(null) }
     var remoteCache by remember { mutableStateOf<java.io.File?>(null) }

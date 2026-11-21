@@ -10,6 +10,8 @@
 
 #![allow(unsafe_code)]
 
+mod ftp;
+
 use jni::JNIEnv;
 use jni::objects::{JByteArray, JClass, JString};
 use jni::sys::{jbyteArray, jint, jlong, jstring};
@@ -29,6 +31,11 @@ fn to_jstring(env: &mut JNIEnv<'_>, value: &str) -> jstring {
         Ok(string) => string.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
+}
+
+fn jtext(env: &mut JNIEnv<'_>, value: &JString<'_>) -> String {
+    env.get_string(value)
+        .map_or_else(|_| String::new(), Into::into)
 }
 
 fn read_password(env: &mut JNIEnv<'_>, password: &JString<'_>) -> Option<Vec<u8>> {
@@ -335,6 +342,109 @@ pub extern "system" fn Java_dev_secretpiece_app_NativeVault_move(
         }
     }
     i32::from(result.is_ok())
+}
+
+fn result_string(env: &mut JNIEnv<'_>, value: Result<(), String>) -> jstring {
+    to_jstring(env, &value.map_or_else(|error| error, |()| "ok".to_owned()))
+}
+
+/// Checks an FTP server preset. Returns "ok" or the error text.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_ftpTest(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    host: JString<'_>,
+    port: JString<'_>,
+    user: JString<'_>,
+    password: JString<'_>,
+    path: JString<'_>,
+) -> jstring {
+    let (host, port, user, password, path) = (
+        jtext(&mut env, &host),
+        jtext(&mut env, &port),
+        jtext(&mut env, &user),
+        jtext(&mut env, &password),
+        jtext(&mut env, &path),
+    );
+    let result = ftp::Ftp::connect(&host, &port, &user, &password).and_then(|mut ftp| {
+        if path.trim().is_empty() {
+            return Ok(());
+        }
+        ftp.retr(path.trim()).map(|_| ())
+    });
+    result_string(&mut env, result)
+}
+
+/// Downloads a remote vault to a local file. Returns "ok" or the error text.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_ftpDownload(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    host: JString<'_>,
+    port: JString<'_>,
+    user: JString<'_>,
+    password: JString<'_>,
+    path: JString<'_>,
+    local: JString<'_>,
+) -> jstring {
+    let (host, port, user, password, path, local) = (
+        jtext(&mut env, &host),
+        jtext(&mut env, &port),
+        jtext(&mut env, &user),
+        jtext(&mut env, &password),
+        jtext(&mut env, &path),
+        jtext(&mut env, &local),
+    );
+    let result = ftp::Ftp::connect(&host, &port, &user, &password)
+        .and_then(|mut ftp| ftp.retr(path.trim()))
+        .and_then(|bytes| {
+            if bytes.is_empty() {
+                return Err("remote vault is empty".to_owned());
+            }
+            std::fs::write(&local, bytes).map_err(|error| format!("{local}: {error}"))
+        });
+    result_string(&mut env, result)
+}
+
+/// Uploads the local vault back and verifies the remote size.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_ftpUpload(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    host: JString<'_>,
+    port: JString<'_>,
+    user: JString<'_>,
+    password: JString<'_>,
+    path: JString<'_>,
+    local: JString<'_>,
+) -> jstring {
+    let (host, port, user, password, path, local) = (
+        jtext(&mut env, &host),
+        jtext(&mut env, &port),
+        jtext(&mut env, &user),
+        jtext(&mut env, &password),
+        jtext(&mut env, &path),
+        jtext(&mut env, &local),
+    );
+    let result = std::fs::read(&local)
+        .map_err(|error| format!("{local}: {error}"))
+        .and_then(|bytes| {
+            if bytes.is_empty() {
+                return Err("local vault is empty".to_owned());
+            }
+            ftp::Ftp::connect(&host, &port, &user, &password)
+                .and_then(|mut ftp| ftp.stor(path.trim(), &bytes))
+                .map(|remote| {
+                    if remote != bytes.len() as u64 {
+                        return Err(format!(
+                            "server has {remote} bytes, expected {}",
+                            bytes.len()
+                        ));
+                    }
+                    Ok(())
+                })?
+        });
+    result_string(&mut env, result)
 }
 
 /// Splits the vault password into Shamir shares (`x:hex` lines as JSON array).

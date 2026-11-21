@@ -89,6 +89,59 @@ private const val PREF_DISGUISE = "disguise"
 private const val PREF_SKY = "sky"
 private const val PREF_LANG = "lang"
 private const val PREF_THEME = "theme"
+private const val PREF_PRESETS = "server_presets"
+
+private data class ServerPreset(
+    val name: String,
+    val host: String,
+    val port: String,
+    val user: String,
+    val password: String,
+    val path: String,
+)
+
+private fun loadPresets(context: Context): List<ServerPreset> = runCatching {
+    val array = org.json.JSONArray(
+        org.json.JSONTokener(prefs(context).getString(PREF_PRESETS, "[]")),
+    )
+    (0 until array.length()).map { index ->
+        val item = array.getJSONObject(index)
+        ServerPreset(
+            name = item.optString("name"),
+            host = item.optString("host"),
+            port = item.optString("port"),
+            user = item.optString("user"),
+            password = item.optString("password"),
+            path = item.optString("path"),
+        )
+    }
+}.getOrDefault(emptyList())
+
+private fun savePresets(context: Context, presets: List<ServerPreset>) {
+    val array = org.json.JSONArray()
+    presets.forEach { preset ->
+        array.put(
+            org.json.JSONObject().apply {
+                put("name", preset.name)
+                put("host", preset.host)
+                put("port", preset.port)
+                put("user", preset.user)
+                put("password", preset.password)
+                put("path", preset.path)
+            },
+        )
+    }
+    prefs(context).edit().putString(PREF_PRESETS, array.toString()).apply()
+}
+
+private fun wipeFile(file: java.io.File) {
+    runCatching {
+        if (file.exists()) {
+            java.io.RandomAccessFile(file, "rws").use { it.setLength(0) }
+            file.delete()
+        }
+    }
+}
 
 private var Bg = Color(0xFF05080F)
 private var Deep = Color(0xFF0A1020)
@@ -632,13 +685,17 @@ private fun VaultScreen(
         }
     }
     var openError by remember { mutableStateOf<String?>(null) }
+    var presets by remember { mutableStateOf(loadPresets(context)) }
+    var selectedPreset by remember { mutableStateOf<ServerPreset?>(null) }
+    var remoteCache by remember { mutableStateOf<java.io.File?>(null) }
+    var sessionPassword by remember { mutableStateOf("") }
     var createOpen by remember { mutableStateOf(false) }
     var newPassword by remember { mutableStateOf("") }
     var newConfirm by remember { mutableStateOf("") }
     var newVisible by remember { mutableStateOf(false) }
     var newError by remember { mutableStateOf<String?>(null) }
 
-    DisposableEffect(handle) {
+    DisposableEffect(Unit) {
         onDispose {
             if (handle != 0L) NativeVault.close(handle)
         }
@@ -646,7 +703,24 @@ private fun VaultScreen(
 
     if (handle != 0L) {
         VaultBrowser(handle, t) {
+            NativeVault.close(handle)
             handle = 0L
+            val cache = remoteCache
+            val preset = selectedPreset
+            if (cache != null && preset != null) {
+                val status = runCatching {
+                    NativeVault.ftpUpload(
+                        preset.host, preset.port, preset.user, preset.password,
+                        preset.path, cache.path,
+                    )
+                }.getOrDefault("Upload failed")
+                if (status == "ok") {
+                    wipeFile(cache)
+                    remoteCache = null
+                } else {
+                    openError = "Server upload failed (local copy kept): $status"
+                }
+            }
         }
         return
     }
@@ -697,10 +771,45 @@ private fun VaultScreen(
             val opened = NativeVault.openFd(descriptor.detachFd(), password)
             if (opened == 0L) throw IllegalStateException("unlock failed")
             handle = opened
+            sessionPassword = password
             password = ""
         }.onFailure {
             openError = t.openFailed
         }
+    }
+
+    fun openRemote() {
+        val preset = selectedPreset
+        if (preset == null || password.isEmpty()) return
+        openError = null
+        val cache = java.io.File(context.cacheDir, "remote-${System.currentTimeMillis()}.spv")
+        val status = runCatching {
+            NativeVault.ftpDownload(
+                preset.host, preset.port, preset.user, preset.password,
+                preset.path, cache.path,
+            )
+        }.getOrDefault("Download failed")
+        if (status != "ok") {
+            openError = status
+            wipeFile(cache)
+            return
+        }
+        val opened = runCatching {
+            val fd = android.os.ParcelFileDescriptor.open(
+                cache,
+                android.os.ParcelFileDescriptor.MODE_READ_WRITE,
+            )
+            NativeVault.openFd(fd.detachFd(), password)
+        }.getOrDefault(0L)
+        if (opened == 0L) {
+            openError = t.openFailed
+            wipeFile(cache)
+            return
+        }
+        sessionPassword = password
+        remoteCache = cache
+        handle = opened
+        password = ""
     }
 
     Column(
@@ -896,6 +1005,43 @@ private fun VaultScreen(
                     Text(message, fontSize = 13.sp, color = Danger)
                 }
 
+                if (presets.isNotEmpty()) {
+                    Text("Серверные пресеты", fontSize = 12.sp, color = Cyan)
+                    presets.forEach { preset ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            FilterChip(
+                                selected = selectedPreset?.name == preset.name,
+                                onClick = { selectedPreset = preset },
+                                label = { Text(preset.name, fontSize = 11.sp) },
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = {
+                                val status = runCatching {
+                                    NativeVault.ftpTest(
+                                        preset.host, preset.port, preset.user,
+                                        preset.password, preset.path,
+                                    )
+                                }.getOrDefault("Test failed")
+                                openError = if (status == "ok") null else status
+                            }) { Text("Тест", fontSize = 11.sp, color = Violet) }
+                            TextButton(onClick = {
+                                val next = presets.filter { it.name != preset.name }
+                                presets = next
+                                savePresets(context, next)
+                                if (selectedPreset?.name == preset.name) selectedPreset = null
+                            }) { Text("✕", fontSize = 11.sp, color = Danger) }
+                        }
+                    }
+                    Button(
+                        onClick = { openRemote() },
+                        enabled = selectedPreset != null && password.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Открыть с сервера", fontSize = 12.sp) }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1053,11 +1199,19 @@ private fun VaultScreen(
                 exportName = "secretpiece-shares.txt"
                 exportData = runCatching {
                     val array = org.json.JSONArray(
-                        org.json.JSONTokener(NativeVault.shares(handle, password, 3, 2)),
+                        org.json.JSONTokener(
+                            NativeVault.shares(handle, sessionPassword, 3, 2),
+                        ),
                     )
                     (0 until array.length()).joinToString("\n") { array.getString(it) }
                 }.getOrDefault("")
                 settingsExporter.launch(exportName)
+            },
+            onSavePreset = { preset ->
+                val next = listOf(preset) + presets.filter { it.name != preset.name }
+                presets = next
+                savePresets(context, next)
+                selectedPreset = preset
             },
             onDismiss = { settings = false },
         )
@@ -1150,6 +1304,7 @@ private fun SettingsDialog(
     onShortcut: () -> Unit,
     onExportSettings: () -> Unit,
     onExportKeys: () -> Unit,
+    onSavePreset: (ServerPreset) -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -1240,6 +1395,54 @@ private fun SettingsDialog(
                         label = { Text("English") },
                     )
                 }
+
+                HorizontalDivider(color = Color(0xFF1C2A44))
+                var presetName by remember { mutableStateOf("") }
+                var presetHost by remember { mutableStateOf("") }
+                var presetPort by remember { mutableStateOf("21") }
+                var presetUser by remember { mutableStateOf("") }
+                var presetPassword by remember { mutableStateOf("") }
+                var presetPath by remember { mutableStateOf("vault.spv") }
+                Text("Сервер (FTP)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                listOf(
+                    "Имя" to presetName,
+                    "Хост" to presetHost,
+                    "Порт" to presetPort,
+                    "Логин" to presetUser,
+                    "Пароль" to presetPassword,
+                    "Путь" to presetPath,
+                ).forEach { (label, value) ->
+                    OutlinedTextField(
+                        value = value,
+                        onValueChange = { text ->
+                            when (label) {
+                                "Имя" -> presetName = text
+                                "Хост" -> presetHost = text
+                                "Порт" -> presetPort = text
+                                "Логин" -> presetUser = text
+                                "Пароль" -> presetPassword = text
+                                else -> presetPath = text
+                            }
+                        },
+                        label = { Text(label, fontSize = 10.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Button(onClick = {
+                    if (presetHost.isNotBlank() && presetPath.isNotBlank()) {
+                        onSavePreset(
+                            ServerPreset(
+                                name = presetName.ifBlank { presetHost },
+                                host = presetHost.trim(),
+                                port = presetPort.trim(),
+                                user = presetUser.trim(),
+                                password = presetPassword,
+                                path = presetPath.trim(),
+                            ),
+                        )
+                    }
+                }) { Text("Сохранить пресет", fontSize = 11.sp) }
 
                 HorizontalDivider(color = Color(0xFF1C2A44))
                 Text("Экспорт", fontSize = 14.sp, fontWeight = FontWeight.Bold)

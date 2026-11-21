@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-11-21
+
+Server presets on Android.
+
+### Added
+
+- **FTP server presets on Android**: save host/port/user/password/path in
+  Settings, pick a preset at sign-in, test the connection, and open the vault
+  straight from the server.
+- On lock the vault is uploaded back and the temporary file is wiped; if the
+  upload fails, the local copy is kept and the error is shown.
+- The JNI bridge gained `ftpTest`, `ftpDownload` and `ftpUpload`.
+
+### Changed
+
+- Android now keeps the session password in memory so key-share export works
+  after unlocking.
+
 ## [1.17.0] - 2026-11-21
 
 Parity pass: recovery keys, ten themes, tables and a stricter release gate.

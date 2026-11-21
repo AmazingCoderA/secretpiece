@@ -734,8 +734,6 @@ private fun VaultScreen(
     if (handle != 0L) {
         VaultBrowser(handle, t, maxPreviewMb, mediaPreview) {
             NativeVault.close(handle)
-            mediaFile?.let { wipeFile(it) }
-            mediaFile = null
             handle = 0L
             val cache = remoteCache
             val preset = selectedPreset
@@ -1669,7 +1667,6 @@ private fun collectDirs(
     return out
 }
 
-@Composable
 private data class MediaPreview(
     val name: String,
     val mime: String,
@@ -1690,6 +1687,7 @@ private fun mediaMime(name: String): String? = when (
     else -> null
 }
 
+@Composable
 private fun VaultBrowser(
     handle: Long,
     t: Copy,
@@ -1706,6 +1704,11 @@ private fun VaultBrowser(
     var previewOffset by remember { mutableStateOf(Offset.Zero) }
     var media by remember { mutableStateOf<MediaPreview?>(null) }
     var mediaFile by remember { mutableStateOf<java.io.File?>(null) }
+    DisposableEffect(Unit) {
+        onDispose {
+            mediaFile?.let { wipeFile(it) }
+        }
+    }
     var preview by remember { mutableStateOf<String?>(null) }
     var newFolder by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }

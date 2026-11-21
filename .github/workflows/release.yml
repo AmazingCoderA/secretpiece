@@ -36,7 +36,7 @@ jobs:
           echo "tag=$tag cargo=$cargo android=$android"
           test "$tag" = "$cargo" || { echo "::error::tag $tag != Cargo.toml $cargo"; exit 1; }
           test "$tag" = "$android" || { echo "::error::tag $tag != Android $android"; exit 1; }
-          grep -q "## \[$tag\]" CHANGELOG.md \
+          grep -qE "## \[$tag(\.0)?\]" CHANGELOG.md \
             || { echo "::error::CHANGELOG.md has no [$tag] section"; exit 1; }
 
   # Command-line interface. Static musl builds on Linux, native elsewhere.

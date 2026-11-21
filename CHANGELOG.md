@@ -17,8 +17,11 @@ Themes on Android and full write access on the phone.
   Settings, persisted across launches, and applied to the whole UI including
   dialog surfaces and text colours.
 - **Android write operations**: create a folder, import a file from the system
-  picker, rename or move an entry, delete a file or a folder tree. The JNI
-  bridge (`sp-ffi`) gained `put`, `mkdir`, `remove` and `move`.
+  picker, rename or move an entry, delete a file or a folder tree, and export a
+  file back to the device. The JNI bridge (`sp-ffi`) gained `put`, `mkdir`,
+  `remove` and `move`.
+- CI now compiles the Android Kotlin sources on every push, so a broken APK can
+  no longer reach a release unnoticed.
 
 ### Changed
 

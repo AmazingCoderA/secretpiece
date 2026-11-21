@@ -1002,7 +1002,6 @@ private fun VaultScreen(
             },
             theme = theme,
             onTheme = {
-                theme = it
                 onTheme(it)
             },
             onDisguise = { checked ->
@@ -1234,6 +1233,24 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
     var newName by remember { mutableStateOf("") }
     var renameFrom by remember { mutableStateOf<String?>(null) }
     var renameTo by remember { mutableStateOf("") }
+    var exportPath by remember { mutableStateOf<String?>(null) }
+
+    val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
+        val path = exportPath
+        if (uri != null && path != null) {
+            val data = runCatching { NativeVault.read(handle, path) }.getOrNull()
+            if (data == null) {
+                error = t.readFailed
+            } else {
+                val written = runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(data) }
+                }.isSuccess
+                notice = if (written) t.copied else t.readFailed
+                data.fill(0)
+            }
+        }
+        exportPath = null
+    }
 
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -1411,6 +1428,12 @@ private fun VaultBrowser(handle: Long, t: Copy, onLock: () -> Unit) {
                             fontSize = 11.sp,
                             color = Muted,
                         )
+                    }
+                    if (!entry.isDir) {
+                        TextButton(onClick = {
+                            exportPath = entry.path
+                            exporter.launch(entry.name)
+                        }) { Text("⬇", color = Violet, fontSize = 13.sp) }
                     }
                     TextButton(onClick = {
                         renameFrom = entry.path

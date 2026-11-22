@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-11-22
+
+Polish pass: faster preview, multi-file import and Explorer selection.
+
+### Changed
+
+- **Android import now accepts multiple files** at once; reports how many were
+  added and how many failed, and refreshes the list only once.
+- Binary/text detection on Android scans only the first 8 KB instead of the
+  whole file, so opening a large file is much faster.
+- **Desktop selection behaves like Explorer**: Ctrl+click toggles a file,
+  Shift+click selects the whole range, plain click resets selection.
+
 ## [1.23.0] - 2026-11-22
 
 SSH on Android, file creation and 40 themes everywhere.

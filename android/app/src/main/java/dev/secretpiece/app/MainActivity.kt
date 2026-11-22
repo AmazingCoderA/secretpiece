@@ -1826,27 +1826,34 @@ private fun VaultBrowser(
         exportPath = null
     }
 
-    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            val name = displayName(context, uri)
-            val bytes = runCatching {
-                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            }.getOrNull()
-            if (bytes == null) {
-                error = t.readFailed
-            } else {
+    val importer = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            var done = 0
+            var failed = 0
+            for (uri in uris) {
+                val name = displayName(context, uri)
+                val bytes = runCatching {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                }.getOrNull()
+                if (bytes == null) {
+                    failed++
+                    continue
+                }
                 val target = listOf(prefix.trim('/'), name)
                     .filter { it.isNotEmpty() }
                     .joinToString("/")
-                error = if (NativeVault.put(handle, target, bytes) == 1) {
-                    notice = "✓ $name"
-                    tick++
-                    null
+                if (NativeVault.put(handle, target, bytes) == 1) {
+                    done++
                 } else {
-                    t.readFailed
+                    failed++
                 }
                 bytes.fill(0)
             }
+            tick++
+            error = if (failed > 0) "Imported $done, failed $failed" else null
+            notice = "✓ $done"
         }
     }
 
@@ -2000,7 +2007,7 @@ private fun VaultBrowser(
                                     previewTitle = entry.name
                                     preview = when {
                                         data.size > maxPreviewMb.toLong() * 1024L * 1024L ||
-                                            data.any { it == 0.toByte() } ->
+                                            data.take(8192).any { it == 0.toByte() } ->
                                             t.binaryFile
                                         else -> String(data, Charsets.UTF_8)
                                             .takeIf { !it.contains('\uFFFD') }

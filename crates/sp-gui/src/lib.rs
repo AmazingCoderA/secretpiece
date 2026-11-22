@@ -3637,6 +3637,7 @@ struct Browser {
     cwd: String,
     entries: Vec<ListEntry>,
     selected: Option<String>,
+    anchor: Option<String>,
     status: Option<Status>,
     new_folder: Option<String>,
     pending_delete: Option<String>,
@@ -3770,6 +3771,7 @@ impl Browser {
             cwd: String::new(),
             entries: Vec::new(),
             selected: None,
+            anchor: None,
             status: None,
             new_folder: None,
             pending_delete: None,
@@ -4026,6 +4028,8 @@ impl Browser {
                             });
                             ui.add_space(30.0);
                         }
+                        let (ctrl, shift) =
+                            ui.input(|input| (input.modifiers.ctrl, input.modifiers.shift));
                         let mut enter: Option<String> = None;
                         let mut preview: Option<String> = None;
                         for entry in &self.entries {
@@ -4050,6 +4054,29 @@ impl Browser {
                                 }
                             }
                             if click.selected {
+                                if shift {
+                                    if let Some(anchor) = &self.anchor {
+                                        if let (Some(from), Some(to)) = (
+                                            self.entries.iter().position(|e| &e.path == anchor),
+                                            self.entries.iter().position(|e| e.path == entry.path),
+                                        ) {
+                                            let (start, end) =
+                                                if from < to { (from, to) } else { (to, from) };
+                                            for item in &self.entries[start..=end] {
+                                                self.checked.insert(item.path.clone());
+                                            }
+                                        }
+                                    }
+                                } else if ctrl {
+                                    if self.checked.contains(&entry.path) {
+                                        self.checked.remove(&entry.path);
+                                    } else {
+                                        self.checked.insert(entry.path.clone());
+                                    }
+                                } else {
+                                    self.checked.clear();
+                                    self.anchor = Some(entry.path.clone());
+                                }
                                 self.selected = Some(entry.path.clone());
                             }
                             if click.open {

@@ -1081,6 +1081,7 @@ struct App {
     server_open: bool,
     help_open: bool,
     recovery: Recovery,
+    verify_status: Option<String>,
     presets: Vec<Preset>,
     preset_name: String,
     new_preset_name: String,
@@ -1818,6 +1819,7 @@ impl App {
                 threshold: 2,
                 ..Recovery::default()
             },
+            verify_status: None,
             presets,
             preset_name: String::new(),
             new_preset_name: String::new(),
@@ -2147,6 +2149,18 @@ impl App {
                     .color(muted()),
                 );
                 recovery_ui(ui, &mut self.recovery, lang);
+                if ui.button(lang.t("Проверить целостность сейфа", "Verify vault integrity")).clicked() {
+                    self.verify_status = Some(match self.browser.as_mut() {
+                        Some(browser) => match browser.vault.verify() {
+                            Ok(report) => format!("{}: {} / {}", lang.t("OK", "OK"), report.files, report.bytes),
+                            Err(error) => describe(lang, &error),
+                        },
+                        None => lang.t("Сейф не открыт", "No vault open").to_owned(),
+                    });
+                }
+                if let Some(status) = &self.verify_status {
+                    ui.label(RichText::new(status).size(11.0).color(muted()));
+                }
             });
         self.settings_open = open;
     }

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-11-23
+
+Secure destruction, audio playback and an integrity button.
+
+### Added
+
+- **Secure file destruction on Android** (✂): shreds a file inside the vault;
+  the dialog optionally renames it before destruction. JNI method `shred`.
+- **Audio playback on Android** — mp3/wav/ogg/flac/m4a are recognised and
+  played together with video.
+- **Media storage method toggle** in Android Settings: `ОЗУ` (memfd, no disk
+  copy) or `Накопитель` (temporary cache file, wiped on close).
+- **Vault integrity check button** in desktop Settings (authenticates every
+  file and reports files/bytes).
+
+### Changed
+
+- README hero now explains why SecretPiece exists and honestly describes the
+  integrity check (the previously advertised `doctor` command does not exist).
+
 ## [1.25.0] - 2026-11-22
 
 Search and keyboard selection.

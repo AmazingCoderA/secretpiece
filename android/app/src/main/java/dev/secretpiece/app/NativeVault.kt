@@ -22,6 +22,7 @@ object NativeVault {
     external fun put(handle: Long, path: String, data: ByteArray): Int
     external fun mkdir(handle: Long, path: String): Int
     external fun remove(handle: Long, path: String): Int
+    external fun shred(handle: Long, path: String): Int
     external fun move(handle: Long, from: String, to: String): Int
     external fun shares(handle: Long, password: String, total: Int, threshold: Int): String
     external fun ftpTest(

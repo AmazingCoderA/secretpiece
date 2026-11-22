@@ -630,6 +630,23 @@ fn memfd_dup(_fd: i32) -> i32 {
 #[cfg(not(target_os = "linux"))]
 fn memfd_close(_fd: i32) {}
 
+/// Securely destroys a file inside the vault. Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_secretpiece_app_NativeVault_shred(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    raw: jlong,
+    path: JString<'_>,
+) -> jint {
+    let Some(handle) = handle_from(raw) else {
+        return 0;
+    };
+    let Ok(path): Result<String, _> = env.get_string(&path).map(Into::into) else {
+        return 0;
+    };
+    i32::from(handle.vault.shred(&path).is_ok())
+}
+
 /// Splits the vault password into Shamir shares (`x:hex` lines as JSON array).
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_dev_secretpiece_app_NativeVault_shares(

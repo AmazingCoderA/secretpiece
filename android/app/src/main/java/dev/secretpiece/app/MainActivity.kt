@@ -107,6 +107,7 @@ private const val PREF_THEME = "theme"
 private const val PREF_PRESETS = "server_presets"
 private const val PREF_MAX_PREVIEW_MB = "max_preview_mb"
 private const val PREF_MEDIA_PREVIEW = "media_preview"
+private const val PREF_MEDIA_STORAGE = "media_storage"
 
 data class ServerPreset(
     val name: String,
@@ -763,6 +764,9 @@ private fun VaultScreen(
     var mediaPreview by remember {
         mutableStateOf(prefs(context).getBoolean(PREF_MEDIA_PREVIEW, false))
     }
+    var mediaStorage by remember {
+        mutableStateOf(prefs(context).getString(PREF_MEDIA_STORAGE, "cache") ?: "cache")
+    }
     var selectedPreset by remember { mutableStateOf<ServerPreset?>(null) }
     var remoteCache by remember { mutableStateOf<java.io.File?>(null) }
     var memoryVault by remember { mutableStateOf<Int?>(null) }
@@ -823,7 +827,7 @@ private fun VaultScreen(
     }
 
     if (handle != 0L) {
-        VaultBrowser(handle, t, maxPreviewMb, mediaPreview) {
+        VaultBrowser(handle, t, maxPreviewMb, mediaPreview, mediaStorage) {
             NativeVault.close(handle)
             handle = 0L
             val cache = remoteCache
@@ -1351,6 +1355,11 @@ private fun VaultScreen(
                 mediaPreview = it
                 prefs(context).edit().putBoolean(PREF_MEDIA_PREVIEW, it).apply()
             },
+            mediaStorage = mediaStorage,
+            onMediaStorage = {
+                mediaStorage = it
+                prefs(context).edit().putString(PREF_MEDIA_STORAGE, it).apply()
+            },
             onDisguise = { checked ->
                 applyDisguise(context, checked)
                 masked = checked
@@ -1499,6 +1508,8 @@ private fun SettingsDialog(
     onMaxPreviewMb: (Int) -> Unit,
     mediaPreview: Boolean,
     onMediaPreview: (Boolean) -> Unit,
+    mediaStorage: String,
+    onMediaStorage: (String) -> Unit,
     onDisguise: (Boolean) -> Unit,
     onShortcut: () -> Unit,
     onExportSettings: () -> Unit,
@@ -1619,6 +1630,18 @@ private fun SettingsDialog(
                         Text("Временно распаковать для просмотра", fontSize = 10.sp, color = Muted)
                     }
                     Switch(checked = mediaPreview, onCheckedChange = onMediaPreview)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = mediaStorage == "ram",
+                        onClick = { onMediaStorage("ram") },
+                        label = { Text("ОЗУ", fontSize = 10.sp) },
+                    )
+                    FilterChip(
+                        selected = mediaStorage == "cache",
+                        onClick = { onMediaStorage("cache") },
+                        label = { Text("Накопитель", fontSize = 10.sp) },
+                    )
                 }
 
                 HorizontalDivider(color = Color(0xFF1C2A44))
@@ -1776,6 +1799,11 @@ private fun mediaMime(name: String): String? = when (
     "mp4", "m4v" -> "video/mp4"
     "webm" -> "video/webm"
     "mkv" -> "video/x-matroska"
+    "mp3" -> "audio/mpeg"
+    "wav" -> "audio/wav"
+    "ogg", "opus" -> "audio/ogg"
+    "m4a", "aac" -> "audio/mp4"
+    "flac" -> "audio/flac"
     else -> null
 }
 
@@ -1785,6 +1813,7 @@ private fun VaultBrowser(
     t: Copy,
     maxPreviewMb: Int,
     mediaPreview: Boolean,
+    mediaStorage: String,
     onLock: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -1797,9 +1826,11 @@ private fun VaultBrowser(
     var previewOffset by remember { mutableStateOf(Offset.Zero) }
     var media by remember { mutableStateOf<MediaPreview?>(null) }
     var mediaFile by remember { mutableStateOf<java.io.File?>(null) }
+    var mediaFd by remember { mutableStateOf(-1) }
     DisposableEffect(Unit) {
         onDispose {
             mediaFile?.let { wipeFile(it) }
+            if (mediaFd > 0) NativeVault.memClose(mediaFd)
         }
     }
     var preview by remember { mutableStateOf<String?>(null) }
@@ -1808,6 +1839,8 @@ private fun VaultBrowser(
     var newName by remember { mutableStateOf("") }
     var renameFrom by remember { mutableStateOf<String?>(null) }
     var renameTo by remember { mutableStateOf("") }
+    var shredMode by remember { mutableStateOf(false) }
+    var shredName by remember { mutableStateOf("") }
     var exportPath by remember { mutableStateOf<String?>(null) }
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
@@ -1998,16 +2031,28 @@ private fun VaultBrowser(
                             } else {
                                 val mime = mediaMime(entry.name)
                                 if (mediaPreview && mime != null) {
-                                    val path = if (mime.startsWith("video/")) {
-                                        val file = java.io.File(
-                                            context.cacheDir,
-                                            "media-${System.currentTimeMillis()}-${entry.name}",
-                                        )
-                                        runCatching {
-                                            file.writeBytes(data)
-                                            mediaFile = file
-                                            file.path
-                                        }.getOrDefault("")
+                                    val path = if (
+                                        mime.startsWith("video/") || mime.startsWith("audio/")
+                                    ) {
+                                        if (mediaStorage == "ram") {
+                                            val fd = NativeVault.memCreate(data)
+                                            if (fd > 0) {
+                                                mediaFd = fd
+                                                "/proc/self/fd/$fd"
+                                            } else {
+                                                ""
+                                            }
+                                        } else {
+                                            val file = java.io.File(
+                                                context.cacheDir,
+                                                "media-${System.currentTimeMillis()}-${entry.name}",
+                                            )
+                                            runCatching {
+                                                file.writeBytes(data)
+                                                mediaFile = file
+                                                file.path
+                                            }.getOrDefault("")
+                                        }
                                     } else {
                                         ""
                                     }
@@ -2055,7 +2100,15 @@ private fun VaultBrowser(
                     TextButton(onClick = {
                         renameFrom = entry.path
                         renameTo = entry.name
+                        shredMode = false
                     }) { Text("✎", color = Cyan, fontSize = 13.sp) }
+                    if (!entry.isDir) {
+                        TextButton(onClick = {
+                            shredFrom = entry.path
+                            shredName = entry.name
+                            shredMode = true
+                        }) { Text("✂", color = Danger, fontSize = 13.sp) }
+                    }
                     TextButton(onClick = {
                         error = null
                         notice = null
@@ -2173,6 +2226,10 @@ private fun VaultBrowser(
             media = null
             mediaFile?.let { wipeFile(it) }
             mediaFile = null
+            if (mediaFd > 0) {
+                NativeVault.memClose(mediaFd)
+                mediaFd = -1
+            }
         }) {
             Surface(shape = RoundedCornerShape(16.dp), color = SurfaceDark) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -2182,9 +2239,16 @@ private fun VaultBrowser(
                             media = null
                             mediaFile?.let { wipeFile(it) }
                             mediaFile = null
+            if (mediaFd > 0) {
+                NativeVault.memClose(mediaFd)
+                mediaFd = -1
+            }
                         }) { Text(t.close) }
                     }
-                    if (item.mime.startsWith("video/") && item.path.isNotEmpty()) {
+                    if (
+                        (item.mime.startsWith("video/") || item.mime.startsWith("audio/")) &&
+                        item.path.isNotEmpty()
+                    ) {
                         AndroidView(
                             factory = { ctx ->
                                 VideoView(ctx).apply {
@@ -2272,7 +2336,23 @@ private fun VaultBrowser(
                         val target = listOf(parent, clean)
                             .filter { it.isNotEmpty() }
                             .joinToString("/")
-                        error = if (NativeVault.move(handle, from, target) == 1) {
+                        error = if (shredMode) {
+                            val oldName = from.rsplit('/').next().orEmpty()
+                            if (clean != oldName) {
+                                val data = runCatching { NativeVault.read(handle, from) }.getOrNull()
+                                if (data != null) {
+                                    NativeVault.put(handle, target, data)
+                                    data.fill(0)
+                                }
+                            }
+                            if (NativeVault.shred(handle, from) == 1) {
+                                notice = "✂ $clean"
+                                tick++
+                                null
+                            } else {
+                                t.readFailed
+                            }
+                        } else if (NativeVault.move(handle, from, target) == 1) {
                             notice = "✓ $clean"
                             tick++
                             null
@@ -2286,12 +2366,19 @@ private fun VaultBrowser(
             dismissButton = {
                 TextButton(onClick = { renameFrom = null }) { Text(t.close) }
             },
-            title = { Text("✎") },
+            title = { Text(if (shredMode) "✂ Уничтожить" else "✎") },
             text = {
                 OutlinedTextField(
-                    value = renameTo,
-                    onValueChange = { renameTo = it },
+                    value = if (shredMode) shredName else renameTo,
+                    onValueChange = {
+                        if (shredMode) shredName = it else renameTo = it
+                    },
                     singleLine = true,
+                    label = {
+                        Text(
+                            if (shredMode) "Новое имя перед уничтожением" else "Имя",
+                        )
+                    },
                 )
             },
         )

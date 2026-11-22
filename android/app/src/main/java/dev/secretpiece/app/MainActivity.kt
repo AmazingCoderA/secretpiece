@@ -117,6 +117,7 @@ private data class ServerPreset(
     val path: String,
     val memoryOnly: Boolean = false,
     val vaultPassword: String = "",
+    val kind: String = "ftp",
 )
 
 private fun loadPresets(context: Context): List<ServerPreset> = runCatching {
@@ -134,6 +135,7 @@ private fun loadPresets(context: Context): List<ServerPreset> = runCatching {
             path = item.optString("path"),
             memoryOnly = item.optBoolean("memoryOnly", false),
             vaultPassword = item.optString("vaultPassword", ""),
+            kind = item.optString("kind", "ftp"),
         )
     }
 }.getOrDefault(emptyList())
@@ -151,6 +153,7 @@ private fun savePresets(context: Context, presets: List<ServerPreset>) {
                 put("path", preset.path)
                 put("memoryOnly", preset.memoryOnly)
                 put("vaultPassword", preset.vaultPassword)
+                put("kind", preset.kind)
             },
         )
     }
@@ -180,12 +183,26 @@ private var Ink = Color(red = 232, green = 240, blue = 255)
 
 private enum class Theme {
     Night, Light, Paper, Mint, Sunset, Forest, Neon, Sepia, Ocean, Rose,
+    Aurora, Cyber, Coal, Cream, Lavender, Honey, Winter, Desert, Storm,
+    Emerald, Ruby, Amber, Slate, Orchid, Coffee, Meadow, Coral, Indigo,
+    Sand, Frost, Ember, Lilac, Olive, Sky, Plum, Copper, Charcoal, Pearl,
+    Cobalt, Velvet,
 }
 
 private data class Palette(
     val bg: Color, val deep: Color, val surface: Color, val soft: Color,
     val cyan: Color, val violet: Color, val muted: Color, val faint: Color,
     val danger: Color, val gold: Color, val ink: Color, val light: Boolean,
+)
+
+private fun simpleTheme(
+    bg: Long, surface: Long, accent: Long, violet: Long, ink: Long, light: Boolean,
+) = Palette(
+    Color(bg), Color(bg), Color(surface),
+    Color(surface).copy(alpha = 0.85f),
+    Color(accent), Color(violet),
+    Color(ink).copy(alpha = 0.72f), Color(ink).copy(alpha = 0.5f),
+    Color(0xFFFF7A90), Color(0xFF4ADE80), Color(ink), light,
 )
 
 private val palettes = mapOf(
@@ -229,6 +246,36 @@ private val palettes = mapOf(
         Color(0xFF1E0E15), Color(0xFF2C1420), Color(0xFF381A29), Color(0xFF472234),
         Color(0xFFFF9EC4), Color(0xFFFFC178), Color(0xFFE0B6C6), Color(0xFFAF8698),
         Color(0xFFFF7588), Color(0xFFFFD98A), Color(0xFFFFEBF2), false),
+    Theme.Aurora to simpleTheme(0x050B1E, 0x0C2140, 0x5FF6C8, 0x8A7BFF, 0xE4F7FF, false),
+    Theme.Cyber to simpleTheme(0x06060A, 0x11131C, 0x00E5FF, 0xFF2E88, 0xE6F6FF, false),
+    Theme.Coal to simpleTheme(0x101010, 0x1C1C1C, 0xC0C0C0, 0x8A8AFF, 0xF2F2F2, false),
+    Theme.Cream to simpleTheme(0xFFFDF8EF, 0xFFFFFFFF, 0xA1622B, 0x7C5C3A, 0x2A2118, true),
+    Theme.Lavender to simpleTheme(0xF3EFFF, 0xFFFFFF, 0x6D4AFF, 0xA855F7, 0x241C3A, true),
+    Theme.Honey to simpleTheme(0xFFF9E6, 0xFFFDF5, 0x916B00, 0x7A5B12, 0x2C230C, true),
+    Theme.Winter to simpleTheme(0xEAF4FF, 0xFFFFFF, 0x0E6BA8, 0x3D6DB5, 0x10253A, true),
+    Theme.Desert to simpleTheme(0x2A1E14, 0x3B2A1C, 0xE8B878, 0xCC8E5B, 0xF7E9D6, false),
+    Theme.Storm to simpleTheme(0x0B1018, 0x151D2A, 0x9FB3C8, 0x6C8EBF, 0xE2EAF2, false),
+    Theme.Emerald to simpleTheme(0x04140E, 0x0A241A, 0x34D399, 0x6EE7B7, 0xDCFCE7, false),
+    Theme.Ruby to simpleTheme(0x1A0409, 0x2C0812, 0xFF6B81, 0xFFB36B, 0xFFE4E9, false),
+    Theme.Amber to simpleTheme(0x1A1204, 0x2A1F08, 0xFBBF24, 0xF59E0B, 0xFEF3C7, false),
+    Theme.Slate to simpleTheme(0x0F172A, 0x1E293B, 0x94A3B8, 0x818CF8, 0xF1F5F9, false),
+    Theme.Orchid to simpleTheme(0x1A0A24, 0x2C123C, 0xE9A8FF, 0xA78BFA, 0xF7E8FF, false),
+    Theme.Coffee to simpleTheme(0x1F130C, 0x322017, 0xD6A27A, 0xA87B5D, 0xF5E6D8, false),
+    Theme.Meadow to simpleTheme(0xEDF7ED, 0xFFFFFF, 0x2E7D32, 0x558B2F, 0x142A15, true),
+    Theme.Coral to simpleTheme(0x1B0C0C, 0x2E1414, 0xFF8A7A, 0xFFB4A0, 0xFFEBE7, false),
+    Theme.Indigo to simpleTheme(0x080C1E, 0x121936, 0x8C9EFF, 0xC7D2FE, 0xE8ECFF, false),
+    Theme.Sand to simpleTheme(0xFAF4E6, 0xFFFFFF, 0x8D6E3C, 0x6D5A32, 0x2E2617, true),
+    Theme.Frost to simpleTheme(0xE6F6FA, 0xFFFFFF, 0x0277BD, 0x00838F, 0x0C2733, true),
+    Theme.Ember to simpleTheme(0x1A0803, 0x2C1006, 0xFF7043, 0xFFAB40, 0xFFEDE0, false),
+    Theme.Lilac to simpleTheme(0xF5EEFF, 0xFFFFFF, 0x7E57C2, 0x9575CD, 0x271B3A, true),
+    Theme.Olive to simpleTheme(0x141A08, 0x222E10, 0xAED581, 0x9CCC65, 0xE8F2DC, false),
+    Theme.Sky to simpleTheme(0xE8F4FD, 0xFFFFFF, 0x0288D1, 0x5C6BC0, 0x0D2A3E, true),
+    Theme.Plum to simpleTheme(0x1C0716, 0x2F0D26, 0xF06292, 0xBA68C8, 0xFCE4EC, false),
+    Theme.Copper to simpleTheme(0x1B1009, 0x2E1C10, 0xE68A5B, 0xC77C3C, 0xF8E8DC, false),
+    Theme.Charcoal to simpleTheme(0x0A0A0A, 0x171717, 0xB0BEC5, 0x90A4AE, 0xECF0F1, false),
+    Theme.Pearl to simpleTheme(0xF7F9FC, 0xFFFFFF, 0x455A64, 0x5C6BC0, 0x1C2833, true),
+    Theme.Cobalt to simpleTheme(0x040A24, 0x0B163B, 0x448AFF, 0x7C4DFF, 0xE3E8FF, false),
+    Theme.Velvet to simpleTheme(0x170A17, 0x281228, 0xFF77C2, 0xB388FF, 0xFFEAF7, false),
 )
 
 private fun themeKey(theme: Theme) = theme.name.lowercase()
@@ -726,6 +773,49 @@ private fun VaultScreen(
     var newVisible by remember { mutableStateOf(false) }
     var newError by remember { mutableStateOf<String?>(null) }
 
+    fun serverTest(preset: ServerPreset) = if (preset.kind == "ssh") {
+        SshVault.test(preset)
+    } else {
+        NativeVault.ftpTest(
+            preset.host, preset.port, preset.user, preset.password, preset.path,
+        )
+    }
+
+    fun serverDownload(preset: ServerPreset, local: String) = if (preset.kind == "ssh") {
+        SshVault.download(preset, local)
+    } else {
+        NativeVault.ftpDownload(
+            preset.host, preset.port, preset.user, preset.password,
+            preset.path, local,
+        )
+    }
+
+    fun serverUpload(preset: ServerPreset, local: String) = if (preset.kind == "ssh") {
+        SshVault.upload(preset, local)
+    } else {
+        NativeVault.ftpUpload(
+            preset.host, preset.port, preset.user, preset.password,
+            preset.path, local,
+        )
+    }
+
+    fun serverBytes(preset: ServerPreset) = if (preset.kind == "ssh") {
+        SshVault.bytes(preset)
+    } else {
+        NativeVault.ftpBytes(
+            preset.host, preset.port, preset.user, preset.password, preset.path,
+        )
+    }
+
+    fun serverPutBytes(preset: ServerPreset, bytes: ByteArray) = if (preset.kind == "ssh") {
+        SshVault.putBytes(preset, bytes)
+    } else {
+        NativeVault.ftpPutBytes(
+            preset.host, preset.port, preset.user, preset.password,
+            preset.path, bytes,
+        )
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             if (handle != 0L) NativeVault.close(handle)
@@ -741,10 +831,7 @@ private fun VaultScreen(
             if (cache != null && preset != null) {
                 scope.launch(Dispatchers.IO) {
                     val status = runCatching {
-                        NativeVault.ftpUpload(
-                            preset.host, preset.port, preset.user, preset.password,
-                            preset.path, cache.path,
-                        )
+                        serverUpload(preset, cache.path)
                     }.getOrDefault("Upload failed")
                     if (status == "ok") {
                         wipeFile(cache)
@@ -759,10 +846,7 @@ private fun VaultScreen(
                 scope.launch(Dispatchers.IO) {
                     val status = runCatching {
                         val bytes = NativeVault.memRead(memory) ?: ByteArray(0)
-                        NativeVault.ftpPutBytes(
-                            preset.host, preset.port, preset.user, preset.password,
-                            preset.path, bytes,
-                        )
+                        serverPutBytes(preset, bytes)
                     }.getOrDefault("Upload failed")
                     NativeVault.memClose(memory)
                     memoryVault = null
@@ -837,9 +921,7 @@ private fun VaultScreen(
         openError = null
         if (preset.memoryOnly) {
             val bytes = runCatching {
-                NativeVault.ftpBytes(
-                    preset.host, preset.port, preset.user, preset.password, preset.path,
-                )
+                serverBytes(preset)
             }.getOrNull()
             val data = bytes ?: ByteArray(0)
             if (data.isEmpty()) {
@@ -869,10 +951,7 @@ private fun VaultScreen(
         }
         val cache = java.io.File(context.cacheDir, "remote-${System.currentTimeMillis()}.spv")
         val status = runCatching {
-            NativeVault.ftpDownload(
-                preset.host, preset.port, preset.user, preset.password,
-                preset.path, cache.path,
-            )
+            serverDownload(preset, cache.path)
         }.getOrDefault("Download failed")
         if (status != "ok") {
             openError = status
@@ -1105,10 +1184,7 @@ private fun VaultScreen(
                             )
                             TextButton(onClick = {
                                 val status = runCatching {
-                                    NativeVault.ftpTest(
-                                        preset.host, preset.port, preset.user,
-                                        preset.password, preset.path,
-                                    )
+                                    serverTest(preset)
                                 }.getOrDefault("Test failed")
                                 openError = if (status == "ok") null else status
                             }) { Text("Тест", fontSize = 11.sp, color = Violet) }
@@ -1318,6 +1394,7 @@ private fun VaultScreen(
                                 put("path", preset.path)
                                 put("memoryOnly", preset.memoryOnly)
                 put("vaultPassword", preset.vaultPassword)
+                put("kind", preset.kind)
                             },
                         )
                     }
@@ -1552,6 +1629,7 @@ private fun SettingsDialog(
                 var presetPassword by remember { mutableStateOf("") }
                 var presetPath by remember { mutableStateOf("vault.spv") }
                 var presetVaultPass by remember { mutableStateOf("") }
+                var presetKind by remember { mutableStateOf("ftp") }
                 var presetMemory by remember { mutableStateOf(false) }
                 Text("Сервер (FTP)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 listOf(
@@ -1581,6 +1659,18 @@ private fun SettingsDialog(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = presetKind == "ftp",
+                        onClick = { presetKind = "ftp" },
+                        label = { Text("FTP") },
+                    )
+                    FilterChip(
+                        selected = presetKind == "ssh",
+                        onClick = { presetKind = "ssh" },
+                        label = { Text("SSH / SFTP") },
+                    )
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Только в памяти", fontSize = 11.sp, color = Muted)
                     Switch(checked = presetMemory, onCheckedChange = { presetMemory = it })
@@ -1597,6 +1687,7 @@ private fun SettingsDialog(
                                 path = presetPath.trim(),
                                 memoryOnly = presetMemory,
                                 vaultPassword = presetVaultPass,
+                                kind = presetKind,
                             ),
                         )
                     }
@@ -1712,6 +1803,7 @@ private fun VaultBrowser(
     }
     var preview by remember { mutableStateOf<String?>(null) }
     var newFolder by remember { mutableStateOf(false) }
+    var createFileMode by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     var renameFrom by remember { mutableStateOf<String?>(null) }
     var renameTo by remember { mutableStateOf("") }
@@ -1834,8 +1926,14 @@ private fun VaultBrowser(
             )
             TextButton(onClick = {
                 newName = ""
+                createFileMode = false
                 newFolder = true
             }) { Text("📁 +", color = Cyan, fontSize = 13.sp) }
+            TextButton(onClick = {
+                newName = ""
+                createFileMode = true
+                newFolder = true
+            }) { Text("📄 +", color = Cyan, fontSize = 13.sp) }
             TextButton(onClick = { importer.launch(arrayOf("*/*")) }) {
                 Text("📥", color = Cyan, fontSize = 13.sp)
             }
@@ -2113,7 +2211,15 @@ private fun VaultBrowser(
                         val target = listOf(prefix.trim('/'), clean)
                             .filter { it.isNotEmpty() }
                             .joinToString("/")
-                        error = if (NativeVault.mkdir(handle, target) == 1) {
+                        error = if (createFileMode) {
+                            if (NativeVault.put(handle, target, ByteArray(0)) == 1) {
+                                notice = "✓ $clean"
+                                tick++
+                                null
+                            } else {
+                                t.readFailed
+                            }
+                        } else if (NativeVault.mkdir(handle, target) == 1) {
                             notice = "✓ $clean"
                             tick++
                             null

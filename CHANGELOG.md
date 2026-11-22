@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-11-22
+
+SSH on Android, file creation and 40 themes everywhere.
+
+### Added
+
+- **SSH/SFTP server presets on Android** using the JSch Java client (password
+  auth), alongside FTP. Presets store the connection kind.
+- **Create an empty file** inside a vault on Android (📄 + in the browser).
+- **30 additional themes on both platforms** (40 total): Aurora, Cyber, Coal,
+  Cream, Lavender, Honey, Winter, Desert, Storm, Emerald, Ruby, Amber, Slate,
+  Orchid, Coffee, Meadow, Coral, Indigo, Sand, Frost, Ember, Lilac, Olive, Sky,
+  Plum, Copper, Charcoal, Pearl, Cobalt, Velvet — light and dark mixed.
+- Desktop media (images, video, audio) continues to open through the existing
+  external-preview setting; Android previews images/video inline.
+
 ## [1.22.0] - 2026-11-21
 
 Media preview on Android.

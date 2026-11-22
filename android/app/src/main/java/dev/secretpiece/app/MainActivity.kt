@@ -2104,7 +2104,6 @@ private fun VaultBrowser(
                     }) { Text("✎", color = Cyan, fontSize = 13.sp) }
                     if (!entry.isDir) {
                         TextButton(onClick = {
-                            shredFrom = entry.path
                             shredName = entry.name
                             shredMode = true
                         }) { Text("✂", color = Danger, fontSize = 13.sp) }
@@ -2337,7 +2336,7 @@ private fun VaultBrowser(
                             .filter { it.isNotEmpty() }
                             .joinToString("/")
                         error = if (shredMode) {
-                            val oldName = from.rsplit('/').next().orEmpty()
+                            val oldName = from.substringAfterLast('/')
                             if (clean != oldName) {
                                 val data = runCatching { NativeVault.read(handle, from) }.getOrNull()
                                 if (data != null) {

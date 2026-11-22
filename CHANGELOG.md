@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-11-22
+
+Search and keyboard selection.
+
+### Added
+
+- **Folder search** in both apps: a search box filters the current folder by
+  name on the desktop and on Android.
+- **Ctrl+A selects all** files in the current folder on the desktop.
+
 ## [1.24.0] - 2026-11-22
 
 Polish pass: faster preview, multi-file import and Explorer selection.

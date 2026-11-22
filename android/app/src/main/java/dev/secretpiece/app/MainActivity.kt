@@ -1792,6 +1792,7 @@ private fun VaultBrowser(
     var tick by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
     var previewTitle by remember { mutableStateOf("") }
     var previewOffset by remember { mutableStateOf(Offset.Zero) }
     var media by remember { mutableStateOf<MediaPreview?>(null) }
@@ -1857,9 +1858,10 @@ private fun VaultBrowser(
         }
     }
 
-    val entries = remember(prefix, tick) {
+    val entries = remember(prefix, tick, query) {
         runCatching { parseEntries(NativeVault.list(handle, prefix)) }
             .getOrDefault(emptyList())
+            .filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
     }
     val stats = remember(handle, tick) {
         runCatching { parseStats(NativeVault.info(handle)) }.getOrNull()
@@ -1900,6 +1902,14 @@ private fun VaultBrowser(
                 Text(t.lock, color = Cyan, fontWeight = FontWeight.Bold)
             }
         }
+
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text("Поиск", fontSize = 10.sp) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
 
         stats?.let { data ->
             Text(

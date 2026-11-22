@@ -3636,6 +3636,7 @@ struct Browser {
     vault: Vault,
     cwd: String,
     entries: Vec<ListEntry>,
+    filter: String,
     selected: Option<String>,
     anchor: Option<String>,
     status: Option<Status>,
@@ -3770,6 +3771,7 @@ impl Browser {
             vault,
             cwd: String::new(),
             entries: Vec::new(),
+            filter: String::new(),
             selected: None,
             anchor: None,
             status: None,
@@ -3915,6 +3917,17 @@ impl Browser {
     fn ui(&mut self, ui: &mut egui::Ui, lang: Lang) {
         let info = self.vault.info();
         self.actions(ui, lang);
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("🔍").size(12.0));
+            ui.add(
+                egui::TextEdit::singleline(&mut self.filter)
+                    .hint_text(lang.t("Поиск в папке…", "Search in folder…"))
+                    .desired_width(220.0),
+            );
+            if ui.button("✕").clicked() {
+                self.filter.clear();
+            }
+        });
         let dirs = self.all_dirs();
         if !dirs.is_empty() {
             ui.add_space(4.0);
@@ -4028,11 +4041,23 @@ impl Browser {
                             });
                             ui.add_space(30.0);
                         }
+                        if ui.input(|input| input.modifiers.ctrl && input.key_pressed(egui::Key::A))
+                        {
+                            self.checked = self
+                                .entries
+                                .iter()
+                                .map(|entry| entry.path.clone())
+                                .collect();
+                        }
+                        let query = self.filter.trim().to_lowercase();
                         let (ctrl, shift) =
                             ui.input(|input| (input.modifiers.ctrl, input.modifiers.shift));
                         let mut enter: Option<String> = None;
                         let mut preview: Option<String> = None;
                         for entry in &self.entries {
+                            if !query.is_empty() && !entry.path.to_lowercase().contains(&query) {
+                                continue;
+                            }
                             let selected = self.selected.as_deref() == Some(entry.path.as_str());
                             let drag_id = egui::Id::new(("tree-file", entry.path.clone()));
                             let click = ui

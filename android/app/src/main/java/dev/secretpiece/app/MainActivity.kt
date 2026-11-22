@@ -108,7 +108,7 @@ private const val PREF_PRESETS = "server_presets"
 private const val PREF_MAX_PREVIEW_MB = "max_preview_mb"
 private const val PREF_MEDIA_PREVIEW = "media_preview"
 
-private data class ServerPreset(
+data class ServerPreset(
     val name: String,
     val host: String,
     val port: String,

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.30.0] - 2026-11-23
+
+60 themes and hardened Android native calls.
+
+### Added
+
+- **20 more themes on both platforms** (60 total): Topaz, Jade, Garnet, Onyx,
+  Ivory, Cocoa, Mist, Citrus, Denim, Maroon, Pine, Platinum, Sunrise, Twilight,
+  Cherry, Aqua, Brick, Tea, Ink and Bloom.
+
+### Fixed
+
+- Android wraps native `close`, `memClose` and `memCreate` calls in error
+  guards so a failed JNI call cannot crash the app.
+
 ## [1.29.0] - 2026-11-23
 
 Auto-repair and more reliable image preview.

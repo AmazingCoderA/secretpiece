@@ -193,6 +193,8 @@ private enum class Theme {
     Emerald, Ruby, Amber, Slate, Orchid, Coffee, Meadow, Coral, Indigo,
     Sand, Frost, Ember, Lilac, Olive, Sky, Plum, Copper, Charcoal, Pearl,
     Cobalt, Velvet,
+    Topaz, Jade, Garnet, Onyx, Ivory, Cocoa, Mist, Citrus, Denim, Maroon,
+    Pine, Platinum, Sunrise, Twilight, Cherry, Aqua, Brick, Tea, Ink, Bloom,
 }
 
 private data class Palette(
@@ -282,6 +284,26 @@ private val palettes = mapOf(
     Theme.Pearl to simpleTheme(0xF7F9FC, 0xFFFFFF, 0x455A64, 0x5C6BC0, 0x1C2833, true),
     Theme.Cobalt to simpleTheme(0x040A24, 0x0B163B, 0x448AFF, 0x7C4DFF, 0xE3E8FF, false),
     Theme.Velvet to simpleTheme(0x170A17, 0x281228, 0xFF77C2, 0xB388FF, 0xFFEAF7, false),
+    Theme.Topaz to simpleTheme(0xFFF8E6, 0xFFFFFF, 0xB8860B, 0x8B6914, 0x2E2408, true),
+    Theme.Jade to simpleTheme(0x06140F, 0x0E2A1E, 0x00C9A7, 0x57CC99, 0xDFF7EC, false),
+    Theme.Garnet to simpleTheme(0x1A0508, 0x2C0B11, 0xE63946, 0xF4A261, 0xFFE8EA, false),
+    Theme.Onyx to simpleTheme(0x050505, 0x121212, 0xC0C0C0, 0x808080, 0xEFEFEF, false),
+    Theme.Ivory to simpleTheme(0xFFFFFBF0, 0xFFFFFF, 0x8B7355, 0x6B5B45, 0x2B241A, true),
+    Theme.Cocoa to simpleTheme(0x1B110A, 0x2E1E13, 0xD29868, 0xA0714A, 0xF6E6D8, false),
+    Theme.Mist to simpleTheme(0xEFF3F6, 0xFFFFFF, 0x5C6F7E, 0x4A6572, 0x1E2C36, true),
+    Theme.Citrus to simpleTheme(0xFAFBE7, 0xFFFFFF, 0x6B8E23, 0x9ACD32, 0x27330F, true),
+    Theme.Denim to simpleTheme(0x081326, 0x122448, 0x6FA8FF, 0x8C9EFF, 0xE6EEFF, false),
+    Theme.Maroon to simpleTheme(0x1E070A, 0x321014, 0xE07A83, 0xC9184F, 0xFFE6E9, false),
+    Theme.Pine to simpleTheme(0x08170E, 0x102A19, 0x4CAF50, 0x8BC34A, 0xE6F4E6, false),
+    Theme.Platinum to simpleTheme(0xF4F6F8, 0xFFFFFF, 0x546E7A, 0x455A64, 0x1C2833, true),
+    Theme.Sunrise to simpleTheme(0x2A1610, 0x402318, 0xFFB74D, 0xFF8A65, 0xFFF1E0, false),
+    Theme.Twilight to simpleTheme(0x100A24, 0x1E153B, 0x9575CD, 0xF48FB1, 0xEDE7F6, false),
+    Theme.Cherry to simpleTheme(0x1F0710, 0x33101C, 0xFF4081, 0xFF80AB, 0xFFE6EF, false),
+    Theme.Aqua to simpleTheme(0xE8FCFF, 0xFFFFFF, 0x00838F, 0x00ACC1, 0x05343A, true),
+    Theme.Brick to simpleTheme(0x1D0F0C, 0x301A15, 0xC75F45, 0xE08E6A, 0xF8E4DC, false),
+    Theme.Tea to simpleTheme(0xF5F3E7, 0xFFFFFF, 0x7B6F35, 0x5E6E3A, 0x2B2A16, true),
+    Theme.Ink to simpleTheme(0x0A0A0C, 0x16161A, 0x9FA8DA, 0xB0BACB, 0xECEFF4, false),
+    Theme.Bloom to simpleTheme(0x1E0A18, 0x331227, 0xF48FB1, 0xCE93D8, 0xFFEAF4, false),
 )
 
 private fun themeKey(theme: Theme) = theme.name.lowercase()
@@ -846,13 +868,13 @@ private fun VaultScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            if (handle != 0L) NativeVault.close(handle)
+            runCatching { if (handle != 0L) NativeVault.close(handle) }
         }
     }
 
     if (handle != 0L) {
         VaultBrowser(handle, t, maxPreviewMb, mediaPreview, mediaStorage) {
-            NativeVault.close(handle)
+            runCatching { NativeVault.close(handle) }
             handle = 0L
             val cache = remoteCache
             val preset = selectedPreset
@@ -1884,7 +1906,7 @@ private fun VaultBrowser(
     DisposableEffect(Unit) {
         onDispose {
             mediaFile?.let { wipeFile(it) }
-            if (mediaFd > 0) NativeVault.memClose(mediaFd)
+            if (mediaFd > 0) runCatching { NativeVault.memClose(mediaFd) }
         }
     }
     var preview by remember { mutableStateOf<String?>(null) }
@@ -2089,7 +2111,9 @@ private fun VaultBrowser(
                                         mime.startsWith("video/") || mime.startsWith("audio/")
                                     ) {
                                         if (mediaStorage == "ram") {
-                                            val fd = NativeVault.memCreate(data)
+                                            val fd = runCatching {
+                                                NativeVault.memCreate(data)
+                                            }.getOrDefault(-1)
                                             if (fd > 0) {
                                                 mediaFd = fd
                                                 "/proc/self/fd/$fd"

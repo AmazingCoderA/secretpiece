@@ -2,6 +2,9 @@
 <resources>
     <string name="app_name">SecretPiece</string>
     <string name="app_disguise_calculator">Calculator</string>
+    <string name="app_disguise_gallery">Gallery</string>
+    <string name="app_disguise_notes">Notes</string>
+    <string name="app_disguise_weather">Weather</string>
     <string name="mask_title">Disguise app</string>
     <string name="mask_summary">Replace the launcher icon and name with a calculator.</string>
     <string name="mask_on_title">Disguise enabled</string>

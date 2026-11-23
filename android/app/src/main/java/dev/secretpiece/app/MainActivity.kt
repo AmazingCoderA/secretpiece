@@ -108,6 +108,7 @@ private const val PREF_PRESETS = "server_presets"
 private const val PREF_MAX_PREVIEW_MB = "max_preview_mb"
 private const val PREF_MEDIA_PREVIEW = "media_preview"
 private const val PREF_MEDIA_STORAGE = "media_storage"
+private const val PREF_DISGUISE_KIND = "disguise_kind"
 
 data class ServerPreset(
     val name: String,
@@ -531,36 +532,36 @@ private fun saveSky(context: Context, sky: Sky) {
 private fun launcherAlias(context: Context, suffix: String): ComponentName =
     ComponentName(context, "${context.packageName}.$suffix")
 
-private fun applyDisguise(context: Context, enabled: Boolean) {
+private fun disguiseKind(context: Context): Int =
+    prefs(context).getInt(PREF_DISGUISE_KIND, 0)
+
+private fun applyDisguise(context: Context, kind: Int) {
     val pm = context.packageManager
-    val normal = launcherAlias(context, "LauncherSecretPiece")
-    val calculator = launcherAlias(context, "LauncherCalculator")
     val enabledState = PackageManager.COMPONENT_ENABLED_STATE_ENABLED
     val disabledState = PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-    pm.setComponentEnabledSetting(
-        normal,
-        if (enabled) disabledState else enabledState,
-        PackageManager.DONT_KILL_APP,
+    val aliases = listOf(
+        "LauncherSecretPiece",
+        "LauncherCalculator",
+        "LauncherGallery",
+        "LauncherNotes",
+        "LauncherWeather",
     )
-    pm.setComponentEnabledSetting(
-        calculator,
-        if (enabled) enabledState else disabledState,
-        PackageManager.DONT_KILL_APP,
-    )
-    prefs(context).edit().putBoolean(PREF_DISGUISE, enabled).apply()
+    aliases.forEachIndexed { index, suffix ->
+        pm.setComponentEnabledSetting(
+            launcherAlias(context, suffix),
+            if (index == kind) enabledState else disabledState,
+            PackageManager.DONT_KILL_APP,
+        )
+    }
+    prefs(context).edit()
+        .putInt(PREF_DISGUISE_KIND, kind)
+        .putBoolean(PREF_DISGUISE, kind > 0)
+        .apply()
 }
 
 /** Re-apply the saved choice after a reinstall or a package manager reset. */
 private fun syncDisguise(context: Context) {
-    val wanted = disguiseEnabled(context)
-    val expected = if (wanted) {
-        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-    } else {
-        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-    }
-    val current = context.packageManager
-        .getComponentEnabledSetting(launcherAlias(context, "LauncherCalculator"))
-    if (current != expected) applyDisguise(context, wanted)
+    applyDisguise(context, disguiseKind(context))
 }
 
 /** Asks the launcher to pin a home-screen shortcut. */
@@ -738,6 +739,7 @@ private fun VaultScreen(
     var password by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
     var masked by remember { mutableStateOf(disguiseEnabled(context)) }
+    var maskKind by remember { mutableStateOf(disguiseKind(context)) }
     var maskDialog by remember { mutableStateOf<String?>(null) }
     var settings by remember { mutableStateOf(false) }
     var sky by remember { mutableStateOf(loadSky(context)) }
@@ -1361,8 +1363,16 @@ private fun VaultScreen(
                 prefs(context).edit().putString(PREF_MEDIA_STORAGE, it).apply()
             },
             onDisguise = { checked ->
-                applyDisguise(context, checked)
+                val kind = if (checked) (maskKind.takeIf { it > 0 } ?: 1) else 0
+                maskKind = kind
+                applyDisguise(context, kind)
                 masked = checked
+            },
+            maskKind = maskKind,
+            onMaskKind = { kind ->
+                maskKind = kind
+                applyDisguise(context, kind)
+                masked = kind > 0
             },
             onShortcut = { pinShortcut(context) },
             onExportSettings = {
@@ -1511,6 +1521,8 @@ private fun SettingsDialog(
     mediaStorage: String,
     onMediaStorage: (String) -> Unit,
     onDisguise: (Boolean) -> Unit,
+    maskKind: Int,
+    onMaskKind: (Int) -> Unit,
     onShortcut: () -> Unit,
     onExportSettings: () -> Unit,
     onExportKeys: () -> Unit,
@@ -1752,6 +1764,17 @@ private fun SettingsDialog(
                     }
                     Switch(checked = masked, onCheckedChange = onDisguise)
                 }
+                Text("Маскировка под приложение", fontSize = 11.sp, color = Muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("Калькулятор", "Галерея", "Заметки", "Погода")
+                        .forEachIndexed { index, label ->
+                            FilterChip(
+                                selected = maskKind == index + 1,
+                                onClick = { onMaskKind(index + 1) },
+                                label = { Text(label, fontSize = 9.sp, maxLines = 1) },
+                            )
+                        }
+                }
 
                 OutlinedButton(
                     onClick = onShortcut,
@@ -1792,18 +1815,9 @@ private data class MediaPreview(
 private fun mediaMime(name: String): String? = when (
     name.substringAfterLast('.').lowercase()
 ) {
-    "jpg", "jpeg" -> "image/jpeg"
-    "png" -> "image/png"
-    "webp" -> "image/webp"
-    "gif" -> "image/gif"
-    "mp4", "m4v" -> "video/mp4"
-    "webm" -> "video/webm"
-    "mkv" -> "video/x-matroska"
-    "mp3" -> "audio/mpeg"
-    "wav" -> "audio/wav"
-    "ogg", "opus" -> "audio/ogg"
-    "m4a", "aac" -> "audio/mp4"
-    "flac" -> "audio/flac"
+    "jpg", "jpeg", "jpe", "png", "webp", "gif", "bmp", "heic", "heif", "avif" -> "image/*"
+    "mp4", "m4v", "mov", "avi", "mkv", "webm", "flv", "wmv", "3gp", "ts", "mpg", "mpeg" -> "video/*"
+    "mp3", "wav", "ogg", "opus", "m4a", "aac", "flac", "wma", "aiff", "mid", "midi" -> "audio/*"
     else -> null
 }
 

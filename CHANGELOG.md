@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-11-23
+
+More formats and a stronger disguise.
+
+### Added
+
+- **Broad media format recognition on Android**: AVI/MKV/MOV/WMV/FLV/3GP/TS
+  for video, OPUS/OGG/AAC/WMA/AIFF/MIDI for audio and HEIC/AVIF/BMP for images.
+- **Four launcher disguises on Android**: Calculator, Gallery, Notes and
+  Weather (chosen in Settings); the plain SecretPiece launcher is disabled
+  while any disguise is active.
+- Any non-text file remains openable on both platforms through export / the
+  desktop external-preview setting.
+
 ## [1.26.0] - 2026-11-23
 
 Secure destruction, audio playback and an integrity button.

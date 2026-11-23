@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-11-23
+
+Android UI scale setting and build fixes.
+
+### Added
+
+- **Interface scale on Android**: 75/90/100/115% in Settings. Everything —
+  text, paddings, dialogs and the browser — shrinks or grows together, so the
+  UI is no longer "fat" on small phones.
+
+### Fixed
+
+- Disguise switch now uses the selected disguise kind everywhere.
+- Cargo.lock is regenerated on every version bump (CI `--locked` failure).
+
 ## [1.27.0] - 2026-11-23
 
 More formats and a stronger disguise.

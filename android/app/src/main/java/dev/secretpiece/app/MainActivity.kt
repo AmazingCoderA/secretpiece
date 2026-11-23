@@ -71,6 +71,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -85,6 +86,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -94,6 +96,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -109,6 +112,7 @@ private const val PREF_MAX_PREVIEW_MB = "max_preview_mb"
 private const val PREF_MEDIA_PREVIEW = "media_preview"
 private const val PREF_MEDIA_STORAGE = "media_storage"
 private const val PREF_DISGUISE_KIND = "disguise_kind"
+private const val PREF_UI_SCALE = "ui_scale"
 
 data class ServerPreset(
     val name: String,
@@ -587,6 +591,10 @@ fun SecretPieceApp(initialUri: Uri? = null) {
     var lang by remember { mutableStateOf(loadLang(context)) }
     var sky by remember { mutableStateOf(loadSky(context)) }
     var theme by remember { mutableStateOf(loadTheme(context)) }
+    var uiScale by remember {
+        mutableStateOf(prefs(context).getFloat(PREF_UI_SCALE, 1f))
+    }
+    val baseDensity = LocalDensity.current
     val t = copyFor(lang)
     applyTheme(theme)
 
@@ -621,26 +629,38 @@ fun SecretPieceApp(initialUri: Uri? = null) {
         ) {
             Ambient(sky)
             Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
-                VaultScreen(
-                    t = t,
-                    lang = lang,
-                    initialUri = initialUri,
-                    onLang = {
-                        lang = it
-                        prefs(context).edit()
-                            .putString(PREF_LANG, if (it == Lang.En) "en" else "ru")
-                            .apply()
-                    },
-                    onSky = {
-                        sky = it
-                        saveSky(context, it)
-                    },
-                    theme = theme,
-                    onTheme = {
-                        theme = it
-                        prefs(context).edit().putString(PREF_THEME, themeKey(it)).apply()
-                    },
-                )
+                CompositionLocalProvider(
+                    LocalDensity provides Density(
+                        baseDensity.density * uiScale,
+                        baseDensity.fontScale,
+                    ),
+                ) {
+                    VaultScreen(
+                        t = t,
+                        lang = lang,
+                        initialUri = initialUri,
+                        onLang = {
+                            lang = it
+                            prefs(context).edit()
+                                .putString(PREF_LANG, if (it == Lang.En) "en" else "ru")
+                                .apply()
+                        },
+                        onSky = {
+                            sky = it
+                            saveSky(context, it)
+                        },
+                        theme = theme,
+                        onTheme = {
+                            theme = it
+                            prefs(context).edit().putString(PREF_THEME, themeKey(it)).apply()
+                        },
+                        uiScale = uiScale,
+                        onUiScale = {
+                            uiScale = it
+                            prefs(context).edit().putFloat(PREF_UI_SCALE, it).apply()
+                        },
+                    )
+                }
             }
         }
     }
@@ -729,6 +749,8 @@ private fun VaultScreen(
     onSky: (Sky) -> Unit,
     theme: Theme,
     onTheme: (Theme) -> Unit,
+    uiScale: Float,
+    onUiScale: (Float) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -1291,7 +1313,9 @@ private fun VaultScreen(
                     Switch(
                         checked = masked,
                         onCheckedChange = { checked ->
-                            applyDisguise(context, checked)
+                            val kind = if (checked) (maskKind.takeIf { it > 0 } ?: 1) else 0
+                            maskKind = kind
+                            applyDisguise(context, kind)
                             masked = checked
                             maskDialog = if (checked) "on" else "off"
                         },
@@ -1346,6 +1370,8 @@ private fun VaultScreen(
             onTheme = {
                 onTheme(it)
             },
+            uiScale = uiScale,
+            onUiScale = onUiScale,
             unlockPassword = sessionPassword,
             maxPreviewMb = maxPreviewMb,
             onMaxPreviewMb = { value ->
@@ -1513,6 +1539,8 @@ private fun SettingsDialog(
     onSky: (Sky) -> Unit,
     theme: Theme,
     onTheme: (Theme) -> Unit,
+    uiScale: Float,
+    onUiScale: (Float) -> Unit,
     unlockPassword: String,
     maxPreviewMb: Int,
     onMaxPreviewMb: (Int) -> Unit,
@@ -1619,6 +1647,18 @@ private fun SettingsDialog(
                         onClick = { onLang(Lang.En) },
                         label = { Text("English") },
                     )
+                }
+
+                HorizontalDivider(color = Color(0xFF1C2A44))
+                Text("Масштаб интерфейса", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(0.75f, 0.9f, 1f, 1.15f).forEach { value ->
+                        FilterChip(
+                            selected = uiScale == value,
+                            onClick = { onUiScale(value) },
+                            label = { Text("${(value * 100).toInt()}%", fontSize = 10.sp) },
+                        )
+                    }
                 }
 
                 HorizontalDivider(color = Color(0xFF1C2A44))

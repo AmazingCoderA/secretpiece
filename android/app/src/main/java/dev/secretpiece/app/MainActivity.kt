@@ -2318,18 +2318,42 @@ private fun VaultBrowser(
                         AndroidView(
                             factory = { ctx ->
                                 ImageView(ctx).apply {
+                                val bitmap = runCatching {
+                                    val bounds = BitmapFactory.Options().apply {
+                                        inJustDecodeBounds = true
+                                    }
+                                    BitmapFactory.decodeByteArray(
+                                        item.bytes, 0, item.bytes.size, bounds,
+                                    )
+                                    val span = maxOf(bounds.outWidth, bounds.outHeight)
+                                    val sample = if (span > 1600) span / 1600 else 1
+                                    BitmapFactory.decodeByteArray(
+                                        item.bytes, 0, item.bytes.size,
+                                        BitmapFactory.Options().apply { inSampleSize = sample },
+                                    )
+                                }.getOrNull()
+                                if (bitmap != null) {
                                     adjustViewBounds = true
                                     scaleType = ImageView.ScaleType.FIT_CENTER
-                                    setImageBitmap(
-                                        BitmapFactory.decodeByteArray(
-                                            item.bytes, 0, item.bytes.size,
-                                        ),
-                                    )
+                                    setImageBitmap(bitmap)
+                                } else {
+                                    alpha = 0.8f
+                                    scaleType = ImageView.ScaleType.CENTER
+                                    setImageResource(android.R.drawable.ic_dialog_alert)
+                                    contentDescription =
+                                        "Не удалось декодировать изображение: ${item.name}"
+                                }
                                 }
                             },
                             modifier = Modifier.heightIn(max = 500.dp).fillMaxWidth(),
                         )
                     }
+                    Text(
+                        "Если изображение не появилось — формат не поддерживается " +
+                            "системным декодером Android. Файл можно экспортировать кнопкой ⬇.",
+                        fontSize = 10.sp,
+                        color = Muted,
+                    )
                 }
             }
         }

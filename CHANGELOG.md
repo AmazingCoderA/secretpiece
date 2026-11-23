@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.0] - 2026-11-23
+
+Auto-repair and more reliable image preview.
+
+### Added
+
+- **Auto-repair of container headers on the desktop**: restores a damaged
+  header slot from the healthy alternating superblock, with a button in
+  Settings next to the integrity check.
+
+### Fixed
+
+- Android image preview now decodes with bounds sampling (no OOM on large
+  photos) and shows a clear fallback message when Android's decoder cannot
+  handle the format, instead of a blank window.
+
 ## [1.28.0] - 2026-11-23
 
 Android UI scale setting and build fixes.

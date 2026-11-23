@@ -8,7 +8,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 use std::collections::BTreeSet;
-use std::io::{Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{PoisonError, RwLock};
@@ -20,7 +20,7 @@ use egui::{
 use sp_core::{ErrorCode, SpError};
 use sp_crypto::KdfParams;
 use sp_crypto::shamir::{self, Share};
-use sp_format::EntryKind;
+use sp_format::{EntryKind, HEADER_SIZE, Header};
 use sp_vault::{ListEntry, Vault, VaultInfo};
 
 /// Colour set of the desktop app. Themes swap the whole palette at runtime.
@@ -928,6 +928,41 @@ fn open_with_system(path: &Path) -> std::io::Result<()> {
             .arg(path)
             .spawn()
             .map(|_| ())
+    }
+}
+
+/// Restores a damaged header slot from the healthy one (the two alternating
+/// superblocks are what make a partially written container recoverable).
+fn repair_headers(path: &Path) -> Result<String, String> {
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .map_err(|error| format!("{}: {error}", path.display()))?;
+    let mut slots = [[0_u8; HEADER_SIZE]; 2];
+    for (index, slot) in slots.iter_mut().enumerate() {
+        file.seek(SeekFrom::Start(index as u64 * HEADER_SIZE as u64))
+            .map_err(|error| error.to_string())?;
+        file.read_exact(slot)
+            .map_err(|error| format!("header slot {index}: {error}"))?;
+    }
+    let good = [
+        Header::decode(&slots[0]).is_ok(),
+        Header::decode(&slots[1]).is_ok(),
+    ];
+    match good {
+        [true, false] | [false, true] => {
+            let broken = usize::from(!good[0]);
+            let healthy = 1 - broken;
+            file.seek(SeekFrom::Start(broken as u64 * HEADER_SIZE as u64))
+                .map_err(|error| error.to_string())?;
+            file.write_all(&slots[healthy])
+                .map_err(|error| error.to_string())?;
+            file.sync_all().map_err(|error| error.to_string())?;
+            Ok(format!("header slot {broken} restored from slot {healthy}"))
+        }
+        [true, true] => Ok("both headers are already healthy".to_owned()),
+        _ => Err("both headers are damaged - cannot auto-repair".to_owned()),
     }
 }
 
@@ -2160,6 +2195,19 @@ impl App {
                 }
                 if let Some(status) = &self.verify_status {
                     ui.label(RichText::new(status).size(11.0).color(muted()));
+                }
+                if ui.button(lang.t(
+                    "Автофикс заголовков сейфа",
+                    "Auto-repair vault headers",
+                )).clicked() {
+                    let path = self
+                        .browser
+                        .as_ref()
+                        .map(|browser| browser.vault.path().to_path_buf());
+                    self.verify_status = Some(match path {
+                        Some(path) => repair_headers(&path).unwrap_or_else(|error| error),
+                        None => lang.t("Сейф не открыт", "No vault open").to_owned(),
+                    });
                 }
             });
         self.settings_open = open;

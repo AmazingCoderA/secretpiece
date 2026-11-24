@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.0] - 2026-11-25
+
+Android usability pass: edits, updates, compact UI.
+
+### Added
+
+- **Text editing inside the vault on Android**: ✎ in the preview, 💾 saves the
+  changed bytes back into the container.
+- **In-app update checker on Android**: Settings → «Проверить обновление» reads
+  the latest GitHub release, downloads the APK and opens the system installer.
+- **20 more Android themes** (80 total).
+- Media preview is enabled by default.
+
+### Changed
+
+- Default Android UI scale is now 85% and the browser uses tighter paddings,
+  so the interface is no longer oversized on phones.
+
 ## [1.30.0] - 2026-11-23
 
 60 themes and hardened Android native calls.

@@ -62,6 +62,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -111,6 +112,7 @@ private const val PREF_PRESETS = "server_presets"
 private const val PREF_MAX_PREVIEW_MB = "max_preview_mb"
 private const val PREF_MEDIA_PREVIEW = "media_preview"
 private const val PREF_MEDIA_STORAGE = "media_storage"
+private const val PREF_UPDATES = "update_url"
 private const val PREF_DISGUISE_KIND = "disguise_kind"
 private const val PREF_UI_SCALE = "ui_scale"
 
@@ -195,6 +197,9 @@ private enum class Theme {
     Cobalt, Velvet,
     Topaz, Jade, Garnet, Onyx, Ivory, Cocoa, Mist, Citrus, Denim, Maroon,
     Pine, Platinum, Sunrise, Twilight, Cherry, Aqua, Brick, Tea, Ink, Bloom,
+    Granite, Chalk, Rust, Lagoon, Saffron, Berry, Wasabi, Carbon, Wheat, Cactus,
+    NeonBlue, RoseGold, Ice, Clay, Silver, Cloud, CharcoalBlue, Sandstone,
+    Rosewood, DeepSea,
 }
 
 private data class Palette(
@@ -304,6 +309,26 @@ private val palettes = mapOf(
     Theme.Tea to simpleTheme(0xF5F3E7, 0xFFFFFF, 0x7B6F35, 0x5E6E3A, 0x2B2A16, true),
     Theme.Ink to simpleTheme(0x0A0A0C, 0x16161A, 0x9FA8DA, 0xB0BACB, 0xECEFF4, false),
     Theme.Bloom to simpleTheme(0x1E0A18, 0x331227, 0xF48FB1, 0xCE93D8, 0xFFEAF4, false),
+    Theme.Granite to simpleTheme(0x14161A, 0x22262C, 0x9AA5B1, 0x7C8899, 0xE8EDF2, false),
+    Theme.Chalk to simpleTheme(0xFBFBF7, 0xFFFFFF, 0x5F6B73, 0x4A5A64, 0x20262B, true),
+    Theme.Rust to simpleTheme(0x1C0E08, 0x301A11, 0xCD5C45, 0xE08E5B, 0xF8E6DB, false),
+    Theme.Lagoon to simpleTheme(0x061820, 0x0D3040, 0x26C6DA, 0x4DD0E1, 0xDFF9FF, false),
+    Theme.Saffron to simpleTheme(0xFFF6E0, 0xFFFFFF, 0xB8860B, 0xCC7722, 0x2E2408, true),
+    Theme.Berry to simpleTheme(0x180812, 0x2C1024, 0xEC407A, 0xAB47BC, 0xFFE6F2, false),
+    Theme.Wasabi to simpleTheme(0x101408, 0x1E2810, 0xAED581, 0x8BC34A, 0xEDF6E2, false),
+    Theme.Carbon to simpleTheme(0x080808, 0x141414, 0xB0B0B0, 0x808080, 0xF0F0F0, false),
+    Theme.Wheat to simpleTheme(0xFAF6E9, 0xFFFFFF, 0x9E7B3C, 0x7A6234, 0x2B2417, true),
+    Theme.Cactus to simpleTheme(0x0E1609, 0x1B2B12, 0x66BB6A, 0x9CCC65, 0xE8F5E9, false),
+    Theme.NeonBlue to simpleTheme(0x040814, 0x0A1430, 0x00B0FF, 0x536DFE, 0xE3F2FF, false),
+    Theme.RoseGold to simpleTheme(0x241418, 0x3A222A, 0xF49A9E, 0xE0B8A0, 0xFFEBEA, false),
+    Theme.Ice to simpleTheme(0xEDF9FF, 0xFFFFFF, 0x0277BD, 0x0097A7, 0x0B2E3D, true),
+    Theme.Clay to simpleTheme(0x1E100C, 0x321C16, 0xC8795B, 0xA1887F, 0xF7E7DE, false),
+    Theme.Silver to simpleTheme(0xF5F7F9, 0xFFFFFF, 0x607D8B, 0x546E7A, 0x1C2833, true),
+    Theme.Cloud to simpleTheme(0xF0F4F8, 0xFFFFFF, 0x546E7A, 0x78909C, 0x1E2A33, true),
+    Theme.CharcoalBlue to simpleTheme(0x0A1018, 0x15202B, 0x78909C, 0x5C7A99, 0xECEFF4, false),
+    Theme.Sandstone to simpleTheme(0x241B12, 0x3A2C1E, 0xD7A86E, 0xB08D57, 0xF7EBDD, false),
+    Theme.Rosewood to simpleTheme(0x1A0A10, 0x2E1420, 0xE091A8, 0xC2185B, 0xFFE9F0, false),
+    Theme.DeepSea to simpleTheme(0x020D1A, 0x08203A, 0x0277BD, 0x00838F, 0xDFF1FF, false),
 )
 
 private fun themeKey(theme: Theme) = theme.name.lowercase()
@@ -614,7 +639,7 @@ fun SecretPieceApp(initialUri: Uri? = null) {
     var sky by remember { mutableStateOf(loadSky(context)) }
     var theme by remember { mutableStateOf(loadTheme(context)) }
     var uiScale by remember {
-        mutableStateOf(prefs(context).getFloat(PREF_UI_SCALE, 1f))
+        mutableStateOf(prefs(context).getFloat(PREF_UI_SCALE, 0.85f))
     }
     val baseDensity = LocalDensity.current
     val t = copyFor(lang)
@@ -808,7 +833,7 @@ private fun VaultScreen(
         mutableStateOf(prefs(context).getInt(PREF_MAX_PREVIEW_MB, 16))
     }
     var mediaPreview by remember {
-        mutableStateOf(prefs(context).getBoolean(PREF_MEDIA_PREVIEW, false))
+        mutableStateOf(prefs(context).getBoolean(PREF_MEDIA_PREVIEW, true))
     }
     var mediaStorage by remember {
         mutableStateOf(prefs(context).getString(PREF_MEDIA_STORAGE, "cache") ?: "cache")
@@ -822,6 +847,53 @@ private fun VaultScreen(
     var newConfirm by remember { mutableStateOf("") }
     var newVisible by remember { mutableStateOf(false) }
     var newError by remember { mutableStateOf<String?>(null) }
+
+    var updateStatus by remember { mutableStateOf("") }
+
+    fun checkUpdate() {
+        updateStatus = "Проверка…"
+        scope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val body = java.net.URL(
+                    "https://api.github.com/repos/AmazingCoderA/secretpiece/releases/latest",
+                ).readText()
+                val release = org.json.JSONObject(body)
+                val tag = release.getString("tag_name")
+                val current = "v${NativeVault.version()}"
+                if (tag == current) {
+                    "Актуальная версия: $current"
+                } else {
+                    val assets = release.getJSONArray("assets")
+                    var apk: String? = null
+                    for (i in 0 until assets.length()) {
+                        val name = assets.getJSONObject(i).optString("name")
+                        if (name.endsWith("-android.apk")) {
+                            apk = assets.getJSONObject(i).getString("browser_download_url")
+                            break
+                        }
+                    }
+                    if (apk == null) {
+                        "APK для $tag не найден"
+                    } else {
+                        val file = java.io.File(context.cacheDir, "secretpiece-update.apk")
+                        java.net.URL(apk).openStream().use { input ->
+                            file.outputStream().use { output -> input.copyTo(output) }
+                        }
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            context, "${context.packageName}.fileprovider", file,
+                        )
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                            .setDataAndType(uri, "application/vnd.android.package-archive")
+                            .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        withContext(Dispatchers.Main) { context.startActivity(intent) }
+                        "Установка $tag запущена"
+                    }
+                }
+            }.getOrElse { "Ошибка обновления: ${it.message}" }
+            updateStatus = result
+        }
+    }
 
     fun serverTest(preset: ServerPreset) = if (preset.kind == "ssh") {
         SshVault.test(preset)
@@ -1422,6 +1494,8 @@ private fun VaultScreen(
                 applyDisguise(context, kind)
                 masked = kind > 0
             },
+            onCheckUpdate = { checkUpdate() },
+            updateStatus = updateStatus,
             onShortcut = { pinShortcut(context) },
             onExportSettings = {
                 exportName = "secretpiece-settings.json"
@@ -1573,6 +1647,8 @@ private fun SettingsDialog(
     onDisguise: (Boolean) -> Unit,
     maskKind: Int,
     onMaskKind: (Int) -> Unit,
+    onCheckUpdate: () -> Unit,
+    updateStatus: String,
     onShortcut: () -> Unit,
     onExportSettings: () -> Unit,
     onExportKeys: () -> Unit,
@@ -1669,6 +1745,14 @@ private fun SettingsDialog(
                         onClick = { onLang(Lang.En) },
                         label = { Text("English") },
                     )
+                }
+
+                HorizontalDivider(color = Color(0xFF1C2A44))
+                Button(onClick = onCheckUpdate, modifier = Modifier.fillMaxWidth()) {
+                    Text("Проверить обновление", fontSize = 11.sp)
+                }
+                if (updateStatus.isNotBlank()) {
+                    Text(updateStatus, fontSize = 10.sp, color = Muted)
                 }
 
                 HorizontalDivider(color = Color(0xFF1C2A44))
@@ -1899,6 +1983,9 @@ private fun VaultBrowser(
     var notice by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
     var previewTitle by remember { mutableStateOf("") }
+    var previewPath by remember { mutableStateOf("") }
+    var editing by remember { mutableStateOf(false) }
+    var editText by remember { mutableStateOf("") }
     var previewOffset by remember { mutableStateOf(Offset.Zero) }
     var media by remember { mutableStateOf<MediaPreview?>(null) }
     var mediaFile by remember { mutableStateOf<java.io.File?>(null) }
@@ -1981,8 +2068,8 @@ private fun VaultBrowser(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2138,6 +2225,9 @@ private fun VaultBrowser(
                                     preview = null
                                 } else {
                                     previewTitle = entry.name
+                                    previewPath = entry.path
+                                    editText = String(data, Charsets.UTF_8)
+                                    editing = false
                                     preview = when {
                                         data.size > maxPreviewMb.toLong() * 1024L * 1024L ||
                                             data.take(8192).any { it == 0.toByte() } ->
@@ -2152,7 +2242,7 @@ private fun VaultBrowser(
                     },
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    modifier = Modifier.fillMaxWidth().padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -2242,6 +2332,25 @@ private fun VaultBrowser(
                             fontWeight = FontWeight.Bold,
                             color = Cyan,
                         )
+                        if (!editing) {
+                            TextButton(onClick = { editing = true }) {
+                                Text("✎", color = Cyan)
+                            }
+                        } else {
+                            TextButton(onClick = {
+                                val bytes = editText.toByteArray(Charsets.UTF_8)
+                                notice = if (
+                                    NativeVault.put(handle, previewPath, bytes) == 1
+                                ) {
+                                    tick++
+                                    "✓"
+                                } else {
+                                    t.readFailed
+                                }
+                                bytes.fill(0)
+                                editing = false
+                            }) { Text("💾", color = Cyan) }
+                        }
                         TextButton(onClick = { preview = null }) { Text(t.close) }
                     }
                     Column(
@@ -2256,7 +2365,18 @@ private fun VaultBrowser(
                             else -> ','
                         }
                         val cells = rows.map { it.split(delim) }
-                        if (cells.size > 1 && cells.first().size > 1) {
+                        if (editing) {
+                            OutlinedTextField(
+                                value = editText,
+                                onValueChange = { editText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 12.sp,
+                                    color = Ink,
+                                ),
+                            )
+                        } else if (cells.size > 1 && cells.first().size > 1) {
                             Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                                 cells.forEachIndexed { index, row ->
                                     Row {
